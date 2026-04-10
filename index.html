@@ -52,6 +52,15 @@
                 <h3 class="font-black text-[13px] uppercase tracking-tight">✏️ Редактировать заключение</h3>
                 <div class="w-8 h-8 bg-[var(--hover-bg)] rounded-full flex items-center justify-center cursor-pointer" onclick="cancelExpertEdit()">✕</div>
             </div>
+            <!-- КНОПКИ ГЕНЕРАТОРА СЦЕНАРИЕВ -->
+            <div class="flex gap-2 mb-3 overflow-x-auto no-scrollbar pb-2 border-b border-[var(--card-border)]">
+                <button onclick="generateSmartComment('standard')" class="shrink-0 bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-indigo-200 active:scale-95">🤖 Базовый</button>
+                <button onclick="generateSmartComment('strict')" class="shrink-0 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-red-200 active:scale-95">⚡ Претензия</button>
+                <button onclick="generateSmartComment('tech')" class="shrink-0 bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-slate-300 active:scale-95">🛠 Тех.аудит</button>
+                <button onclick="generateSmartComment('boss')" class="shrink-0 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-amber-200 active:scale-95">💼 Руководству</button>
+                <button onclick="generateSmartComment('action_plan')" class="shrink-0 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-blue-200 active:scale-95">📝 План действий</button>
+                <button onclick="generateSmartComment('finance')" class="shrink-0 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-emerald-200 active:scale-95">💰 Договорной</button>
+            </div>
             <textarea id="modal-expert-input" class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-xl p-3 text-[12px] outline-none h-[50vh] resize-none"></textarea>
             <div class="flex gap-2 mt-4">
                 <button onclick="resetExpertEdit()" class="bg-red-50 text-red-600 px-3 py-3 rounded-xl font-bold text-[10px] uppercase">Сброс к ИИ</button>
@@ -382,9 +391,13 @@
             <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2 pl-2">Оформление</div>
             <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl mb-6 overflow-hidden">
                 <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
-                    <div><div class="font-bold text-sm">Тёмная тема</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Включить ночной режим</div></div>
-                    <label class="toggle-switch"><input type="checkbox" id="set-theme" onchange="toggleSetting('theme', this)"><span class="toggle-slider"></span></label>
-                </div>
+    <div><div class="font-bold text-sm">Оформление</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Цветовая схема</div></div>
+    <select id="set-theme" class="input-base w-32" onchange="toggleSetting('theme', this)">
+        <option value="auto">Системная</option>
+        <option value="light">Светлая</option>
+        <option value="dark">Тёмная</option>
+    </select>
+</div>
                 <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
                     <div><div class="font-bold text-sm">Размер шрифта</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Масштаб интерфейса</div></div>
                     <select id="set-fontsize" class="input-base w-32" onchange="toggleSetting('fontSize', this)">

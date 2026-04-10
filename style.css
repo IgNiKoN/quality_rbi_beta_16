@@ -1,0 +1,430 @@
+/* Файл: css/style.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+/* === БАЗОВЫЕ ПЕРЕМЕННЫЕ (СВЕТЛАЯ ТЕМА ПО УМОЛЧАНИЮ) === */
+:root {
+    --bg-main: #f8fafc;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --header-bg: rgba(255, 255, 255, 0.95);
+    --nav-bg: rgba(255, 255, 255, 0.85);
+    --hover-bg: #f1f5f9;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    
+    /* Цвета статусов (оставляем константными для узнаваемости) */
+    --color-green: #22c55e;
+    --color-red: #ef4444;
+    --color-yellow: #f59e0b;
+    --color-orange: #f97316;
+    --color-blue: #3b82f6;
+}
+
+/* === ТЕМНАЯ ТЕМА === */
+[data-theme="dark"] {
+    --bg-main: #0f172a;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --card-bg: #1e293b;
+    --card-border: #334155;
+    --header-bg: rgba(15, 23, 42, 0.95);
+    --nav-bg: rgba(30, 41, 59, 0.85);
+    --hover-bg: #334155;
+    --primary: #6366f1;
+}
+
+/* === ГЛОБАЛЬНЫЕ СТИЛИ === */
+html {
+    scroll-behavior: smooth; /* Добавляем плавный скролл всей странице */
+}
+
+body { 
+    font-family: 'Inter', sans-serif; 
+    background-color: var(--bg-main); 
+    color: var(--text-main);
+    padding-top: 140px; 
+    padding-bottom: 90px; 
+    transition: background 0.3s, color 0.3s; 
+    /* ВОТ ЭТИ ТРИ СТРОЧКИ ЖЕСТКО ЗАПРЕЩАЮТ ЭКРАНУ ПЛАВАТЬ ВЛЕВО-ВПРАВО: */
+    overflow-x: hidden !important;
+    width: 100vw;
+    max-width: 100%;
+}
+
+/* === ТРИ РЕЖИМА НАВИГАЦИИ (АВТО, СВЕРХУ, СНИЗУ) === */
+body.nav-pos-top .bottom-nav { top: 0; bottom: auto; padding-bottom: 0; height: 60px; border-top: none; border-bottom: 1px solid var(--card-border); }
+body.nav-pos-top .header-fixed { top: 60px; }
+body.nav-pos-top { padding-bottom: 20px; }
+
+body.nav-pos-bottom .bottom-nav { top: auto; bottom: 0; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid var(--card-border); border-bottom: none; }
+body.nav-pos-bottom .header-fixed { top: 0; }
+body.nav-pos-bottom { padding-bottom: 90px; }
+
+@media (min-width: 768px) {
+    body.nav-pos-auto .bottom-nav { top: 0; bottom: auto; padding-bottom: 0; height: 60px; border-top: none; border-bottom: 1px solid var(--card-border); }
+    body.nav-pos-auto .header-fixed { top: 60px; }
+    body.nav-pos-auto { padding-bottom: 20px; }
+}
+
+/* === ПЛАВНОЕ СВОРАЧИВАНИЕ ШАПКИ === */
+.header-collapsible {
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s ease, padding 0.3s ease;
+    max-height: 400px; opacity: 1; overflow: hidden;
+}
+.header-collapsed .header-collapsible {
+    max-height: 0 !important; opacity: 0 !important; margin: 0 !important; padding: 0 !important; border-width: 0 !important; pointer-events: none;
+}
+
+/* Форсированное положение меню из Настроек */
+body.force-nav-top .bottom-nav { top: 0; bottom: auto; height: 60px; padding-bottom: 0; border-top: none; border-bottom: 1px solid var(--card-border); }
+body.force-nav-top .header-fixed { top: 60px; }
+body.force-nav-top { padding-bottom: 20px; }
+
+/* Скрытие мини-дашборда из Настроек */
+body.hide-dashboard #header-data-block { display: none !important; }
+
+/* Настройки размера шрифта */
+body.font-small { font-size: 0.9em; }
+body.font-large { font-size: 1.1em; }
+body.font-xlarge { font-size: 1.25em; }
+
+body.modal-open { overflow: hidden; height: 100vh; touch-action: none; }
+
+/* === ШАПКА === */
+.header-fixed { 
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50; 
+    background: var(--header-bg); 
+    border-bottom: 1px solid var(--card-border); 
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
+    backdrop-filter: blur(8px);
+    transition: all 0.3s;
+}
+
+.header-fixed.shrunk {
+    transform: translateY(-100%);
+}
+
+/* === ВКЛАДКИ (ПОКАЗ/СКРЫТИЕ) === */
+.view-section { display: none; }
+.view-section.active { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+/* === НОВАЯ iOS-LIKE НАВИГАЦИЯ === */
+.bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--nav-bg); 
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--card-border);
+    display: flex; justify-content: space-around; align-items: center;
+    height: 65px; padding-bottom: env(safe-area-inset-bottom);
+    z-index: 1000; transition: transform 0.3s;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.02);
+}
+
+.nav-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    width: 60px; height: 100%; color: var(--text-muted); 
+    cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-item svg { transition: transform 0.3s; width: 24px; height: 24px; stroke-width: 2; }
+
+.nav-item.active { color: var(--primary); transform: translateY(-4px); }
+.nav-item.active svg { transform: scale(1.1); stroke-width: 2.5; }
+
+.nav-text {
+    font-size: 10px; font-weight: 800; opacity: 0; transform: translateY(8px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); height: 0; overflow: hidden;
+}
+
+.nav-item.active .nav-text {
+    opacity: 1; transform: translateY(0); height: auto; margin-top: 4px;
+}
+
+/* Адаптация навигации для ПК (перенос вверх) */
+@media (min-width: 768px) {
+    .bottom-nav.nav-auto {
+        top: 0; bottom: auto; height: 60px; padding-bottom: 0;
+        border-top: none; border-bottom: 1px solid var(--card-border);
+    }
+    .bottom-nav.nav-auto ~ .header-fixed { top: 60px; }
+}
+
+/* === КАРТОЧКИ v15 С ПОДДЕРЖКОЙ ТЕМ И СВАЙПОВ === */
+.card-audit { 
+    background: var(--card-bg); border: 1px solid var(--card-border); 
+    border-radius: 12px; margin-bottom: 8px; transition: all 0.2s; 
+    position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.02); 
+}
+.card-checked { border-color: var(--card-border); background: var(--hover-bg); }
+.card-audit:active { transform: scale(0.98); }
+
+/* Индикаторы */
+.indicator-3 { border-left: 5px solid var(--color-red); } 
+.indicator-2 { border-left: 5px solid var(--color-orange); } 
+.indicator-1 { border-left: 5px solid var(--color-blue); }
+.indicator-ok { border-left: 5px solid var(--color-green); }
+
+/* === iOS-STYLE СХЛОПЫВАНИЕ КАРТОЧЕК === */
+.card-audit { transition: max-height 0.3s ease-in-out, background-color 0.3s ease, transform 0.2s; max-height: 800px; overflow: hidden; }
+.card-collapsed {
+    max-height: 48px !important; padding: 0 12px !important; display: flex; align-items: center; justify-content: space-between;
+    background: #f0fdf4 !important; border-color: #bbf7d0 !important; cursor: pointer;
+}
+.card-collapsed .card-body-content, .card-collapsed .swipe-actions-bg { display: none !important; }
+.card-collapsed::before {
+    content: '✓'; display: flex; justify-content: center; align-items: center;
+    width: 22px; height: 22px; background: #22c55e; color: white; border-radius: 50%; font-size: 14px; font-weight: bold; margin-right: 10px; flex-shrink: 0;
+}
+.card-collapsed .card-title-text { display: block !important; font-size: 12px; font-weight: 600; color: #166534 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; margin: 0; }
+.card-collapsed .weight-tag, .card-collapsed .norm-desc-text { display: none !important; }
+
+[data-theme="dark"] .card-collapsed { background: rgba(34, 197, 94, 0.1) !important; border-color: rgba(34, 197, 94, 0.2) !important; }
+[data-theme="dark"] .card-collapsed .card-title-text { color: #86efac !important; }
+/* Свернутый вид для подтвержденных FAIL */
+.card-collapsed-fail { background: rgba(239, 68, 68, 0.1) !important; border-color: rgba(239, 68, 68, 0.3) !important; }
+.card-collapsed-fail::before { content: '❌' !important; color: var(--color-red) !important; }
+.card-collapsed-fail .card-title-text { color: #991b1b !important; }
+[data-theme="dark"] .card-collapsed-fail .card-title-text { color: #fca5a5 !important; }
+
+/* Быстрый режим (Скрытие нормативов) */
+.fast-mode .norm-ref, .fast-mode .norm-desc-text { display: none !important; }
+
+/* === СВАЙПЫ (НОВОЕ В v16.0) === */
+.swipe-container { position: relative; overflow: hidden; border-radius: 12px; margin-bottom: 8px; }
+
+/* НОВОЕ: opacity: 0 прячет красный и зеленый фон, пока мы не начнем свайпать */
+.swipe-actions-bg { 
+    position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center; 
+    padding: 0 20px; font-weight: 900; color: white; border-radius: 12px; z-index: 1;
+    opacity: 0; 
+    transition: opacity 0.2s;
+}
+.swiping .swipe-actions-bg { opacity: 1; } /* Появляется только при свайпе */
+
+.swipe-bg-ok { background: var(--color-green); justify-content: flex-start; }
+.swipe-bg-fail { background: var(--color-red); justify-content: flex-end; }
+.swipe-content { position: relative; z-index: 2; transition: transform 0.2s ease-out; touch-action: pan-y; } 
+.swiping .swipe-content { transition: none; }
+
+/* === КНОПКИ И ТЕГИ === */
+.btn-status { width: 44px; height: 44px; min-width: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--card-border); transition: all 0.1s; cursor: pointer; background: var(--card-bg); color: var(--text-muted); }
+.btn-status:active { transform: scale(0.85); }
+
+.status-tag { font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 100px; display: inline-block; text-align: center; line-height: 1.2; cursor: help; text-transform: uppercase; letter-spacing: 0.05em; transition: transform 0.1s;}
+.tag-green { background: rgba(34, 197, 94, 0.2); color: #166534; border: 1px solid rgba(34, 197, 94, 0.4);} 
+.tag-yellow { background: rgba(234, 179, 8, 0.2); color: #854d0e; border: 1px solid rgba(234, 179, 8, 0.4);} 
+.tag-red { background: rgba(239, 68, 68, 0.2); color: #991b1b; border: 1px solid rgba(239, 68, 68, 0.4);}
+.tag-blue { background: rgba(56, 189, 248, 0.2); color: #0369a1; border: 1px solid rgba(56, 189, 248, 0.4);}
+.tag-gray { background: var(--hover-bg); color: var(--text-muted); border: 1px solid var(--card-border);}
+
+/* Теги для темной темы */
+[data-theme="dark"] .tag-green { color: #86efac; }
+[data-theme="dark"] .tag-yellow { color: #fde047; }
+[data-theme="dark"] .tag-red { color: #fca5a5; }
+[data-theme="dark"] .tag-blue { color: #7dd3fc; }
+
+.weight-tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 900; letter-spacing: 0.05em; margin-right: 4px; vertical-align: middle; }
+.wt-1 { background: rgba(59, 130, 246, 0.2); color: #1d4ed8; }
+.wt-2 { background: rgba(249, 115, 22, 0.2); color: #c2410c; }
+.wt-3 { background: rgba(239, 68, 68, 0.2); color: #b91c1c; }
+
+[data-theme="dark"] .wt-1 { color: #93c5fd; }
+[data-theme="dark"] .wt-2 { color: #fdba74; }
+[data-theme="dark"] .wt-3 { color: #fca5a5; }
+
+/* === БАЗОВЫЕ КОМПОНЕНТЫ INPUT/SELECT === */
+.input-base { 
+    width: 100%; background: var(--card-bg); border: 1px solid var(--card-border); 
+    border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 600; 
+    color: var(--text-main); outline: none; transition: border-color 0.2s; 
+}
+.input-base:focus { border-color: var(--primary); background: var(--hover-bg); }
+
+.block-title { 
+    background: var(--bg-main); padding: 10px 4px; font-size: 11px; font-weight: 800; 
+    color: var(--text-muted); text-transform: uppercase; 
+    border-bottom: 2px solid var(--card-border); margin-bottom: 10px; margin-top: 16px; scroll-margin-top: 130px;
+}
+
+/* === УВЕДОМЛЕНИЯ (TOAST) === */
+#toast-container { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; width: 90%; max-width: 400px; }
+.toast { background: rgba(15, 23, 42, 0.95); color: white; padding: 12px 16px; border-radius: 12px; font-size: 11px; font-weight: 700; text-align: center; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); backdrop-filter: blur(4px); animation: toastIn 0.3s forwards, toastOut 0.3s forwards 2.5s; }
+[data-theme="dark"] .toast { background: rgba(255, 255, 255, 0.95); color: #0f172a; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(20px); } }
+
+/* === МОДАЛЬНЫЕ ОКНА === */
+.modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.7); z-index: 1500; display: none; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(4px); }
+.modal-content { background: var(--card-bg); color: var(--text-main); border-radius: 24px; width: 100%; max-width: 480px; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; position: relative; }
+
+/* === TOGGLE SWITCH (ДЛЯ НАСТРОЕК) === */
+.toggle-switch {
+    position: relative; display: inline-block; width: 40px; height: 24px;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--card-border); transition: .3s; border-radius: 24px;
+}
+.toggle-slider:before {
+    position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+    background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+input:checked + .toggle-slider { background-color: var(--primary); }
+input:checked + .toggle-slider:before { transform: translateX(16px); }
+
+/* === ДЕМО РЕЖИМ === */
+body.demo-mode { background-color: rgba(56, 189, 248, 0.1); }
+body.demo-mode #demo-banner { display: flex; background: var(--color-red); color: white; text-align: center; font-size: 11px; font-weight: 900; padding: 6px 10px; text-transform: uppercase; justify-content: space-between; align-items: center; z-index: 100;}
+body.demo-mode .demo-hint { 
+    display: inline-flex !important; 
+    align-items: center; justify-content: center; 
+    background: #fde047 !important; color: #854d0e !important; 
+    border: 1px solid #eab308 !important; border-radius: 12px; 
+    padding: 2px 6px !important; font-size: 9px !important; font-weight: 900 !important; 
+    margin-left: 4px; cursor: pointer;
+    box-shadow: 0 2px 4px rgba(234, 179, 8, 0.4);
+    animation: pulseHint 1.5s infinite;
+}
+@keyframes pulseHint {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
+    70% { transform: scale(1.1); box-shadow: 0 0 0 5px rgba(234, 179, 8, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+}
+/* Скрытие ползунка для горизонтальной навигации */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+/* === ПЛАВНЫЕ АНИМАЦИИ (iOS STYLE) === */
+
+/* Пружинящие кнопки и карточки */
+.btn-status, .card-audit, .nav-item {
+    transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-status:active, .card-audit:active, .nav-item:active {
+    transform: scale(0.96);
+}
+
+/* Анимация появления модальных окон (Fade + Scale) */
+.modal-overlay {
+    transition: opacity 0.3s ease;
+    opacity: 0;
+}
+
+.modal-overlay[style*="display: flex"] {
+    opacity: 1;
+}
+
+.modal-content {
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.15), opacity 0.3s ease; /* Эффект небольшого "выпрыгивания" */
+    transform: scale(0.9) translateY(20px);
+    opacity: 0;
+}
+
+.modal-overlay[style*="display: flex"] .modal-content {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+/* Плавный переход для вкладок */
+.view-section {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 0;
+    transform: translateX(10px);
+}
+
+.view-section.active {
+    opacity: 1;
+    transform: translateX(0);
+    animation: none; /* Убираем старую топорную анимацию */
+}
+
+/* Схлопывание карточек (OK-состояние) */
+.card-collapsed {
+    transition: max-height 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), padding 0.3s ease;
+}
+
+/* Мягкие тени как в iOS (Исправлено) */
+.card-audit, .shadow-ios {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .card-audit, [data-theme="dark"] .shadow-ios {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Динамическое позиционирование меню Аналитики */
+.analytics-nav-container {
+    position: sticky;
+    z-index: 40;
+    transition: top 0.3s, bottom 0.3s;
+}
+
+body.nav-pos-bottom .analytics-nav-container {
+    top: auto;
+    bottom: 70px; /* Прилипает над нижней навигацией */
+    margin-bottom: 20px;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+}
+
+body.nav-pos-top .analytics-nav-container,
+body.nav-pos-auto .analytics-nav-container {
+    top: 70px; /* Прилипает под верхней навигацией/шапкой */
+    margin-bottom: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* Оптимизация кликов (убирает 300ms задержку на старых iOS) */
+button, input, select, .card-audit, .nav-item {
+    touch-action: manipulation;
+}
+
+/* Ограничение ширины навигации на широких экранах (ПК) */
+.bottom-nav {
+    max-width: 56rem; /* Совпадает с max-w-4xl основного контента */
+    margin: 0 auto;
+    border-radius: 20px 20px 0 0; /* Закругляем верхние углы на ПК */
+}
+body.nav-pos-top .bottom-nav,
+body.nav-pos-auto .bottom-nav {
+    border-radius: 0 0 20px 20px; /* Закругляем нижние углы, если меню сверху */
+}
+@media (max-width: 896px) {
+    .bottom-nav { border-radius: 0; } /* На телефонах на всю ширину */
+}
+
+/* Динамическое позиционирование подвкладок (Аналитика / Фильтры) */
+.sticky-subnav {
+    position: sticky;
+    z-index: 40;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: top 0.3s, bottom 0.3s, box-shadow 0.3s;
+}
+
+/* Если основное меню СВЕРХУ (или АВТО на ПК) */
+body.nav-pos-top .sticky-subnav,
+body.nav-pos-auto .sticky-subnav {
+    top: 70px; /* Прилипает сразу под шапкой */
+    bottom: auto;
+    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05);
+}
+
+/* Если основное меню СНИЗУ (телефоны) */
+body.nav-pos-bottom .sticky-subnav {
+    top: auto;
+    bottom: 80px; /* Прилипает прямо над нижним меню */
+    box-shadow: 0 -4px 15px -3px rgba(0,0,0,0.05);
+    margin-bottom: 10px;
+}
+/* Исправление для вылезающих кнопок на узких экранах */
+#tab-history .sticky-subnav .flex {
+    flex-wrap: wrap; /* Разрешаем кнопкам переноситься на новую строку */
+}
+#tab-history .sticky-subnav {
+    max-width: 100%;
+    overflow-x: hidden;
+}
