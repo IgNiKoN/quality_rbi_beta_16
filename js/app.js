@@ -432,10 +432,20 @@ function renderHistoryTab() {
     });
 
     let html = '';
+    let groupIndex = 0; // Для уникальных ID блоков
     for (let cName in grouped) {
-        html += `<div class="font-black text-slate-700 dark:text-slate-300 text-xs mt-4 mb-2 uppercase tracking-tight pl-1 border-l-4 border-indigo-500">🏗️ ${cName}</div>`;
+        const safeGroupName = `hist-group-${groupIndex++}`;
+        
+        // Кликабельный заголовок подрядчика
+        html += `
+        <div class="font-black text-slate-700 dark:text-slate-300 text-xs mt-4 mb-2 uppercase tracking-tight pl-2 border-l-4 border-indigo-500 cursor-pointer flex justify-between items-center" onclick="document.getElementById('${safeGroupName}').classList.toggle('hidden')">
+            <span>🏗️ ${cName}</span>
+            <span class="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">СВЕРНУТЬ</span>
+        </div>
+        <div id="${safeGroupName}" class="transition-all duration-300 origin-top">`; // Начало обертки
+        
         for (let tTitle in grouped[cName]) {
-            html += `<div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-2 ml-2">${tTitle} (${grouped[cName][tTitle].length} изд.)</div>`;
+            html += `<div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-2 ml-2 mt-2">${tTitle} (${grouped[cName][tTitle].length} изд.)</div>`;
             const reversed = [...grouped[cName][tTitle]].reverse();
             
             html += reversed.map((item) => {
@@ -460,6 +470,7 @@ function renderHistoryTab() {
                 </div>`
             }).join('');
         }
+        html += `</div>`; // Закрываем обертку подрядчика
     }
     listDiv.innerHTML = html;
 }
@@ -677,19 +688,19 @@ function toggleDataBlock(forceOpen = false) {
 function toggleOk(id) {
     if (state[id] === 'ok') state[id] = null;
     else { state[id] = 'ok'; delete photos[id]; delete details[id]; }
-    updateCardDOM(id); updateUI(); saveSessionData();
+    updateCardDOM(id); updateUI(); scheduleSessionSave(); /* Заменили прямое сохранение на отложенное */
 }
 
 function toggleFail(id) {
     if (state[id] === 'fail' || state[id] === 'fail_escalated') { state[id] = null; delete photos[id]; delete details[id]; } 
     else { state[id] = 'fail'; delete photos[id]; delete details[id]; }
-    updateCardDOM(id); updateUI(); saveSessionData();
+    updateCardDOM(id); updateUI(); scheduleSessionSave();
 }
 
 function toggleEscalation(id) {
     if (state[id] === 'fail_escalated') state[id] = 'fail';
     else if (state[id] === 'fail') state[id] = 'fail_escalated';
-    updateCardDOM(id); updateUI(); saveSessionData();
+    updateCardDOM(id); updateUI(); scheduleSessionSave();
 }
 
 // === РЕНДЕР ОСМОТРА ===
@@ -828,14 +839,14 @@ function updateCardDOM(id, itemData = null) {
     if (failActive) {
         let hasComment = details[id]?.comment && details[id].comment.trim() !== "";
         let commBtn = hasComment ? 
-            `<div class="relative inline-block"><button onclick="toggleCommentField(${id})" class="btn-status text-indigo-600 bg-indigo-100 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-300 !w-10 !h-10 !rounded-md">💬</button><div onclick="deleteComment(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer">✕</div></div>` : 
-            `<button onclick="toggleCommentField(${id})" class="btn-status !w-10 !h-10 !rounded-md">💬</button>`;
+            `<div class="relative inline-block"><button onclick="toggleCommentField(${id})" class="btn-status text-indigo-600 bg-indigo-100 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-300 !w-10 !h-10 !rounded-md"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button><div onclick="deleteComment(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white">✕</div></div>` : 
+            `<button onclick="toggleCommentField(${id})" class="btn-status !w-10 !h-10 !rounded-md"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button>`;
         
         let photoBtn = photos[id] ? 
-            `<div class="relative inline-block"><img src="${photos[id]}" class="photo-thumb !w-10 !h-10 !rounded-md" onclick="openPhotoViewer('${photos[id]}')"><div onclick="removePhoto(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer">✕</div></div>` : 
-            `<button onclick="triggerPhotoInput(${id})" class="btn-status !w-10 !h-10 !rounded-md">📸</button>`;
+            `<div class="relative inline-block"><img src="${photos[id]}" class="photo-thumb !w-10 !h-10 !rounded-md border-2 border-indigo-200" onclick="openPhotoViewer('${photos[id]}')"><div onclick="removePhoto(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white">✕</div></div>` : 
+            `<button onclick="triggerPhotoInput(${id})" class="btn-status !w-10 !h-10 !rounded-md"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></circle></svg></button>`;
 
-        let escBtn = (i.w === 2) ? `<button onclick="toggleEscalation(${id})" class="btn-status ${isEscalated ? 'bg-red-600 text-white border-red-600' : 'text-orange-500'} !w-10 !h-10 !rounded-md"><span class="text-[11px] font-black">>1.5</span></button>` : '';
+        let escBtn = (i.w === 2) ? `<button onclick="toggleEscalation(${id})" class="btn-status ${isEscalated ? 'bg-red-600 text-white border-red-600 shadow-md' : 'text-orange-500 bg-orange-50 border-orange-200'} !w-10 !h-10 !rounded-md transition-all"><span class="text-[12px] font-black">>1.5</span></button>` : '';
 
         extraBtnsHtml = `<div class="flex gap-1.5 shrink-0 ml-2 items-center justify-end">${commBtn}${photoBtn}${escBtn}</div>`;
         if (hasComment) commentBlockHtml = `<div class="mt-2 text-[12px] font-semibold text-slate-700 dark:text-slate-300 italic bg-white dark:bg-slate-800 p-2 rounded-md border border-red-100 dark:border-red-800">💬 ${details[id].comment}</div>`;
@@ -930,7 +941,7 @@ function updateUI() {
     if (!p) {
         if(document.getElementById('dash-p-text')) document.getElementById('dash-p-text').innerText = "0/0";
         if(document.getElementById('dash-p-bar')) document.getElementById('dash-p-bar').style.width = "0%";
-        if(document.getElementById('dash-p-details')) document.getElementById('dash-p-details').innerText = "Начните заполнение чек-листа.";
+        if(document.getElementById('dash-p-percent')) document.getElementById('dash-p-percent').innerText = "--%";
         ['dash-b1', 'dash-b2', 'dash-b3'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerText = "0"; });
     } else {
         if(document.getElementById('dash-p-text')) document.getElementById('dash-p-text').innerText = `${p.checkedCount}/${p.totalCount}`;
@@ -938,11 +949,8 @@ function updateUI() {
             document.getElementById('dash-p-bar').style.width = `${p.final}%`;
             document.getElementById('dash-p-bar').className = `absolute top-0 left-0 h-full transition-all duration-500 ${p.isDanger ? 'bg-red-500' : (p.final < 85 ? 'bg-yellow-400' : 'bg-green-500')}`;
         }
+        if(document.getElementById('dash-p-percent')) document.getElementById('dash-p-percent').innerText = `${p.final}%`;
         ['dash-b1', 'dash-b2', 'dash-b3'].forEach((id, idx) => { if(document.getElementById(id)) document.getElementById(id).innerText = [p.n_B1_fail, p.n_B2_fail, p.n_B3_fail][idx]; });
-
-        if(document.getElementById('dash-p-details')) {
-            document.getElementById('dash-p-details').innerHTML = `Балл: <b class="text-indigo-600 text-[11px]">${p.final}%</b><br>Штраф B2: <b>${p.kc}</b> | B3: <b>${p.kcrit}</b><br><span class="${p.statusCls} mt-1">${p.statusTxt}</span>`;
-        }
     }
 
     // Обновляем подрядчика
@@ -952,33 +960,50 @@ function updateUI() {
     if (filteredArr.length < 7) {
         if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${filteredArr.length}/7`;
         if(document.getElementById('dash-c-bar')) document.getElementById('dash-c-bar').style.width = "0%";
-        if(document.getElementById('dash-c-details')) document.getElementById('dash-c-details').innerText = `Собрано ${filteredArr.length} из 7 необходимых проверок.`;
+        if(document.getElementById('dash-c-percent')) document.getElementById('dash-c-percent').innerText = "СБОР";
     } else {
         const c = getContractorMetrics(filteredArr, userTemplates);
         if(c) {
             if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${c.count} шт.`;
+            if(document.getElementById('dash-c-percent')) document.getElementById('dash-c-percent').innerText = `${c.finalC}%`;
             if(document.getElementById('dash-c-bar')) {
                 document.getElementById('dash-c-bar').style.width = `${c.finalC}%`;
                 document.getElementById('dash-c-bar').className = `absolute top-0 left-0 h-full transition-all duration-500 ${c.isRedZone ? 'bg-red-500' : (c.finalC < 85 ? 'bg-yellow-400' : 'bg-green-500')}`;
             }
-            if(document.getElementById('dash-c-details')) {
-                document.getElementById('dash-c-details').innerHTML = `УрК: <b class="text-indigo-600 text-[11px]">${c.finalC}%</b><br>Волатильность: <b>${c.volatility.toFixed(1)}</b><br><span class="${c.riskCls} mt-1 uppercase">${c.riskStatus}</span>`;
-            }
         }
     }
+    
+    // Обновляем заголовок чек-листа в шапке
+    const selectEl = document.getElementById('checklist-selector');
+    const clName = selectEl?.options[selectEl.selectedIndex]?.text.replace('▼', '').trim() || 'Вид работ не выбран';
+    const labelEl = document.getElementById('current-checklist-label');
+    if(labelEl) labelEl.innerText = clName;
+
     updateGroupCounters();
 }
-
 // === СОХРАНЕНИЕ / ОЧИСТКА ===
 function saveProductToArray() {
     const p = getProductMetrics(state, currentChecklist);
     if (!p) return showToast('Чек-лист пуст. Заполните данные.');
     
-    const locInput = document.getElementById('inp-location');
-    if (!locInput.value.trim()) {
-        locInput.classList.add('border-red-500', 'bg-red-50');
-        setTimeout(() => locInput.classList.remove('border-red-500', 'bg-red-50'), 3000);
-        return showToast('Укажите локацию!');
+    // --- ПРОВЕРКА ЗАПОЛНЕННОСТИ ПОЛЕЙ (Валидация) ---
+    const fields = ['inp-project', 'inp-inspector', 'inp-contractor', 'inp-location'];
+    let hasError = false;
+    
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value.trim()) {
+            el.classList.add('border-red-500', 'bg-red-50');
+            setTimeout(() => el.classList.remove('border-red-500', 'bg-red-50'), 3000);
+            hasError = true;
+        }
+    });
+
+    if (hasError) {
+        showToast('⚠️ Заполните все поля объекта в шапке!');
+        toggleDataBlock(true); // Принудительно открываем шапку
+        window.scrollTo({ top: 0, behavior: 'smooth' }); // Скроллим наверх
+        return;
     }
 
     const newItem = { 
@@ -988,18 +1013,18 @@ function saveProductToArray() {
         contractorName: document.getElementById('inp-contractor').value.trim(),
         templateKey: currentTemplateKey, 
         templateTitle: document.getElementById('checklist-selector').options[document.getElementById('checklist-selector').selectedIndex].text,
-        location: locInput.value.trim(), 
+        location: document.getElementById('inp-location').value.trim(), 
         state: JSON.parse(JSON.stringify(state)), details: JSON.parse(JSON.stringify(details)), photos: JSON.parse(JSON.stringify(photos)), metrics: p
     };
 
     contractorArray.push(newItem);
-    dbPut(STORES.HISTORY, newItem); // Пишем сразу в базу
+    dbPut(STORES.HISTORY, newItem); // Пишем в IndexedDB
     
-    state = {}; details = {}; photos = {}; locInput.value = ''; 
-    saveSessionData(); 
+    state = {}; details = {}; photos = {}; document.getElementById('inp-location').value = ''; 
+    scheduleSessionSave(); 
     
     window.scrollTo({ top: 0, behavior: "smooth" });
-    showToast(`Сохранено успешно!`);
+    showToast(`✅ Изделие успешно сохранено!`);
     render(); updateUI();
 }
 
@@ -1169,8 +1194,9 @@ function handlePhotoUpload(event) {
     reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
-            const canvas = document.createElement('canvas');
+            const canvas = document.getElementById('photo-canvas') || document.createElement('canvas');
             const ctx = canvas.getContext('2d');
+            
             const MAX_WIDTH = 800; const MAX_HEIGHT = 800;
             let width = img.width; let height = img.height;
 
@@ -1180,9 +1206,21 @@ function handlePhotoUpload(event) {
             canvas.width = width; canvas.height = height;
             ctx.drawImage(img, 0, 0, width, height);
             
-            // В v16.0 храним как base64 jpeg с качеством 0.6 (как в v15) для совместимости
+            // --- НАЛОЖЕНИЕ ДАТЫ И ВРЕМЕНИ ---
+            const now = new Date();
+            const timestamp = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
+            
+            ctx.fillStyle = 'rgba(0,0,0,0.6)'; 
+            ctx.fillRect(10, height - 30, 140, 24);
+            ctx.font = '14px Arial'; 
+            ctx.fillStyle = 'white'; 
+            ctx.fillText(timestamp, 16, height - 13);
+
             photos[currentPhotoId] = canvas.toDataURL('image/jpeg', 0.6);
-            updateCardDOM(currentPhotoId); saveSessionData();
+            showToast("📸 Фото добавлено");
+            
+            updateCardDOM(currentPhotoId); 
+            scheduleSessionSave();
         }
         img.src = e.target.result;
     }
@@ -1286,21 +1324,65 @@ function exitDemoMode() {
 }
 
 function generateDemoHistory() {
-    let mockArray = []; const now = new Date();
-    const demoPhoto = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><rect width='200' height='200' fill='%23cbd5e1'/><text x='100' y='100' font-family='Arial' font-size='20' font-weight='bold' fill='%23475569' text-anchor='middle' dominant-baseline='middle'>ФОТО ДЕФЕКТА</text></svg>";
-    const createMockMetric = (final, b1, b2, b3, danger, txt, cls, reason) => ({ final, baseUrkPerc: final + Math.floor(Math.random()*10), checkedCount: 15, totalCount: 20, n_B1_fail: b1, n_B2_fail: b2, n_B3_fail: b3, b3_found: b3>0, kc: b2 > 2 ? 0.85 : 1.0, kcrit: b3>0 ? 0.5 : 1.0, statusTxt: txt, statusCls: cls, isDanger: danger, reason, warnings: [] });
+    let mockArray =[];
+    const now = new Date();
+    
+    // Красивое заглушечное фото для демо, чтобы не "весить" в памяти
+    const demoPhoto = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23f1f5f9'/><path d='M150 100 L250 100 L200 200 Z' fill='%23cbd5e1'/><circle cx='200' cy='80' r='20' fill='%23fbbf24'/><text x='200' y='250' font-family='Arial' font-size='20' font-weight='bold' fill='%23475569' text-anchor='middle'>ФОТО НАРУШЕНИЯ</text></svg>";
 
-    // Идеальный подрядчик
+    const createMockMetric = (final, b1, b2, b3, danger, txt, cls, reason) => ({
+        final, baseUrkPerc: final + Math.floor(Math.random()*10), 
+        checkedCount: 15, totalCount: 20, 
+        n_B1_fail: b1, n_B2_fail: b2, n_B3_fail: b3, b3_found: b3>0, 
+        kc: b2 > 2 ? 0.85 : 1.0, kcrit: b3>0 ? 0.5 : 1.0, 
+        statusTxt: txt, statusCls: cls, isDanger: danger, reason, warnings:[]
+    });
+
+    // --- Подрядчик 1: Топовый (Победитель) ---
     for(let i=0; i<8; i++) {
         let d = new Date(now); d.setDate(now.getDate() - (i*2));
-        mockArray.push({ id: 1000 + i, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.', contractorName: 'ООО "Альфа-Отделка"', templateKey: 'sys_otdelka_pokraska', templateTitle: 'Отделочные работы', location: `Секция 1, Эт ${i+2}`, state: {'2209':'ok', '2210':'ok'}, details: {}, photos: {}, metrics: createMockMetric(i===3?80:92, 0, i===3?1:0, 0, false, i===3?'ИСПРАВИТЬ':'ПРИНЯТО', i===3?'tag-yellow':'tag-green', 'Мелкие огрехи') });
+        mockArray.push({
+            id: 1000 + i, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.',
+            contractorName: 'ООО "Альфа-Отделка" (Ремонт)', templateKey: 'sys_nvf_facade', templateTitle: 'Навесной вентилируемый фасад',
+            location: `Секция 1, Эт ${i+2}`,
+            state: {'101': 'ok', '102': 'ok', '103': 'ok', '106': (i===3?'fail':'ok')}, 
+            details: {}, photos: {}, // Идеальным подрядчикам фото не ставим
+            metrics: createMockMetric(i===3?80:92, 0, i===3?1:0, 0, false, i===3?'ИСПРАВИТЬ':'ПРИНЯТО', i===3?'tag-yellow':'tag-green', 'Мелкие огрехи')
+        });
     }
-    // Средний подрядчик
+
+    // --- Подрядчик 2: Средний (Косяки B2 + Фото) ---
     for(let i=0; i<7; i++) {
         let d = new Date(now); d.setDate(now.getDate() - (i*3));
-        let hasDefect = (i % 2 === 0); let p_data = hasDefect ? {'1006': demoPhoto} : {};
-        mockArray.push({ id: 2000 + i, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.', contractorName: 'ООО "Монолит-Строй" (Каркас)', templateKey: 'sys_monolit', templateTitle: 'Устройство монолитных работ', location: `Секция 2, Пилон П-${i+1}`, state: {'1006': hasDefect?'fail':'ok', '1007': 'ok'}, details: {}, photos: p_data, metrics: createMockMetric(hasDefect?76:85, 1, hasDefect?2:0, 0, false, hasDefect?'ИСПРАВИТЬ':'ПРИНЯТО', hasDefect?'tag-yellow':'tag-green', 'Отклонения геометрии') });
+        let hasDefect = (i % 2 === 0); // Каждый второй с дефектом
+        let p_data = hasDefect ? {'204': demoPhoto} : {}; // Прикрепляем фото
+        
+        mockArray.push({
+            id: 2000 + i, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.',
+            contractorName: 'ООО "Монолит-Строй" (Каркас)', templateKey: 'sys_armature', templateTitle: 'Арматурные работы',
+            location: `Секция 2, Пилон П-${i+1}`,
+            state: {'201': 'ok', '204': hasDefect?'fail':'ok', '206': 'ok'}, 
+            details: {}, photos: p_data,
+            metrics: createMockMetric(hasDefect?76:85, 1, hasDefect?2:0, 0, false, hasDefect?'ИСПРАВИТЬ':'ПРИНЯТО', hasDefect?'tag-yellow':'tag-green', 'Отклонения геометрии')
+        });
     }
+
+    // --- Подрядчик 3: Плохой (С дефектами B3 + Фото) ---
+    for(let i=0; i<9; i++) {
+        let d = new Date(now); d.setDate(now.getDate() - i);
+        let hasB3 = i === 2 || i === 5 || i === 7; // 3 критических дефекта
+        let p_data = hasB3 ? {'310': demoPhoto} : {}; // Прикрепляем фото только к B3
+        
+        mockArray.push({
+            id: 3000 + i, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.',
+            contractorName: 'ИП Петров (Вентблоки)', templateKey: 'sys_vent_stairs', templateTitle: 'Вент. блоки и Лестничные марши',
+            location: `Секция 3, Этаж ${i+1}`,
+            state: {'301': 'ok', '310': hasB3?'fail_escalated':'ok', '305': 'fail'}, 
+            details: hasB3 ? {'310': {comment: "Трещины более 0.2мм, нарушение ГОСТ"}} : {}, photos: p_data,
+            metrics: createMockMetric(hasB3?45:82, 0, 1, hasB3?1:0, hasB3, hasB3?'БРАК / СТОП':'ИСПРАВИТЬ', hasB3?'tag-red':'tag-yellow', hasB3?'Критическое нарушение':'Нарушение слоя')
+        });
+    }
+
     return mockArray;
 }
 
@@ -1313,28 +1395,45 @@ function showHelp(type) {
 
     if (type === 'contractor') {
         title.innerText = "Краткая инфо-справка об УрК";
-        body.innerHTML = `<div class="space-y-3 text-sm leading-6">
-            <div class="rounded-2xl border border-sky-200 bg-sky-50 p-4">
-                <p class="font-semibold text-sky-900 mb-2">Что считает система</p>
-                <div class="space-y-2 text-sky-900"><p><b>УрК изделия</b> — качество конкретного узла.</p><p><b>УрК подрядчика</b> — качество по массиву проверок.</p><p class="text-sky-800"><b>Чем выше процент, тем лучше.</b></p></div>
-            </div>
-            <div class="rounded-2xl border border-violet-200 bg-violet-50 p-4">
-                <p class="font-semibold text-violet-900 mb-2">Категории дефектов</p>
-                <div class="grid grid-cols-1 gap-2 text-violet-900">
-                    <div class="bg-white/80 p-2 rounded"><b>B1</b> — незначительный</div>
-                    <div class="bg-white/80 p-2 rounded"><b>B2</b> — значительный</div>
-                    <div class="bg-white/80 p-2 rounded"><b>B3</b> — критический</div>
+        body.innerHTML = `
+        <div class="space-y-3 text-sm leading-6">
+            <div class="rounded-2xl border border-sky-200 bg-sky-50 dark:bg-sky-900/20 dark:border-sky-800 p-4">
+                <div class="flex items-center gap-2 mb-2"><div class="h-2.5 w-2.5 rounded-full bg-sky-500"></div><p class="font-semibold text-sky-900 dark:text-sky-300">Что считает система</p></div>
+                <div class="space-y-2 text-sky-900 dark:text-sky-400">
+                    <p><b>УрК изделия</b> — качество конкретного узла или участка работ.</p>
+                    <p><b>УрК подрядчика</b> — качество подрядчика по массиву однотипных проверок.</p>
+                    <p class="text-sky-800 dark:text-sky-200"><b>Чем выше процент, тем выше качество.</b></p>
                 </div>
             </div>
-            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-                <p class="font-semibold text-emerald-900 mb-2">Расчет УрК</p>
-                <code class="block rounded border border-emerald-200 bg-white p-2 text-xs mb-2">УрК = База × Kc × Kcrit</code>
-                <p class="text-emerald-900 text-xs">Система применяет штрафы за концентрацию ошибок (Kc) и за наличие критических дефектов (Kcrit).</p>
+            <div class="rounded-2xl border border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:border-violet-800 p-4">
+                <div class="flex items-center gap-2 mb-2"><div class="h-2.5 w-2.5 rounded-full bg-violet-500"></div><p class="font-semibold text-violet-900 dark:text-violet-300">Категории дефектов</p></div>
+                <div class="grid grid-cols-1 gap-2 text-violet-900 dark:text-violet-400">
+                    <div class="rounded-xl border border-violet-100 dark:border-violet-800 bg-white/80 dark:bg-slate-800 p-3"><b>B1</b> — незначительный дефект</div>
+                    <div class="rounded-xl border border-violet-100 dark:border-violet-800 bg-white/80 dark:bg-slate-800 p-3"><b>B2</b> — значительный дефект</div>
+                    <div class="rounded-xl border border-violet-100 dark:border-violet-800 bg-white/80 dark:bg-slate-800 p-3"><b>B3</b> — критический дефект</div>
+                </div>
+                <div class="mt-3 rounded-xl border border-violet-200 dark:border-violet-800 bg-white/80 dark:bg-slate-800 p-3 text-violet-800 dark:text-violet-300">
+                    <p class="font-medium mb-1">Правило 1.5</p><p>Если дефект относится к <b>B2</b>, но отклонение превышает допустимое более чем в <b>1.5 раза</b>, он переводится в <b>B3</b>.</p>
+                </div>
+            </div>
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 p-4">
+                <div class="flex items-center gap-2 mb-2"><div class="h-2.5 w-2.5 rounded-full bg-emerald-500"></div><p class="font-semibold text-emerald-900 dark:text-emerald-300">УрК изделия</p></div>
+                <div class="space-y-3 text-emerald-900 dark:text-emerald-400">
+                    <p>Считается базовый процент качества, затем применяются штрафы за концентрацию дефектов и за критичность.</p>
+                    <code class="inline-block rounded-lg border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-slate-800 px-2 py-1 text-xs">УрК = Базовый УрК × Kc × Kcrit</code>
+                </div>
+            </div>
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-4">
+                <div class="flex items-center gap-2 mb-2"><div class="h-2.5 w-2.5 rounded-full bg-amber-500"></div><p class="font-semibold text-amber-900 dark:text-amber-300">Ключевые правила</p></div>
+                <div class="space-y-2">
+                    <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-white/80 dark:bg-slate-800 p-3 text-amber-900 dark:text-amber-400">Если есть <b>B2</b> или штрафы, итог <b>не выше 84%</b>.</div>
+                    <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-white/80 dark:bg-slate-800 p-3 text-amber-900 dark:text-amber-400">Если есть <b>B3</b>, изделие считается <b>непринятым</b>.</div>
+                </div>
             </div>
         </div>`;
     } else if (type === 'analytics' || type === 'rating') {
         title.innerText = "Справка по Аналитике";
-        body.innerHTML = `<div class="space-y-3">
+        body.innerHTML = `<div class="space-y-3 text-sm leading-relaxed">
             <p>В этом разделе отображается статистика на основе сохраненных проверок.</p>
             <ul class="list-disc pl-4 space-y-2 text-xs">
                 <li><b>Рейтинг</b> строится только если подрядчик имеет <b>минимум 7 проверок</b> по одному виду работ.</li>

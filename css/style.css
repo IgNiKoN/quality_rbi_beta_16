@@ -268,6 +268,144 @@ input:checked + .toggle-slider:before { transform: translateX(16px); }
 /* === ДЕМО РЕЖИМ === */
 body.demo-mode { background-color: rgba(56, 189, 248, 0.1); }
 body.demo-mode #demo-banner { display: flex; background: var(--color-red); color: white; text-align: center; font-size: 11px; font-weight: 900; padding: 6px 10px; text-transform: uppercase; justify-content: space-between; align-items: center; z-index: 100;}
+body.demo-mode .demo-hint { 
+    display: inline-flex !important; 
+    align-items: center; justify-content: center; 
+    background: #fde047 !important; color: #854d0e !important; 
+    border: 1px solid #eab308 !important; border-radius: 12px; 
+    padding: 2px 6px !important; font-size: 9px !important; font-weight: 900 !important; 
+    margin-left: 4px; cursor: pointer;
+    box-shadow: 0 2px 4px rgba(234, 179, 8, 0.4);
+    animation: pulseHint 1.5s infinite;
+}
+@keyframes pulseHint {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
+    70% { transform: scale(1.1); box-shadow: 0 0 0 5px rgba(234, 179, 8, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+}
 /* Скрытие ползунка для горизонтальной навигации */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+/* === ПЛАВНЫЕ АНИМАЦИИ (iOS STYLE) === */
+
+/* Пружинящие кнопки и карточки */
+.btn-status, .card-audit, .nav-item {
+    transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-status:active, .card-audit:active, .nav-item:active {
+    transform: scale(0.96);
+}
+
+/* Анимация появления модальных окон (Fade + Scale) */
+.modal-overlay {
+    transition: opacity 0.3s ease;
+    opacity: 0;
+}
+
+.modal-overlay[style*="display: flex"] {
+    opacity: 1;
+}
+
+.modal-content {
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.15), opacity 0.3s ease; /* Эффект небольшого "выпрыгивания" */
+    transform: scale(0.9) translateY(20px);
+    opacity: 0;
+}
+
+.modal-overlay[style*="display: flex"] .modal-content {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+}
+
+/* Плавный переход для вкладок */
+.view-section {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 0;
+    transform: translateX(10px);
+}
+
+.view-section.active {
+    opacity: 1;
+    transform: translateX(0);
+    animation: none; /* Убираем старую топорную анимацию */
+}
+
+/* Схлопывание карточек (OK-состояние) */
+.card-collapsed {
+    transition: max-height 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), padding 0.3s ease;
+}
+
+/* Мягкие тени как в iOS (Исправлено) */
+.card-audit, .shadow-ios {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .card-audit, [data-theme="dark"] .shadow-ios {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Динамическое позиционирование меню Аналитики */
+.analytics-nav-container {
+    position: sticky;
+    z-index: 40;
+    transition: top 0.3s, bottom 0.3s;
+}
+
+body.nav-pos-bottom .analytics-nav-container {
+    top: auto;
+    bottom: 70px; /* Прилипает над нижней навигацией */
+    margin-bottom: 20px;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+}
+
+body.nav-pos-top .analytics-nav-container,
+body.nav-pos-auto .analytics-nav-container {
+    top: 70px; /* Прилипает под верхней навигацией/шапкой */
+    margin-bottom: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* Оптимизация кликов (убирает 300ms задержку на старых iOS) */
+button, input, select, .card-audit, .nav-item {
+    touch-action: manipulation;
+}
+
+/* Ограничение ширины навигации на широких экранах (ПК) */
+.bottom-nav {
+    max-width: 56rem; /* Совпадает с max-w-4xl основного контента */
+    margin: 0 auto;
+    border-radius: 20px 20px 0 0; /* Закругляем верхние углы на ПК */
+}
+body.nav-pos-top .bottom-nav,
+body.nav-pos-auto .bottom-nav {
+    border-radius: 0 0 20px 20px; /* Закругляем нижние углы, если меню сверху */
+}
+@media (max-width: 896px) {
+    .bottom-nav { border-radius: 0; } /* На телефонах на всю ширину */
+}
+
+/* Динамическое позиционирование подвкладок (Аналитика / Фильтры) */
+.sticky-subnav {
+    position: sticky;
+    z-index: 40;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: top 0.3s, bottom 0.3s, box-shadow 0.3s;
+}
+
+/* Если основное меню СВЕРХУ (или АВТО на ПК) */
+body.nav-pos-top .sticky-subnav,
+body.nav-pos-auto .sticky-subnav {
+    top: 70px; /* Прилипает сразу под шапкой */
+    bottom: auto;
+    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05);
+}
+
+/* Если основное меню СНИЗУ (телефоны) */
+body.nav-pos-bottom .sticky-subnav {
+    top: auto;
+    bottom: 80px; /* Прилипает прямо над нижним меню */
+    box-shadow: 0 -4px 15px -3px rgba(0,0,0,0.05);
+    margin-bottom: 10px;
+}
