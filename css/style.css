@@ -35,6 +35,20 @@
     --primary: #6366f1;
 }
 
+/* === ПРИНУДИТЕЛЬНАЯ СВЕТЛАЯ ТЕМА === */
+[data-theme="light"] {
+    --bg-main: #f8fafc;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --card-bg: #ffffff;
+    --card-border: #e2e8f0;
+    --header-bg: rgba(255, 255, 255, 0.95);
+    --nav-bg: rgba(255, 255, 255, 0.85);
+    --hover-bg: #f1f5f9;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+}
+
 /* === ГЛОБАЛЬНЫЕ СТИЛИ === */
 html {
     scroll-behavior: smooth; /* Добавляем плавный скролл всей странице */
@@ -44,11 +58,13 @@ body {
     font-family: 'Inter', sans-serif; 
     background-color: var(--bg-main); 
     color: var(--text-main);
-    padding-top: 140px; /* УВЕЛИЧИЛИ отступ, чтобы открытая шапка не перекрывала контент */
+    padding-top: 140px; 
     padding-bottom: 90px; 
     transition: background 0.3s, color 0.3s; 
-    overflow-x: hidden;
-    width: 100%;
+    /* ВОТ ЭТИ ТРИ СТРОЧКИ ЖЕСТКО ЗАПРЕЩАЮТ ЭКРАНУ ПЛАВАТЬ ВЛЕВО-ВПРАВО: */
+    overflow-x: hidden !important;
+    width: 100vw;
+    max-width: 100%;
 }
 
 /* === ТРИ РЕЖИМА НАВИГАЦИИ (АВТО, СВЕРХУ, СНИЗУ) === */
@@ -192,10 +208,19 @@ body.modal-open { overflow: hidden; height: 100vh; touch-action: none; }
 
 /* === СВАЙПЫ (НОВОЕ В v16.0) === */
 .swipe-container { position: relative; overflow: hidden; border-radius: 12px; margin-bottom: 8px; }
-.swipe-actions-bg { position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; font-weight: 900; color: white; border-radius: 12px; z-index: 1;}
+
+/* НОВОЕ: opacity: 0 прячет красный и зеленый фон, пока мы не начнем свайпать */
+.swipe-actions-bg { 
+    position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center; 
+    padding: 0 20px; font-weight: 900; color: white; border-radius: 12px; z-index: 1;
+    opacity: 0; 
+    transition: opacity 0.2s;
+}
+.swiping .swipe-actions-bg { opacity: 1; } /* Появляется только при свайпе */
+
 .swipe-bg-ok { background: var(--color-green); justify-content: flex-start; }
 .swipe-bg-fail { background: var(--color-red); justify-content: flex-end; }
-.swipe-content { position: relative; z-index: 2; transition: transform 0.2s ease-out; touch-action: pan-y; } /* pan-y разрешает вертикальный скролл */
+.swipe-content { position: relative; z-index: 2; transition: transform 0.2s ease-out; touch-action: pan-y; } 
 .swiping .swipe-content { transition: none; }
 
 /* === КНОПКИ И ТЕГИ === */
@@ -408,4 +433,68 @@ body.nav-pos-bottom .sticky-subnav {
     bottom: 80px; /* Прилипает прямо над нижним меню */
     box-shadow: 0 -4px 15px -3px rgba(0,0,0,0.05);
     margin-bottom: 10px;
+}
+/* Исправление для вылезающих кнопок на узких экранах */
+#tab-history .sticky-subnav .flex {
+    flex-wrap: wrap; /* Разрешаем кнопкам переноситься на новую строку */
+}
+#tab-history .sticky-subnav {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+/* === ПЛАВАЮЩАЯ КНОПКА СКАЧАТЬ (FAB) — адаптируется под меню === */
+#fab-download-btn {
+    bottom: 80px;
+    right: 16px;
+}
+
+/* Если меню СВЕРХУ — кнопка опускается ниже */
+body.nav-pos-top #fab-download-btn,
+body.nav-pos-auto #fab-download-btn {
+    bottom: 24px;
+    right: 16px;
+}
+
+/* На широких экранах — прижимаем к правому краю блока */
+@media (min-width: 896px) {
+    #fab-download-btn {
+        right: calc(50vw - 26rem + 16px);
+    }
+}
+
+/* Анимация появления FAB */
+#fab-download-btn.fab-visible {
+    display: flex !important;
+    animation: fabIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes fabIn {
+    from { opacity: 0; transform: scale(0.5) translateY(20px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Адаптация sticky-subnav для Справочника — поведение как у Истории */
+#tab-reference .sticky-subnav {
+    top: 70px;
+}
+
+body.nav-pos-bottom #tab-reference .sticky-subnav {
+    top: auto;
+    bottom: 80px;
+}
+
+/* === ПЛАВНЫЕ ПЕРЕХОДЫ ДЛЯ СВОРАЧИВАЕМЫХ ПАНЕЛЕЙ ПОИСКА === */
+#hist-panel-body,
+#ref-panel-body {
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease,
+                margin 0.3s ease;
+}
+
+/* Иконка-стрелка поворачивается при сворачивании */
+#hist-panel-toggle-icon,
+#ref-panel-toggle-icon {
+    display: inline-block;
+    transition: transform 0.3s ease;
+    font-style: normal;
 }

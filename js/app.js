@@ -23,7 +23,7 @@ let realState = {}, realDetails = {}, realPhotos = {}, realContractorArray = [],
 
 // Настройки приложения (v16.0)
 let appSettings = {
-    theme: 'light',
+    theme: 'auto',
     fontSize: 'medium',
     navPosition: 'auto',
     swipeEnabled: true,
@@ -107,10 +107,12 @@ async function saveSessionData() {
             inspector: document.getElementById('inp-inspector') ? document.getElementById('inp-inspector').value : '',
             contractor: document.getElementById('inp-contractor') ? document.getElementById('inp-contractor').value : '',
             location: document.getElementById('inp-location') ? document.getElementById('inp-location').value : '',
-            state, details, photos
+            state, details, photos,
+            customExpertConclusions  // ← ДОБАВЛЕНО: сохраняем редактуры заключений
         });
     } catch (e) {
         console.error('Ошибка сохранения в IndexedDB:', e);
+        showToast('⚠️ Ошибка автосохранения!');  // ← ДОБАВЛЕНО: уведомляем пользователя
     }
 }
 
@@ -127,7 +129,7 @@ async function restoreSession() {
 
         if (currentTemplateKey) {
             const type = currentTemplateKey.split('_')[0];
-            const key = currentTemplateKey.replace(type + '_', '');
+            const key = currentTemplateKey.slice(type.length + 1);
             if (type === 'sys' && SYSTEM_TEMPLATES[key]) currentChecklist = SYSTEM_TEMPLATES[key].groups;
             else if (type === 'user' && userTemplates[key]) currentChecklist = userTemplates[key].groups;
         }
@@ -135,6 +137,7 @@ async function restoreSession() {
         state = data.state || {};
         details = data.details || {};
         photos = data.photos || {};
+        customExpertConclusions = data.customExpertConclusions || {};  // ← ДОБАВЛЕНО
 
         if (currentTemplateKey && document.getElementById('checklist-selector')) {
             document.getElementById('checklist-selector').value = currentTemplateKey;
@@ -206,20 +209,54 @@ function switchTab(tabId, navElement = null) {
         if(btn) btn.classList.add('active');
     }
 
-    // СКРЫТИЕ ШАПКИ НА ВСЕХ ВКЛАДКАХ, КРОМЕ ОСМОТРА
     const header = document.getElementById('main-header');
-    if (header) {
-        header.style.display = (tabId === 'tab-audit') ? 'block' : 'none';
+    if (header) header.style.display = (tabId === 'tab-audit') ? 'block' : 'none';
+
+    if (tabId === 'tab-audit' && typeof render === 'function') {
+        render(); updateUI();
+    } else if (tabId === 'tab-history') {
+        renderHistoryTab();
+        initCollapsiblePanel('hist-sticky-panel', 'hist-panel-body', 'hist-panel-header', 'hist-panel-toggle-icon');
+    } else if (tabId === 'tab-analytics' && typeof updateAnalyticsFilters === 'function') {
+        updateAnalyticsFilters(); renderAnalyticsTab();
+    } else if (tabId === 'tab-reference') {
+        renderReferenceTab();
+        initCollapsiblePanel('ref-sticky-panel', 'ref-panel-body', 'ref-panel-header', 'ref-panel-toggle-icon');
+    } else if (tabId === 'tab-settings') {
+        renderSettingsTab();
     }
 
-    if (tabId === 'tab-audit' && typeof render === 'function') { render(); updateUI(); } 
-    else if (tabId === 'tab-history') { renderHistoryTab(); } 
-    else if (tabId === 'tab-analytics' && typeof updateAnalyticsFilters === 'function') { updateAnalyticsFilters(); renderAnalyticsTab(); }
-    else if (tabId === 'tab-reference') { renderReferenceTab(); }
-    else if (tabId === 'tab-settings') { renderSettingsTab(); }
-    
-    setTimeout(updateBodyPadding, 50); // Пересчет отступов
+    // FAB-кнопка: показываем только на аналитике
+    updateFabButton(tabId);
+
+    setTimeout(updateBodyPadding, 50);
     window.scrollTo(0, 0);
+}
+// === FAB-КНОПКА СКАЧАТЬ (умная, знает контекст) ===
+function updateFabButton(tabId) {
+    const fab = document.getElementById('fab-download-btn');
+    if (!fab) return;
+
+    // Определяем текущую активную подвкладку аналитики
+    const isAnalytics = tabId === 'tab-analytics';
+    const isRatingActive = document.getElementById('sub-rating') && !document.getElementById('sub-rating').classList.contains('hidden');
+
+    if (isAnalytics) {
+        fab.classList.remove('hidden');
+        fab.classList.add('fab-visible');
+        // Данные для кнопки — что качать
+        fab.dataset.context = isRatingActive ? 'rating' : 'pdf';
+    } else {
+        fab.classList.add('hidden');
+        fab.classList.remove('fab-visible');
+    }
+}
+
+function handleFabDownload() {
+    const fab = document.getElementById('fab-download-btn');
+    const context = fab?.dataset.context || 'pdf';
+    if (context === 'rating') exportRatingPdf();
+    else exportPdfReport();
 }
 // === СВОРАЧИВАЕМ МИНИДАШБОРД ===
 function toggleDashboardExpand() {
@@ -249,21 +286,31 @@ async function saveSettings(key, value) {
 }
 
 function applySettingsToUI() {
-    if (appSettings.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-    else document.documentElement.removeAttribute('data-theme');
+    let isDark = false;
+    if (appSettings.theme === 'dark') isDark = true;
+    else if (appSettings.theme === 'auto') {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) isDark = true;
+    }
+
+    if (isDark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+    } else {
+        document.documentElement.setAttribute('data-theme', 'light'); // ← ГЛАВНОЕ ИСПРАВЛЕНИЕ
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+    }
     
     if (appSettings.fastMode) document.body.classList.add('fast-mode');
     else document.body.classList.remove('fast-mode');
 
-    // Настройка шрифта
     document.body.classList.remove('font-small', 'font-medium', 'font-large', 'font-xlarge');
     if(appSettings.fontSize !== 'medium') document.body.classList.add(`font-${appSettings.fontSize}`);
     
-    // Настройка 3х позиций меню
     document.body.classList.remove('nav-pos-auto', 'nav-pos-top', 'nav-pos-bottom');
     document.body.classList.add(`nav-pos-${appSettings.navPosition || 'auto'}`);
 
-    // Пересчет высоты после применения стилей
     setTimeout(() => {
         const headerEl = document.getElementById('main-header');
         if (headerEl) document.body.style.paddingTop = `${headerEl.offsetHeight + 10}px`;
@@ -274,7 +321,6 @@ function applySettingsToUI() {
 
 function renderSettingsTab() {
     const map = {
-        'set-theme': appSettings.theme === 'dark',
         'set-swipe': appSettings.swipeEnabled,
         'set-collapse': appSettings.autoCollapseOk,
         'set-fast': appSettings.fastMode,
@@ -286,17 +332,21 @@ function renderSettingsTab() {
         const el = document.getElementById(id);
         if(el) el.checked = map[id];
     }
+    
+    // Новые селекторы
+    if(document.getElementById('set-theme')) document.getElementById('set-theme').value = appSettings.theme || 'auto';
     if(document.getElementById('set-fontsize')) document.getElementById('set-fontsize').value = appSettings.fontSize || 'medium';
     if(document.getElementById('set-navpos')) document.getElementById('set-navpos').value = appSettings.navPosition || 'auto';
     if(document.getElementById('set-apikey')) document.getElementById('set-apikey').value = appSettings.apiKey || '';
     
-    // Вызов функции подсчета хранилища
     updateStorageInfo();
 }
 
 function toggleSetting(settingKey, element) {
     let val = element.type === 'checkbox' ? element.checked : element.value;
-    if (settingKey === 'theme') val = val ? 'dark' : 'light';
+    
+    // Мы удалили старую строчку, которая ломала выбор темы
+    
     appSettings[settingKey] = val;
     saveSettings(settingKey, val);
 }
@@ -309,7 +359,6 @@ function clearPdfCache() {
     }
 }
 
-// === ВКЛАДКА: СПРАВОЧНИК ===
 // === ВКЛАДКА: СПРАВОЧНИК ===
 function renderReferenceTab() {
     const root = document.getElementById('reference-items');
@@ -1540,7 +1589,28 @@ function showContractorDetails() {
     document.body.classList.add('modal-open'); modal.style.display = 'flex';
 }
 /* Файл: js/app.js (БЛОК 4: Полная Аналитика, Chart.js, Рейтинг, PDF) */
+// === FAB-КНОПКА СКАЧАТЬ ===
+function updateFabButton(tabId) {
+    const fab = document.getElementById('fab-download-btn');
+    if (!fab) return;
+    if (tabId === 'tab-analytics') {
+        // Смотрим какая подвкладка сейчас активна
+        const isRating = !document.getElementById('sub-rating')?.classList.contains('hidden');
+        fab.classList.remove('hidden');
+        fab.classList.add('fab-visible');
+        fab.dataset.context = isRating ? 'rating' : 'pdf';
+    } else {
+        fab.classList.add('hidden');
+        fab.classList.remove('fab-visible');
+    }
+}
 
+function handleFabDownload() {
+    const fab = document.getElementById('fab-download-btn');
+    const ctx = fab?.dataset.context || 'pdf';
+    if (ctx === 'rating') exportRatingPdf();
+    else exportPdfReport();
+}
 // === ПЕРЕКЛЮЧАТЕЛЬ ПОДВКЛАДОК АНАЛИТИКИ ===
 function switchAnalyticsSubTab(tabId, btnElement) {
     document.querySelectorAll('.analytics-sub-section').forEach(el => el.classList.add('hidden'));
@@ -1548,14 +1618,20 @@ function switchAnalyticsSubTab(tabId, btnElement) {
         el.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600', 'dark:bg-slate-700', 'dark:text-indigo-400');
         el.classList.add('text-[var(--text-muted)]');
     });
-    
     document.getElementById(tabId).classList.remove('hidden');
-    
     btnElement.classList.add('bg-white', 'shadow-sm', 'text-indigo-600', 'dark:bg-slate-700', 'dark:text-indigo-400');
     btnElement.classList.remove('text-[var(--text-muted)]');
 
     if (tabId === 'sub-charts') renderAnalyticsTab();
     if (tabId === 'sub-rating') renderRatingTab();
+
+    // FAB: виден только на рейтинге и аналитике
+    const fab = document.getElementById('fab-download-btn');
+    if (fab) {
+        const showFab = (tabId === 'sub-rating' || tabId === 'sub-charts');
+        fab.style.display = showFab ? 'flex' : 'none';
+        fab.dataset.context = (tabId === 'sub-rating') ? 'rating' : 'pdf';
+    }
 }
 
 // === ПОЛНАЯ АНАЛИТИКА С ГРАФИКАМИ CHART.JS (СОВМЕСТИМОСТЬ v15) ===
@@ -2083,4 +2159,161 @@ function copyExpertText(btnId, textAreaId) {
     }).catch(() => {
         showToast('Ошибка копирования');
     });
+}
+
+// === УМНЫЙ ГЕНЕРАТОР СЦЕНАРИЕВ ИИ (ПРОДВИНУТЫЙ) ===
+function generateSmartComment(scenario) {
+    if(!currentEditingExpertKey) return;
+    const parts = currentEditingExpertKey.split('_||_');
+    const cName = parts[0];
+    const tTitle = parts[1];
+    
+    const cDataAll = contractorArray.filter(i => i.contractorName === cName && i.templateTitle === tTitle);
+    if(cDataAll.length < 7) {
+        showToast("Мало данных для генерации (нужно минимум 7 изделий)");
+        return;
+    }
+    
+    const metrics = getContractorMetrics(cDataAll, userTemplates);
+    const text = buildSmartText(scenario, metrics, cName, tTitle, cDataAll.length);
+    document.getElementById('modal-expert-input').value = text;
+    showToast("Текст успешно сгенерирован!");
+}
+
+function buildSmartText(scenario, c, cName, tTitle, count) {
+    const isRed = c.finalC < 70 || c.rateB3 >= 30 || c.isRedZone;
+    const isYellow = c.finalC >= 70 && c.finalC < 85 && !isRed;
+    const b3Str = c.n_изделий_с_B3 > 0 ? `ЗАФИКСИРОВАН КРИТИЧЕСКИЙ БРАК (B3): на ${c.n_изделий_с_B3} ед.` : `Критический брак (B3) отсутствует.`;
+    
+    switch(scenario) {
+        case 'strict':
+            return `ОФИЦИАЛЬНАЯ ПРЕТЕНЗИЯ (ПРЕДПИСАНИЕ)\n\nКому: Руководителю проекта от организации "${cName}".\nКасательно: Неудовлетворительное качество работ по виду "${tTitle}".\n\nПо результатам строительного аудита (выборка: ${count} ед.) зафиксирован Уровень Качества (УрК) = ${c.finalC}%. Данный показатель ${isRed ? 'является КРИТИЧЕСКИ НИЗКИМ и свидетельствует о грубом нарушении технологии производства работ' : (isYellow ? 'находится НИЖЕ НОРМЫ, зафиксировано несоблюдение ППР' : 'находится в пределах допуска, однако выявлены системные отклонения')}.\n\nФакты нарушений:\n- ${b3Str}\n- Системное повторение одного и того же дефекта: ${c.maxFailRate.toFixed(1)}%\n- Индекс стабильности бригад: ${c.stabilityIndex}/100\n\nТРЕБОВАНИЯ СТРОИТЕЛЬНОГО КОНТРОЛЯ:\n1. В срок до __.__.202__ предоставить план корректирующих мероприятий.\n2. ${isRed ? 'НЕМЕДЛЕННО ОСТАНОВИТЬ производство работ. Вызвать комиссию для составления дефектной ведомости.' : 'Провести внеплановый инструктаж линейного ИТР и исполнителей.'}\n3. Предъявить исправленные объемы по акту.\n\nВ случае невыполнения требований, объемы к приемке (КС-2) не допускаются, будут применены штрафные санкции.`;
+            
+        case 'tech':
+            return `ТЕХНИЧЕСКИЙ АУДИТ КАЧЕСТВА\n\nПодрядчик: ${cName}\nРаздел: ${tTitle}\nОбъем выборки: ${count} независимых проверок\n\n[МЕТРИКИ ИНЖИНИРИНГА]\n• Итоговый УрК: ${c.finalC}%\n• Базовый балл соответствия (до штрафов): ${c.baseUrkContrPerc}%\n• Коэф. системного брака (Ks): ${c.ks.toFixed(2)} (макс. частота дефекта ${c.maxFailRate.toFixed(1)}%)\n• Коэф. критичности (Kcrit): ${c.kcritC.toFixed(2)} (доля брака B3: ${c.rateB3.toFixed(1)}%)\n• Волатильность качества (СКО): ${c.volatility.toFixed(1)}\n\n[СТАТУС И ВЫВОДЫ]\nРиск-профиль: ${c.riskStatus.toUpperCase()}\nДостоверность данных: ${c.confStatus}\n\nРезюме инженера: ${c.reason}. ${isRed ? 'Технологический процесс не соблюдается. Требуется 100% входной и операционный контроль.' : (isYellow ? 'Технология соблюдается частично, требуется фокус на узлах с дефектами B2.' : 'Техпроцесс в норме. Стандартный летучий контроль.')}`;
+            
+        case 'boss':
+            return `ИНФОРМАЦИОННАЯ СПРАВКА ДЛЯ РУКОВОДСТВА\n\n🏗 Подрядчик: ${cName}\n📊 Зона качества: ${isRed ? '🔴 КРАСНАЯ (Высокий риск срыва сроков)' : (isYellow ? '🟡 ЖЕЛТАЯ (Требует внимания)' : '🟢 ЗЕЛЕНАЯ (В норме)')}\n📉 Рейтинг (УрК): ${c.finalC}%\n\nКлючевые тезисы:\n1. Проверено: ${count} единиц продукции.\n2. ${b3Str}\n3. Стабильность: ${c.stabilityIndex < 70 ? 'Качество скачет. Бригады работают нестабильно, нет единого стандарта.' : 'Подрядчик выдает предсказуемый результат.'}\n\nРезюме:\n${isRed ? 'Рекомендуется вызвать руководство подрядчика на штаб. Высока вероятность переделок и смещения графика.' : (isYellow ? 'Подрядчик справляется, но есть тенденция к системному браку. Взят на контроль.' : 'Проблем не выявлено. Можно доверять дополнительные объемы.')}`;
+            
+        case 'action_plan':
+            return `ПЛАН КОРРЕКТИРУЮЩИХ МЕРОПРИЯТИЙ (CAPA)\n\nПодрядчик: ${cName}\nАнализируемый вид работ: ${tTitle}\nТекущий УрК: ${c.finalC}% (Целевой: >85%)\n\nШАГ 1. ЛОКАЛИЗАЦИЯ (${b3Str})\n- Выявить все конструкции с аналогичными дефектами.\n- Обозначить их в натуре (сигнальная лента, краска).\n\nШАГ 2. АНАЛИЗ ПРИЧИН (Системность: ${c.maxFailRate.toFixed(1)}%)\n- Проверить наличие утвержденных ТК у прорабов.\n- Оценить квалификацию звена, допускающего брак.\n\nШАГ 3. ИСПРАВЛЕНИЕ\n- Демонтаж/исправление дефектных участков за счет подрядчика.\n- Повторный вызов инспектора СК.\n\nШАГ 4. ПРЕВЕНТИВНЫЕ МЕРЫ\n- ${isRed ? 'Заменить бригадира/звено.' : 'Ежедневный фотоотчет скрытых работ в чат.'}\n- Ужесточить допуски на входной контроль материалов.`;
+            
+        case 'finance':
+            return `СЛУЖЕБНАЯ ЗАПИСКА (В ДОГОВОРНОЙ ОТДЕЛ)\n\nТема: Блокировка/согласование объемов к оплате.\nПодрядчик: ${cName}\nВид работ: ${tTitle}\n\nНа основании проведенного строительного аудита (проверено ${count} ед.), Уровень Качества составил ${c.finalC}%. ${b3Str}\n\nЗАКЛЮЧЕНИЕ ТЕХНАДЗОРА:\n${isRed ? 'СТРОГО ЗАПРЕЩАЕТСЯ подписание актов КС-2 по данному виду работ. Инициировать удержание обеспечения по договору до полного устранения дефектов B3.' : (isYellow ? 'Акты КС-2 подписывать с удержанием стоимости некачественно выполненных узлов. Применить штраф за систематическое нарушение технологии.' : 'Ограничений по качеству для подписания актов КС-2 нет. Работы выполнены в соответствии с нормативной документацией.')}\n\nОбоснование: Индекс стабильности ${c.stabilityIndex}/100, Системный брак ${c.maxFailRate.toFixed(1)}%.`;
+            
+        default:
+            return `ЭКСПЕРТНОЕ ЗАКЛЮЧЕНИЕ\n\nКачество работ подрядчика "${cName}" по виду "${tTitle}" оценивается как ${isRed ? 'НИЗКОЕ' : (isYellow ? 'ПРИЕМЛЕМОЕ' : 'ВЫСОКОЕ')} (${c.finalC}%).\n\n[Выявленные проблемы]\n• ${c.maxFailRate >= 20 ? `Системный брак: дефект повторяется в ${c.maxFailRate.toFixed(1)}% случаев.` : 'Значимых системных отклонений не выявлено.'}\n• ${b3Str}\n\n[Рекомендации]\n• ${isRed ? 'ОСТАНОВКА РАБОТ. Требуется полная переделка.' : (isYellow ? 'Усилить операционный контроль.' : 'Продолжить производство работ.')}`;
+    }
+}
+
+// === УМНЫЕ ПРИЛИПАЮЩИЕ ПАНЕЛИ ПОИСКА (История / Справочник) ===
+// Работают как мини-дашборд: сворачиваются при скролле вниз, разворачиваются вверх
+
+function initCollapsibleSearchPanel(panelId, bodyId, headerId) {
+    let lastScrollY = 0;
+    let isCollapsed = false;
+
+    const panel = document.getElementById(panelId);
+    const body  = document.getElementById(bodyId);
+    if (!panel || !body) return;
+
+    // Клик по заголовку — принудительный тоггл
+    const header = document.getElementById(headerId);
+    if (header) {
+        header.style.cursor = 'pointer';
+        header.addEventListener('click', () => {
+            isCollapsed = !isCollapsed;
+            applyPanelState(body, isCollapsed);
+        });
+    }
+
+    // Скролл — авто-сворачивание
+    window.addEventListener('scroll', () => {
+        const currentYF = window.scrollY;
+        if (currentY > lastScrollY + 10 && currentY > 60 && !isCollapsed) {
+            isCollapsed = true;
+            applyPanelState(body, true);
+        } else if (currentY < lastScrollY - 10 && isCollapsed) {
+            isCollapsed = false;
+            applyPanelState(body, false);
+        }
+        lastScrollY = currentY;
+    }, { passive: true });
+}
+
+function applyPanelState(bodyEl, collapsed) {
+    // Находим иконку-стрелку (ищем в ближайшем родителе)
+    const panel = bodyEl.closest('[id$="-sticky-panel"]') || bodyEl.parentElement;
+    const icon = panel?.querySelector('[id$="-panel-toggle-icon"]');
+
+    if (collapsed) {
+        bodyEl.style.maxHeight  = '0px';
+        bodyEl.style.opacity    = '0';
+        bodyEl.style.overflow   = 'hidden';
+        bodyEl.style.marginBottom = '0';
+        if (icon) icon.style.transform = 'rotate(-90deg)';
+    } else {
+        bodyEl.style.maxHeight  = '400px';
+        bodyEl.style.opacity    = '1';
+        bodyEl.style.overflow   = '';
+        bodyEl.style.marginBottom = '';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+    }
+}
+
+// === FAB-КНОПКА СКАЧАТЬ ===
+function updateFabButton(tabId) {
+    const fab = document.getElementById('fab-download-btn');
+    if (!fab) return;
+    if (tabId === 'tab-analytics') {
+        const isRating = !document.getElementById('sub-rating')?.classList.contains('hidden');
+        fab.style.display = 'flex';
+        fab.dataset.context = isRating ? 'rating' : 'pdf';
+    } else {
+        fab.style.display = 'none';
+    }
+}
+
+function handleFabDownload() {
+    const ctx = document.getElementById('fab-download-btn')?.dataset.context || 'pdf';
+    if (ctx === 'rating') exportRatingPdf();
+    else exportPdfReport();
+}
+
+// === СВОРАЧИВАЕМЫЕ ПАНЕЛИ (История / Справочник) ===
+function initCollapsiblePanel(panelId, bodyId, headerId, iconId) {
+    const panel  = document.getElementById(panelId);
+    const body   = document.getElementById(bodyId);
+    const header = document.getElementById(headerId);
+    const icon   = document.getElementById(iconId);
+    if (!panel || !body) return;
+    // Если уже инициализировали — не вешаем второй раз
+    if (panel.dataset.inited) return;
+    panel.dataset.inited = '1';
+
+    let collapsed = false;
+    let lastY = 0;
+
+    function setCollapsed(val) {
+        collapsed = val;
+        body.style.maxHeight  = collapsed ? '0px'   : '300px';
+        body.style.opacity    = collapsed ? '0'     : '1';
+        body.style.overflow   = collapsed ? 'hidden': '';
+        if (icon) icon.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+    }
+
+    // Клик по заголовку — тоггл
+    if (header) {
+        header.addEventListener('click', () => setCollapsed(!collapsed));
+    }
+
+    // Скролл — авто-поведение
+    window.addEventListener('scroll', () => {
+        const y = window.scrollY;
+        // Только если эта вкладка сейчас активна
+        if (!panel.closest('.view-section.active') && !panel.closest('.active')) return;
+        if (y > lastY + 8 && y > 40 && !collapsed) setCollapsed(true);
+        if (y < lastY - 8 && collapsed)             setCollapsed(false);
+        lastY = y;
+    }, { passive: true });
 }

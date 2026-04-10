@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,15 +10,16 @@
     <meta name="theme-color" content="#4f46e5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    
+
     <!-- Подключаем Tailwind (для базовых сеток и отступов) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Подключаем наши модульные стили v16.0 -->
     <link rel="stylesheet" href="css/style.css">
     <!-- Подключаем Chart.js для старых графиков -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body id="app-body">
 
     <!-- === СКРЫТЫЕ ИНПУТЫ ДЛЯ ФАЙЛОВ === -->
@@ -33,56 +35,87 @@
     <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div id="modal-icon" class="mb-4"></div>
-            <div id="modal-title" class="text-xl font-black uppercase mb-4 leading-tight tracking-tight border-b border-slate-100 pb-2"></div>
+            <div id="modal-title"
+                class="text-xl font-black uppercase mb-4 leading-tight tracking-tight border-b border-slate-100 pb-2">
+            </div>
             <div id="modal-body" class="text-sm leading-relaxed space-y-3"></div>
-            <button onclick="closeModal()" class="w-full mt-6 bg-indigo-600 text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest active:scale-95">Закрыть</button>
+            <button onclick="closeModal()"
+                class="w-full mt-6 bg-indigo-600 text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest active:scale-95">Закрыть</button>
         </div>
     </div>
 
     <!-- === МОДАЛКА ПРОСМОТРА ФОТО === -->
-    <div id="photo-viewer-overlay" class="fixed inset-0 bg-black/90 z-[2000] hidden flex-col items-center justify-center" onclick="this.style.display='none'">
-        <div class="absolute top-5 right-5 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center font-bold text-xl" onclick="this.parentElement.style.display='none'">✕</div>
-        <img id="photo-viewer-img" src="" class="max-w-full max-h-[80vh] object-contain transition-transform" onclick="event.stopPropagation()">
+    <div id="photo-viewer-overlay" class="fixed inset-0 bg-black/90 z-[2000] flex-col items-center justify-center"
+        style="display:none;" onclick="this.style.display='none'">
+        <div class="absolute top-5 right-5 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center font-bold text-xl"
+            onclick="this.parentElement.style.display='none'">✕</div>
+        <img id="photo-viewer-img" src="" class="max-w-full max-h-[80vh] object-contain transition-transform"
+            onclick="event.stopPropagation()">
     </div>
 
     <!-- === МОДАЛКА РЕДАКТОРА ЗАКЛЮЧЕНИЯ ИИ === -->
-    <div id="expert-modal-overlay" class="fixed inset-0 bg-slate-900/70 z-[1600] hidden items-center justify-center p-4 backdrop-blur-sm" onclick="cancelExpertEdit()">
-        <div class="bg-[var(--card-bg)] w-full max-w-2xl p-6 rounded-2xl shadow-2xl transition-transform" id="expert-modal-content" onclick="event.stopPropagation()">
+    <div id="expert-modal-overlay"
+        class="fixed inset-0 bg-slate-900/70 z-[1600] hidden items-center justify-center p-4 backdrop-blur-sm"
+        onclick="cancelExpertEdit()">
+        <div class="bg-[var(--card-bg)] w-full max-w-2xl p-6 rounded-2xl shadow-2xl transition-transform"
+            id="expert-modal-content" onclick="event.stopPropagation()">
             <div class="flex justify-between items-center mb-4 border-b border-[var(--card-border)] pb-3">
                 <h3 class="font-black text-[13px] uppercase tracking-tight">✏️ Редактировать заключение</h3>
-                <div class="w-8 h-8 bg-[var(--hover-bg)] rounded-full flex items-center justify-center cursor-pointer" onclick="cancelExpertEdit()">✕</div>
+                <div class="w-8 h-8 bg-[var(--hover-bg)] rounded-full flex items-center justify-center cursor-pointer"
+                    onclick="cancelExpertEdit()">✕</div>
             </div>
             <!-- КНОПКИ ГЕНЕРАТОРА СЦЕНАРИЕВ -->
             <div class="flex gap-2 mb-3 overflow-x-auto no-scrollbar pb-2 border-b border-[var(--card-border)]">
-                <button onclick="generateSmartComment('standard')" class="shrink-0 bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-indigo-200 active:scale-95">🤖 Базовый</button>
-                <button onclick="generateSmartComment('strict')" class="shrink-0 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-red-200 active:scale-95">⚡ Претензия</button>
-                <button onclick="generateSmartComment('tech')" class="shrink-0 bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-slate-300 active:scale-95">🛠 Тех.аудит</button>
-                <button onclick="generateSmartComment('boss')" class="shrink-0 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-amber-200 active:scale-95">💼 Руководству</button>
-                <button onclick="generateSmartComment('action_plan')" class="shrink-0 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-blue-200 active:scale-95">📝 План действий</button>
-                <button onclick="generateSmartComment('finance')" class="shrink-0 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-emerald-200 active:scale-95">💰 Договорной</button>
+                <button onclick="generateSmartComment('standard')"
+                    class="shrink-0 bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-indigo-200 active:scale-95">🤖
+                    Базовый</button>
+                <button onclick="generateSmartComment('strict')"
+                    class="shrink-0 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-red-200 active:scale-95">⚡
+                    Претензия</button>
+                <button onclick="generateSmartComment('tech')"
+                    class="shrink-0 bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-slate-300 active:scale-95">🛠
+                    Тех.аудит</button>
+                <button onclick="generateSmartComment('boss')"
+                    class="shrink-0 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-amber-200 active:scale-95">💼
+                    Руководству</button>
+                <button onclick="generateSmartComment('action_plan')"
+                    class="shrink-0 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-blue-200 active:scale-95">📝
+                    План действий</button>
+                <button onclick="generateSmartComment('finance')"
+                    class="shrink-0 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-emerald-200 active:scale-95">💰
+                    Договорной</button>
             </div>
-            <textarea id="modal-expert-input" class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-xl p-3 text-[12px] outline-none h-[50vh] resize-none"></textarea>
+            <textarea id="modal-expert-input"
+                class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-xl p-3 text-[12px] outline-none h-[50vh] resize-none"></textarea>
             <div class="flex gap-2 mt-4">
-                <button onclick="resetExpertEdit()" class="bg-red-50 text-red-600 px-3 py-3 rounded-xl font-bold text-[10px] uppercase">Сброс к ИИ</button>
-                <button onclick="saveExpertEdit()" class="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase">Сохранить правки</button>
+                <button onclick="resetExpertEdit()"
+                    class="bg-red-50 text-red-600 px-3 py-3 rounded-xl font-bold text-[10px] uppercase">Сброс к
+                    ИИ</button>
+                <button onclick="saveExpertEdit()"
+                    class="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase">Сохранить
+                    правки</button>
             </div>
         </div>
     </div>
 
     <!-- === ШАПКА === -->
     <header class="header-fixed" id="main-header">
-        <div id="demo-banner" class="hidden bg-red-500 text-white text-center text-[11px] font-black p-1.5 uppercase justify-between items-center z-[100] relative">
+        <div id="demo-banner"
+            class="hidden bg-red-500 text-white text-center text-[11px] font-black p-1.5 uppercase justify-between items-center z-[100] relative">
             <span>⚠️ ДЕМО | Расчеты фэйковые</span>
             <button onclick="exitDemoMode()" class="bg-white text-red-600 px-2 py-1 rounded text-[9px]">ВЫЙТИ ✕</button>
         </div>
         <div class="max-w-4xl mx-auto px-2 md:px-4 py-2" id="header-inner">
-            
+
             <!-- СТРОКА 1: Логотип -->
             <div class="header-top-row flex items-center justify-between mb-2 header-collapsible">
-                <div class="text-indigo-600 font-black text-[13px] uppercase tracking-tighter truncate">RBI Quality 16.0</div>
-                <div class="relative flex items-center bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 cursor-pointer">
+                <div class="text-indigo-600 font-black text-[13px] uppercase tracking-tighter truncate">RBI Quality 16.0
+                </div>
+                <div
+                    class="relative flex items-center bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 cursor-pointer">
                     <span class="text-[10px] font-black text-indigo-700 uppercase">📋 Чек-лист ▼</span>
-                    <select id="checklist-selector" class="absolute inset-0 w-full h-full opacity-0" onchange="changeTemplate(this.value)">
+                    <select id="checklist-selector" class="absolute inset-0 w-full h-full opacity-0"
+                        onchange="changeTemplate(this.value)">
                         <option value="" disabled selected>Выбрать...</option>
                         <option value="HOME">🏠 Главный экран</option>
                         <optgroup label="Системные" id="system-group"></optgroup>
@@ -92,31 +125,44 @@
             </div>
 
             <!-- СТРОКА 2: Улучшенный Мини-дашборд (Кликабельный) -->
-            <div id="header-dashboard" class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-1.5 mb-2 shadow-sm flex gap-2">
+            <div id="header-dashboard"
+                class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-1.5 mb-2 shadow-sm flex gap-2">
                 <!-- Блок Подрядчика -->
-                <div class="flex-1 cursor-pointer p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors" onclick="showContractorDetails()">
+                <div class="flex-1 cursor-pointer p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
+                    onclick="showContractorDetails()">
                     <div class="flex justify-between items-center mb-1.5">
                         <span class="text-[9px] font-black text-indigo-500 uppercase tracking-wide">Подрядчик</span>
                         <span id="dash-c-text" class="text-[9px] font-bold text-slate-400">0/7</span>
                     </div>
-                    <div class="relative w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden shadow-inner">
-                        <div id="dash-c-bar" class="absolute top-0 left-0 h-full bg-slate-300 transition-all duration-500" style="width: 0%"></div>
-                        <div id="dash-c-percent" class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white drop-shadow-md z-10" style="text-shadow: 0px 1px 2px rgba(0,0,0,0.5);">--%</div>
+                    <div
+                        class="relative w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden shadow-inner">
+                        <div id="dash-c-bar"
+                            class="absolute top-0 left-0 h-full bg-slate-300 transition-all duration-500"
+                            style="width: 0%"></div>
+                        <div id="dash-c-percent"
+                            class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white drop-shadow-md z-10"
+                            style="text-shadow: 0px 1px 2px rgba(0,0,0,0.5);">--%</div>
                     </div>
                 </div>
-                
+
                 <!-- Разделитель -->
                 <div class="w-px bg-[var(--card-border)] my-1"></div>
-                
+
                 <!-- Блок Изделия -->
-                <div class="flex-1 cursor-pointer p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors" onclick="showProductMath()">
+                <div class="flex-1 cursor-pointer p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
+                    onclick="showProductMath()">
                     <div class="flex justify-between items-center mb-1.5">
                         <span class="text-[9px] font-black text-slate-500 uppercase tracking-wide">Изделие</span>
                         <span id="dash-p-text" class="text-[9px] font-bold text-slate-400">0/0</span>
                     </div>
-                    <div class="relative w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden shadow-inner">
-                        <div id="dash-p-bar" class="absolute top-0 left-0 h-full bg-slate-400 transition-all duration-500" style="width: 0%"></div>
-                        <div id="dash-p-percent" class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white drop-shadow-md z-10" style="text-shadow: 0px 1px 2px rgba(0,0,0,0.5);">--%</div>
+                    <div
+                        class="relative w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden shadow-inner">
+                        <div id="dash-p-bar"
+                            class="absolute top-0 left-0 h-full bg-slate-400 transition-all duration-500"
+                            style="width: 0%"></div>
+                        <div id="dash-p-percent"
+                            class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white drop-shadow-md z-10"
+                            style="text-shadow: 0px 1px 2px rgba(0,0,0,0.5);">--%</div>
                     </div>
                 </div>
             </div>
@@ -125,51 +171,66 @@
             <div id="header-data-block" class="header-collapsible mb-2">
                 <div class="bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-lg p-2 shadow-inner">
                     <div class="flex justify-between items-center mb-2 px-1 cursor-pointer" onclick="toggleDataBlock()">
-                        <div id="current-checklist-label" class="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider truncate">Вид работ не выбран</div>
-                        <div id="data-toggle-icon" class="text-slate-400 text-[8px] font-bold bg-[var(--card-bg)] px-1.5 py-0.5 rounded border border-[var(--card-border)] shadow-sm">СВЕРНУТЬ ▲</div>
+                        <div id="current-checklist-label"
+                            class="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider truncate">
+                            Вид работ не выбран</div>
+                        <div id="data-toggle-icon"
+                            class="text-slate-400 text-[8px] font-bold bg-[var(--card-bg)] px-1.5 py-0.5 rounded border border-[var(--card-border)] shadow-sm">
+                            СВЕРНУТЬ ▲</div>
                     </div>
                     <div id="data-block-content" class="grid grid-cols-2 gap-2">
-                        <input type="text" id="inp-project" class="input-base" placeholder="Объект *" oninput="scheduleSessionSave()">
-                        <input type="text" id="inp-inspector" class="input-base" placeholder="Проверяющий *" oninput="scheduleSessionSave()">
-                        <input type="text" id="inp-contractor" class="input-base" placeholder="Подрядчик *" oninput="scheduleSessionSave()">
-                        <input type="text" id="inp-location" class="input-base" placeholder="Ось, Этаж, Пом. *" oninput="scheduleSessionSave()">
+                        <input type="text" id="inp-project" class="input-base" placeholder="Объект *"
+                            oninput="scheduleSessionSave()">
+                        <input type="text" id="inp-inspector" class="input-base" placeholder="Проверяющий *"
+                            oninput="scheduleSessionSave()">
+                        <input type="text" id="inp-contractor" class="input-base" placeholder="Подрядчик *"
+                            oninput="scheduleSessionSave()">
+                        <input type="text" id="inp-location" class="input-base" placeholder="Ось, Этаж, Пом. *"
+                            oninput="scheduleSessionSave()">
                     </div>
-                    <div id="data-block-summary" class="hidden text-[10px] font-bold text-slate-500 text-center py-1 cursor-pointer" onclick="toggleDataBlock(true)"></div>
+                    <div id="data-block-summary"
+                        class="hidden text-[10px] font-bold text-slate-500 text-center py-1 cursor-pointer"
+                        onclick="toggleDataBlock(true)"></div>
                 </div>
             </div>
 
             <!-- СТРОКА 4: Навигация (Всегда видна) -->
             <div id="audit-group-nav" class="overflow-x-auto whitespace-nowrap pb-1 no-scrollbar flex gap-2"></div>
-            
+
         </div>
     </header>
 
     <!-- === ОСНОВНОЙ КОНТЕЙНЕР === -->
     <main class="max-w-4xl mx-auto px-4 pt-4 pb-20">
-        
+
         <!-- ВКЛАДКА 1: ОСМОТР -->
         <div id="tab-audit" class="view-section active">
             <!-- Пустое состояние -->
-            <div id="empty-checklist-state" class="text-center py-10 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl shadow-sm mb-6 mt-4">
+            <div id="empty-checklist-state"
+                class="text-center py-10 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl shadow-sm mb-6 mt-4">
                 <div class="text-5xl mb-4">👋</div>
                 <div class="text-lg font-black uppercase tracking-tight">Добро пожаловать!</div>
                 <div class="text-xs text-[var(--text-muted)] mt-2 mb-8">Выберите вариант для старта:</div>
-                
+
                 <div class="border-t border-[var(--card-border)] pt-6 px-6 space-y-5">
                     <!-- Кнопка ДЕМО -->
                     <div>
-                        <button onclick="startDemoMode()" class="w-full bg-gradient-to-r from-sky-500 to-indigo-500 text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-md active:scale-95 flex justify-center items-center gap-2">
+                        <button onclick="startDemoMode()"
+                            class="w-full bg-gradient-to-r from-sky-500 to-indigo-500 text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-md active:scale-95 flex justify-center items-center gap-2">
                             🎮 Запустить Демо-режим
                         </button>
-                        <div class="text-[10px] text-[var(--text-muted)] leading-tight mt-2">Приложение заполнится 3 тестовыми подрядчиками (рейтинги, фото, графики). Все основные функции будут работать.</div>
+                        <div class="text-[10px] text-[var(--text-muted)] leading-tight mt-2">Приложение заполнится 3
+                            тестовыми подрядчиками (рейтинги, фото, графики). Все основные функции будут работать.</div>
                     </div>
-                    
+
                     <!-- Кнопка РЕАЛЬНАЯ РАБОТА -->
                     <div class="relative">
-                        <div class="w-full bg-[var(--hover-bg)] text-slate-700 dark:text-slate-300 border border-[var(--card-border)] py-3.5 rounded-xl font-black text-xs uppercase transition-all shadow-sm flex justify-center items-center gap-2 pointer-events-none">
+                        <div
+                            class="w-full bg-[var(--hover-bg)] text-slate-700 dark:text-slate-300 border border-[var(--card-border)] py-3.5 rounded-xl font-black text-xs uppercase transition-all shadow-sm flex justify-center items-center gap-2 pointer-events-none">
                             📋 Начать проверку (Выбрать)
                         </div>
-                        <select id="fake-checklist-selector" onchange="changeTemplate(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <select id="fake-checklist-selector" onchange="changeTemplate(this.value)"
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
                             <option value="" disabled selected>Выбрать...</option>
                             <optgroup label="Системные" id="fake-system-group"></optgroup>
                             <optgroup label="Загруженные" id="fake-user-group"></optgroup>
@@ -177,69 +238,108 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- НОВОЕ: Горизонтальная навигация по группам -->            
+
+            <!-- НОВОЕ: Горизонтальная навигация по группам -->
             <div id="audit-items"></div>
 
             <!-- Возвращаем кнопки действий -->
             <div class="grid grid-cols-2 gap-3 mt-8 mb-4" id="audit-actions" style="display:none;">
-                <button onclick="saveProductToArray()" class="bg-indigo-600 text-white rounded-xl py-4 font-black text-xs uppercase shadow-[0_10px_20px_rgba(79,70,229,0.3)] active:scale-95 transition-transform">✅ Сохранить в Историю</button>
-                <button onclick="resetChecklist()" class="bg-red-50 text-red-600 border border-red-200 rounded-xl py-4 font-black text-xs uppercase active:scale-95 transition-transform">🗑️ Очистить форму</button>
+                <button onclick="saveProductToArray()"
+                    class="bg-indigo-600 text-white rounded-xl py-4 font-black text-xs uppercase shadow-[0_10px_20px_rgba(79,70,229,0.3)] active:scale-95 transition-transform">✅
+                    Сохранить в Историю</button>
+                <button onclick="resetChecklist()"
+                    class="bg-red-50 text-red-600 border border-red-200 rounded-xl py-4 font-black text-xs uppercase active:scale-95 transition-transform">🗑️
+                    Очистить форму</button>
             </div>
         </div>
 
         <!-- ВКЛАДКА 2: ИСТОРИЯ -->
         <div id="tab-history" class="view-section">
-            
+
             <!-- "Липкая" панель фильтров -->
-            <div class="sticky-subnav bg-[var(--card-bg)]/90 p-3 rounded-2xl border border-[var(--card-border)] mb-4 shadow-ios">
-                
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-[11px] font-black text-[var(--text-muted)] uppercase tracking-wide">
+            <div id="hist-sticky-panel"
+                class="sticky-subnav bg-[var(--card-bg)]/95 p-3 rounded-2xl border border-[var(--card-border)] mb-4 shadow-ios">
+
+                <!-- Заголовок (кликабельный — сворачивает панель) -->
+                <div id="hist-panel-header" class="flex justify-between items-center mb-2">
+                    <span
+                        class="text-[11px] font-black text-[var(--text-muted)] uppercase tracking-wide flex items-center gap-1">
+                        <span id="hist-panel-toggle-icon">▾</span>
                         Сводная база (<span id="hist-count-total" class="text-indigo-600">0</span>)
                     </span>
-                    <button onclick="clearHistory()" class="text-[9px] font-black text-red-500 uppercase bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md active:scale-95">Очистить всё</button>
+                    <button onclick="clearHistory()"
+                        class="text-[9px] font-black text-red-500 uppercase bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-md active:scale-95">Очистить
+                        всё</button>
                 </div>
 
-                <!-- Строка поиска -->
-                <div class="relative mb-2">
-                    <span class="absolute left-3 top-2.5 text-[12px] text-[var(--text-muted)]">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    </span>
-                    <input type="text" id="hist-search-text" class="input-base pl-9 text-[11px]" placeholder="Поиск (локация, объект, инспектор)..." oninput="applyHistoryFilters()">
-                </div>
+                <!-- Тело панели (сворачиваемое) -->
+                <div id="hist-panel-body"
+                    style="transition: max-height 0.3s ease, opacity 0.3s ease; max-height: 400px; overflow: hidden;">
 
-                <div class="grid grid-cols-2 gap-2 mb-2">
-                    <select id="hist-filter-contractor" class="input-base text-[10px] !py-1.5" onchange="applyHistoryFilters()"><option value="ALL">Все подрядчики</option></select>
-                    <select id="hist-filter-period" class="input-base text-[10px] !py-1.5" onchange="applyHistoryFilters()">
-                        <option value="ALL">Всё время</option>
-                        <option value="DAY">Сегодня</option>
-                        <option value="WEEK">Неделя</option>
-                        <option value="MONTH">Месяц</option>
-                    </select>
-                </div>
-                
-                <div class="flex justify-between items-center px-1 border-t border-[var(--card-border)] pt-2 mt-1">
-                    <div class="flex gap-4">
-                        <label class="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-muted)] cursor-pointer">
-                            <input type="checkbox" id="hist-filter-photo" class="accent-indigo-600 w-3.5 h-3.5" onchange="applyHistoryFilters()"> С фото
-                        </label>
-                        <label class="flex items-center gap-1.5 text-[10px] font-bold text-red-500 cursor-pointer">
-                            <input type="checkbox" id="hist-filter-b3" class="accent-red-500 w-3.5 h-3.5" onchange="applyHistoryFilters()"> Только B3
-                        </label>
+                    <!-- Строка поиска -->
+                    <div class="relative mb-2">
+                        <span class="absolute left-3 top-2.5 text-[12px] text-[var(--text-muted)]">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </span>
+                        <input type="text" id="hist-search-text" class="input-base pl-9 text-[11px]"
+                            placeholder="Поиск (локация, объект, инспектор)..." oninput="applyHistoryFilters()">
                     </div>
                     
-                    <!-- Массовые операции (спрятаны под аккуратную иконку) -->
-                    <div class="flex items-center gap-2">
-                        <label class="flex items-center gap-1 text-[10px] font-bold text-indigo-600 cursor-pointer">
-                            <input type="checkbox" id="hist-select-all" class="w-3.5 h-3.5 accent-indigo-600" onchange="toggleAllHistory(this)"> Все
-                        </label>
-                        <button onclick="exportSelectedCsv()" class="text-green-600 bg-green-50 p-1.5 rounded-md active:scale-90" title="Выгрузить CSV">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        </button>
-                        <button onclick="deleteSelectedHistory()" class="text-red-600 bg-red-50 p-1.5 rounded-md active:scale-90" title="Удалить выбранные">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        </button>
+
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <select id="hist-filter-contractor" class="input-base text-[10px] !py-1.5"
+                            onchange="applyHistoryFilters()">
+                            <option value="ALL">Все подрядчики</option>
+                        </select>
+                        <select id="hist-filter-period" class="input-base text-[10px] !py-1.5"
+                            onchange="applyHistoryFilters()">
+                            <option value="ALL">Всё время</option>
+                            <option value="DAY">Сегодня</option>
+                            <option value="WEEK">Неделя</option>
+                            <option value="MONTH">Месяц</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-between items-center px-1 border-t border-[var(--card-border)] pt-2 mt-1">
+                        <div class="flex gap-4">
+                            <label
+                                class="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-muted)] cursor-pointer">
+                                <input type="checkbox" id="hist-filter-photo" class="accent-indigo-600 w-3.5 h-3.5"
+                                    onchange="applyHistoryFilters()"> С фото
+                            </label>
+                            <label class="flex items-center gap-1.5 text-[10px] font-bold text-red-500 cursor-pointer">
+                                <input type="checkbox" id="hist-filter-b3" class="accent-red-500 w-3.5 h-3.5"
+                                    onchange="applyHistoryFilters()"> Только B3
+                            </label>
+                        </div>
+
+                        <!-- Массовые операции (спрятаны под аккуратную иконку) -->
+                        <div class="flex items-center gap-2">
+                            <label class="flex items-center gap-1 text-[10px] font-bold text-indigo-600 cursor-pointer">
+                                <input type="checkbox" id="hist-select-all" class="w-3.5 h-3.5 accent-indigo-600"
+                                    onchange="toggleAllHistory(this)"> Все
+                            </label>
+                            <button onclick="exportSelectedCsv()"
+                                class="text-green-600 bg-green-50 p-1.5 rounded-md active:scale-90"
+                                title="Выгрузить CSV">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                            </button>
+                            <button onclick="deleteSelectedHistory()"
+                                class="text-red-600 bg-red-50 p-1.5 rounded-md active:scale-90"
+                                title="Удалить выбранные">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                                    </path>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -250,14 +350,23 @@
 
         <!-- ВКЛАДКА 3: АНАЛИТИКА И ОТЧЕТЫ -->
         <div id="tab-analytics" class="view-section">
-            
+
             <!-- Подвкладки внутри Аналитики -->
             <!-- Подвкладки внутри Аналитики -->
-            <div class="sticky-subnav flex gap-1 p-1 bg-[var(--card-border)]/80 rounded-xl overflow-x-auto no-scrollbar whitespace-nowrap text-center shadow-ios mx-1">
-                <button onclick="switchAnalyticsSubTab('sub-rating', this)" class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)]">🏆 Рейтинг</button>
-                <button onclick="switchAnalyticsSubTab('sub-charts', this)" class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md bg-white shadow-sm text-indigo-600">📊 Аналитика</button>
-                <button onclick="switchAnalyticsSubTab('sub-reports', this)" class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)]">📄 Отчёты</button>
-                <button onclick="switchAnalyticsSubTab('sub-data', this)" class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)]">⚙️ Данные</button>
+            <div
+                class="sticky-subnav flex gap-1 p-1 bg-[var(--card-border)]/80 rounded-xl overflow-x-auto no-scrollbar whitespace-nowrap text-center shadow-ios mx-1">
+                <button onclick="switchAnalyticsSubTab('sub-rating', this)"
+                    class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)]">🏆
+                    Рейтинг</button>
+                <button onclick="switchAnalyticsSubTab('sub-charts', this)"
+                    class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md bg-white shadow-sm text-indigo-600">📊
+                    Аналитика</button>
+                <button onclick="switchAnalyticsSubTab('sub-reports', this)"
+                    class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)]">📄
+                    Отчёты</button>
+                <button onclick="switchAnalyticsSubTab('sub-data', this)"
+                    class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)]">⚙️
+                    Данные</button>
             </div>
 
             <!-- Раздел: Рейтинг -->
@@ -268,7 +377,9 @@
                         <span class="text-indigo-500 cursor-pointer" onclick="showHelp('rating')">ⓘ</span>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
-                        <select id="rating-template-select" class="input-base" onchange="renderRatingTab()"><option value="ALL">Все виды работ</option></select>
+                        <select id="rating-template-select" class="input-base" onchange="renderRatingTab()">
+                            <option value="ALL">Все виды работ</option>
+                        </select>
                         <select id="rating-period-select" class="input-base" onchange="renderRatingTab()">
                             <option value="ALL">За весь период</option>
                             <option value="MONTH">За 30 дней</option>
@@ -277,19 +388,22 @@
                         </select>
                     </div>
                 </div>
-                <div id="rating-empty-msg" class="text-center py-6 text-sm text-[var(--text-muted)]">Нет данных для рейтинга.</div>
+                <div id="rating-empty-msg" class="text-center py-6 text-sm text-[var(--text-muted)]">Нет данных для
+                    рейтинга.</div>
                 <div id="rating-list"></div>
                 <!-- Возвращаем кнопку рейтинга -->
-                <button onclick="exportRatingPdf()" class="fixed bottom-20 right-4 lg:right-[calc(50vw-26rem)] w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-[0_10px_25px_rgba(79,70,229,0.5)] z-[100] active:scale-90 transition-transform" title="Скачать PDF">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                   </button>
-                   <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3 flex justify-between items-center">
-                        <span>Параметры рейтинга</span>
-                        <div class="flex items-center">
-                            <span class="text-indigo-500 cursor-pointer bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 mr-2 text-[10px]" onclick="showHelp('rating')">Справка ⓘ</span>
-                            <span onclick="alert('Рейтинг строится ТОЛЬКО для подрядчиков, у которых есть МИНИМУМ 7 проверок по одному и тому же виду работ. Чем выше УрК и ниже волатильность (скачки качества), тем выше место.')" class="demo-hint hidden">?</span>
-                        </div>
+                <div
+                    class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3 flex justify-between items-center">
+                    <span>Параметры рейтинга</span>
+                    <div class="flex items-center">
+                        <span
+                            class="text-indigo-500 cursor-pointer bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 mr-2 text-[10px]"
+                            onclick="showHelp('rating')">Справка ⓘ</span>
+                        <span
+                            onclick="alert('Рейтинг строится ТОЛЬКО для подрядчиков, у которых есть МИНИМУМ 7 проверок по одному и тому же виду работ. Чем выше УрК и ниже волатильность (скачки качества), тем выше место.')"
+                            class="demo-hint hidden">?</span>
                     </div>
+                </div>
             </div>
 
             <!-- Раздел: Графики (Аналитика) -->
@@ -300,8 +414,12 @@
                         <span class="text-indigo-500 cursor-pointer" onclick="showHelp('analytics')">ⓘ</span>
                     </div>
                     <div class="grid grid-cols-2 gap-3 mb-3">
-                        <select id="analytics-contractor-select" class="input-base" onchange="renderAnalyticsTab()"><option value="ALL">Все подрядчики</option></select>
-                        <select id="analytics-template-select" class="input-base" onchange="renderAnalyticsTab()"><option value="ALL">Все виды работ</option></select>
+                        <select id="analytics-contractor-select" class="input-base" onchange="renderAnalyticsTab()">
+                            <option value="ALL">Все подрядчики</option>
+                        </select>
+                        <select id="analytics-template-select" class="input-base" onchange="renderAnalyticsTab()">
+                            <option value="ALL">Все виды работ</option>
+                        </select>
                     </div>
                     <select id="analytics-period-select" class="input-base" onchange="renderAnalyticsTab()">
                         <option value="ALL">За весь период</option>
@@ -312,22 +430,26 @@
                 </div>
                 <div id="analytics-contractors-container"></div>
                 <!-- Возвращаем кнопку отчета -->
-                <button onclick="exportPdfReport()" class="fixed bottom-20 right-4 lg:right-[calc(50vw-26rem)] w-12 h-12 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-[0_10px_25px_rgba(79,70,229,0.5)] z-[100] active:scale-90 transition-transform" title="Скачать PDF">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                   </button>
             </div>
 
             <!-- Раздел: Отчеты -->
             <div id="sub-reports" class="analytics-sub-section hidden">
                 <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 shadow-sm">
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3">Формирование отчётов</div>
-                    <div class="text-[10px] text-[var(--text-muted)] mb-4 leading-relaxed">Выберите фильтры (наследуются из Аналитики) для формирования сводного отчета по проверкам.</div>
-                    <div id="reports-preview-container" class="bg-[var(--hover-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 text-sm font-bold space-y-2">
+                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3">Формирование отчётов
+                    </div>
+                    <div class="text-[10px] text-[var(--text-muted)] mb-4 leading-relaxed">Выберите фильтры (наследуются
+                        из Аналитики) для формирования сводного отчета по проверкам.</div>
+                    <div id="reports-preview-container"
+                        class="bg-[var(--hover-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 text-sm font-bold space-y-2">
                         <!-- Предпросмотр генерируется через JS -->
                     </div>
                     <div class="grid grid-cols-2 gap-3">
-                        <button onclick="exportPdfReport()" class="bg-indigo-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-2">📄 PDF Отчёт</button>
-                        <button onclick="handleDataExport('csv')" class="bg-green-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-2">📊 CSV Таблица</button>
+                        <button onclick="exportPdfReport()"
+                            class="bg-indigo-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-2">📄
+                            PDF Отчёт</button>
+                        <button onclick="handleDataExport('csv')"
+                            class="bg-green-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-2">📊
+                            CSV Таблица</button>
                     </div>
                 </div>
             </div>
@@ -336,46 +458,69 @@
             <div id="sub-data" class="analytics-sub-section hidden">
                 <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 shadow-sm">
                     <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3">Экспорт базы</div>
-                    <button onclick="handleDataExport('json')" class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">💾 Скачать всю базу (Бэкап JSON)</button>
+                    <button onclick="handleDataExport('json')"
+                        class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">💾
+                        Скачать всю базу (Бэкап JSON)</button>
                 </div>
                 <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 shadow-sm">
                     <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3">Импорт базы</div>
-                    <div class="text-[10px] text-orange-600 bg-orange-50 p-2 rounded mb-3 font-bold">💡 Режим слияния: новые проверки добавятся к существующим, дубли по ID будут проигнорированы.</div>
-                    <button onclick="triggerDataImport()" class="w-full bg-indigo-50 border border-indigo-200 text-indigo-700 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">📥 Загрузить БД (JSON)</button>
+                    <div class="text-[10px] text-orange-600 bg-orange-50 p-2 rounded mb-3 font-bold">💡 Режим слияния:
+                        новые проверки добавятся к существующим, дубли по ID будут проигнорированы.</div>
+                    <button onclick="triggerDataImport()"
+                        class="w-full bg-indigo-50 border border-indigo-200 text-indigo-700 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">📥
+                        Загрузить БД (JSON)</button>
                 </div>
                 <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 shadow-sm">
                     <div class="text-[11px] font-bold text-red-600 uppercase mb-3">Управление</div>
                     <div class="grid grid-cols-2 gap-3">
-                        <button onclick="clearHistory()" class="bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95">Очистить историю</button>
-                        <button onclick="fullFactoryReset()" class="bg-red-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95">Полный сброс</button>
+                        <button onclick="clearHistory()"
+                            class="bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95">Очистить
+                            историю</button>
+                        <button onclick="fullFactoryReset()"
+                            class="bg-red-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95">Полный
+                            сброс</button>
                     </div>
                 </div>
             </div>
-            
+
         </div>
 
         <!-- ВКЛАДКА 4: СПРАВОЧНИК -->
         <div id="tab-reference" class="view-section">
-            <div class="text-2xl font-black mb-6 pl-2 mt-4">Справочник 📚</div>
-            
-            <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-6 shadow-sm">
-                <!-- Собственный селектор справочника -->
-                <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">Выбор чек-листа</div>
-                <div class="relative flex items-center bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2.5 rounded-lg border border-indigo-200 dark:border-indigo-800 mb-4 cursor-pointer">
-                    <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-400 uppercase w-full flex justify-between" id="ref-selector-label">Выберите вид работ... <span>▼</span></span>
-                    <select id="ref-checklist-selector" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="changeRefTemplate(this)">
-                        <option value="" disabled selected>Выбрать...</option>
-                        <optgroup label="Системные" id="ref-system-group"></optgroup>
-                        <optgroup label="Загруженные" id="ref-user-group"></optgroup>
-                    </select>
+
+            <div id="ref-sticky-panel" class="sticky-subnav bg-[var(--card-bg)]/90 p-3 rounded-2xl border border-[var(--card-border)] mb-4 shadow-ios">
+
+                <!-- Заголовок — кликабельный -->
+                <div id="ref-panel-header" class="flex justify-between items-center mb-2" style="cursor:pointer">
+                    <span class="text-[11px] font-black text-[var(--text-muted)] uppercase tracking-wide flex items-center gap-1">
+                        <span id="ref-panel-toggle-icon" style="display:inline-block;transition:transform 0.3s">▾</span>
+                        Справочник 📚
+                    </span>
+                    <span id="ref-count" class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100"></span>
                 </div>
 
-                <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">Поиск по нормативам</div>
-                <div class="relative">
-                    <span class="absolute left-3 top-2.5 text-[14px]">🔍</span>
-                    <input type="text" id="ref-search" class="input-base pl-8" placeholder="Название, ГОСТ, СП..." oninput="renderReferenceTab()">
+                <!-- Строка поиска — ВСЕГДА видна -->
+                <div class="relative mb-2">
+                    <span class="absolute left-3 top-2.5 text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </span>
+                    <input type="text" id="ref-search" class="input-base pl-9 text-[11px]" placeholder="Поиск по названию, ГОСТ, СП..." oninput="renderReferenceTab()">
                 </div>
-            </div>
+
+                <!-- Селектор чек-листа — сворачивается -->
+                <div id="ref-panel-body" style="transition:max-height 0.35s ease,opacity 0.3s ease;max-height:200px;overflow:hidden;">
+                    <div class="relative flex items-center bg-indigo-50 dark:bg-indigo-900/30 px-3 py-2 rounded-lg border border-indigo-200 dark:border-indigo-800 cursor-pointer">
+                        <span class="text-[11px] font-black text-indigo-700 dark:text-indigo-400 uppercase w-full flex justify-between" id="ref-selector-label">Выберите вид работ... <span>▼</span></span>
+                        <select id="ref-checklist-selector" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="changeRefTemplate(this)">
+                            <option value="" disabled selected>Выбрать...</option>
+                            <optgroup label="Системные" id="ref-system-group"></optgroup>
+                            <optgroup label="Загруженные" id="ref-user-group"></optgroup>
+                        </select>
+                    </div>
+                </div><!-- /ref-panel-body -->
+
+            </div><!-- /ref-sticky-panel -->
+
             <div id="reference-items">
                 <div class="text-center py-12 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl">
                     <div class="text-4xl mb-4">📖</div>
@@ -387,33 +532,49 @@
         <!-- ВКЛАДКА 5: НАСТРОЙКИ -->
         <div id="tab-settings" class="view-section">
             <div class="text-2xl font-black mb-6 pl-2">Настройки ⚙️</div>
-            
+
             <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2 pl-2">Оформление</div>
             <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl mb-6 overflow-hidden">
                 <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
-    <div><div class="font-bold text-sm">Оформление</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Цветовая схема</div></div>
-    <select id="set-theme" class="input-base w-32" onchange="toggleSetting('theme', this)">
-        <option value="auto">Системная</option>
-        <option value="light">Светлая</option>
-        <option value="dark">Тёмная</option>
-    </select>
-</div>
+                    <div>
+                        <div class="font-bold text-sm">Оформление</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Цветовая схема</div>
+                    </div>
+                    <select id="set-theme" class="input-base w-32" onchange="toggleSetting('theme', this)">
+                        <option value="auto">Системная</option>
+                        <option value="light">Светлая</option>
+                        <option value="dark">Тёмная</option>
+                    </select>
+                </div>
                 <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
-                    <div><div class="font-bold text-sm">Размер шрифта</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Масштаб интерфейса</div></div>
+                    <div>
+                        <div class="font-bold text-sm">Размер шрифта</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Масштаб интерфейса</div>
+                    </div>
                     <select id="set-fontsize" class="input-base w-32" onchange="toggleSetting('fontSize', this)">
-                        <option value="small">Мелкий</option><option value="medium">Средний</option><option value="large">Крупный</option><option value="xlarge">Очень крупный</option>
+                        <option value="small">Мелкий</option>
+                        <option value="medium">Средний</option>
+                        <option value="large">Крупный</option>
+                        <option value="xlarge">Очень крупный</option>
                     </select>
                 </div>
                 <div class="p-4 flex justify-between items-center">
-                    <div><div class="font-bold text-sm">Скрыть мини-дашборд</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Освободить место в шапке</div></div>
-                    <label class="toggle-switch"><input type="checkbox" id="set-hidedash" onchange="toggleSetting('hideDashboard', this)"><span class="toggle-slider"></span></label>
+                    <div>
+                        <div class="font-bold text-sm">Скрыть мини-дашборд</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Освободить место в шапке</div>
+                    </div>
+                    <label class="toggle-switch"><input type="checkbox" id="set-hidedash"
+                            onchange="toggleSetting('hideDashboard', this)"><span class="toggle-slider"></span></label>
                 </div>
             </div>
 
             <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2 pl-2">Интерфейс и Управление</div>
             <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl mb-6 overflow-hidden">
                 <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
-                    <div><div class="font-bold text-sm">Позиция меню</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Где отображать кнопки вкладок</div></div>
+                    <div>
+                        <div class="font-bold text-sm">Позиция меню</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Где отображать кнопки вкладок</div>
+                    </div>
                     <select id="set-navpos" class="input-base w-32" onchange="toggleSetting('navPosition', this)">
                         <option value="auto">Авто (ПК-Верх)</option>
                         <option value="top">Всегда сверху</option>
@@ -421,39 +582,65 @@
                     </select>
                 </div>
                 <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
-                    <div><div class="font-bold text-sm">Свайпы (Вправо/Влево)</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Управление жестами в Осмотре</div></div>
-                    <label class="toggle-switch"><input type="checkbox" id="set-swipe" onchange="toggleSetting('swipeEnabled', this)"><span class="toggle-slider"></span></label>
+                    <div>
+                        <div class="font-bold text-sm">Свайпы (Вправо/Влево)</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Управление жестами в Осмотре</div>
+                    </div>
+                    <label class="toggle-switch"><input type="checkbox" id="set-swipe"
+                            onchange="toggleSetting('swipeEnabled', this)"><span class="toggle-slider"></span></label>
                 </div>
                 <div class="p-4 flex justify-between items-center">
-                    <div><div class="font-bold text-sm">Схлопывать OK</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Сворачивать пройденные карточки</div></div>
-                    <label class="toggle-switch"><input type="checkbox" id="set-collapse" onchange="toggleSetting('autoCollapseOk', this)"><span class="toggle-slider"></span></label>
+                    <div>
+                        <div class="font-bold text-sm">Схлопывать OK</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Сворачивать пройденные карточки</div>
+                    </div>
+                    <label class="toggle-switch"><input type="checkbox" id="set-collapse"
+                            onchange="toggleSetting('autoCollapseOk', this)"><span class="toggle-slider"></span></label>
                 </div>
             </div>
 
             <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2 pl-2">Чек-лист</div>
             <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl mb-6 overflow-hidden">
                 <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
-                    <div><div class="font-bold text-sm">Быстрый режим</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Скрыть тексты нормативов</div></div>
-                    <label class="toggle-switch"><input type="checkbox" id="set-fast" onchange="toggleSetting('fastMode', this)"><span class="toggle-slider"></span></label>
+                    <div>
+                        <div class="font-bold text-sm">Быстрый режим</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Скрыть тексты нормативов</div>
+                    </div>
+                    <label class="toggle-switch"><input type="checkbox" id="set-fast"
+                            onchange="toggleSetting('fastMode', this)"><span class="toggle-slider"></span></label>
                 </div>
                 <div class="p-4 flex justify-between items-center">
-                    <div><div class="font-bold text-sm">Ошибки наверх</div><div class="text-[10px] text-[var(--text-muted)] mt-1">FAIL-карточки поднимаются в топ</div></div>
-                    <label class="toggle-switch"><input type="checkbox" id="set-sortfail" onchange="toggleSetting('sortFailTop', this)"><span class="toggle-slider"></span></label>
+                    <div>
+                        <div class="font-bold text-sm">Ошибки наверх</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">FAIL-карточки поднимаются в топ</div>
+                    </div>
+                    <label class="toggle-switch"><input type="checkbox" id="set-sortfail"
+                            onchange="toggleSetting('sortFailTop', this)"><span class="toggle-slider"></span></label>
                 </div>
             </div>
-            <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2 pl-2">Экспертное заключение ИИ</div>
+            <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2 pl-2">Экспертное заключение ИИ
+            </div>
             <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl mb-6 overflow-hidden">
                 <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
-                    <div><div class="font-bold text-sm">Режим ИИ (DeepSeek)</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Использовать нейросеть для выводов</div></div>
-                    <label class="toggle-switch"><input type="checkbox" id="set-ai" onchange="toggleSetting('aiEnabled', this)"><span class="toggle-slider"></span></label>
+                    <div>
+                        <div class="font-bold text-sm">Режим ИИ (DeepSeek)</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Использовать нейросеть для выводов</div>
+                    </div>
+                    <label class="toggle-switch"><input type="checkbox" id="set-ai"
+                            onchange="toggleSetting('aiEnabled', this)"><span class="toggle-slider"></span></label>
                 </div>
                 <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
-                    <div><div class="font-bold text-sm">Авто-генерация</div><div class="text-[10px] text-[var(--text-muted)] mt-1">Создавать при открытии отчета</div></div>
-                    <label class="toggle-switch"><input type="checkbox" id="set-aiauto" onchange="toggleSetting('aiAuto', this)"><span class="toggle-slider"></span></label>
+                    <div>
+                        <div class="font-bold text-sm">Авто-генерация</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Создавать при открытии отчета</div>
+                    </div>
+                    <label class="toggle-switch"><input type="checkbox" id="set-aiauto"
+                            onchange="toggleSetting('aiAuto', this)"><span class="toggle-slider"></span></label>
                 </div>
                 <div class="p-4 flex flex-col gap-2">
                     <div class="font-bold text-sm">API ключ DeepSeek</div>
-                    <input type="password" id="set-apikey" class="input-base font-mono text-[10px]" placeholder="sk-..." onchange="toggleSetting('apiKey', this)">
+                    <input type="password" id="set-apikey" class="input-base font-mono text-[10px]" placeholder="sk-..."
+                        onchange="toggleSetting('apiKey', this)">
                 </div>
             </div>
 
@@ -470,7 +657,9 @@
                     <span>Исп: <span id="storage-used">--</span> МБ</span>
                     <span>Свободно: <span id="storage-free">--</span> МБ</span>
                 </div>
-                <button onclick="clearPdfCache()" class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] text-slate-600 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">🗑️ Очистить кэш PDF</button>
+                <button onclick="clearPdfCache()"
+                    class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] text-slate-600 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">🗑️
+                    Очистить кэш PDF</button>
             </div>
             <div class="text-center text-[10px] text-[var(--text-muted)] pb-10">
                 RBI Quality Progressive Web App<br>Версия 16.0 (Modular)<br>Developed by Igor Kondratiev
@@ -482,23 +671,43 @@
     <!-- === НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (iOS-like) === -->
     <nav class="bottom-nav nav-auto">
         <div class="nav-item active" data-tab="tab-audit">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
+                </path>
+            </svg>
             <span class="nav-text">Осмотр</span>
         </div>
         <div class="nav-item" data-tab="tab-history">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z">
+                </path>
+            </svg>
             <span class="nav-text">История</span>
         </div>
         <div class="nav-item" data-tab="tab-analytics">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                </path>
+            </svg>
             <span class="nav-text">Аналитика</span>
         </div>
         <div class="nav-item" data-tab="tab-reference">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253">
+                </path>
+            </svg>
             <span class="nav-text">Справочник</span>
         </div>
         <div class="nav-item" data-tab="tab-settings">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                </path>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
             <span class="nav-text">Настройки</span>
         </div>
     </nav>
@@ -508,11 +717,11 @@
     <script src="js/templates.js"></script>
     <script src="js/math.js"></script>
     <script src="js/app.js"></script>
-    
+
     <!-- Скрипт для модалок зума фото, которые переехали из v15 -->
     <script>
         const viewerImg = document.getElementById('photo-viewer-img');
-        if(viewerImg) {
+        if (viewerImg) {
             document.getElementById('photo-viewer-overlay').addEventListener('wheel', (e) => {
                 e.preventDefault();
                 currentZoom += e.deltaY * -0.001;
@@ -520,30 +729,30 @@
                 updateImageTransform();
             });
             viewerImg.addEventListener('mousedown', (e) => {
-                if(currentZoom > 1) { isDragging = true; startX = e.clientX - translateX; startY = e.clientY - translateY; }
+                if (currentZoom > 1) { isDragging = true; startX = e.clientX - translateX; startY = e.clientY - translateY; }
             });
             window.addEventListener('mouseup', () => { isDragging = false; });
             window.addEventListener('mousemove', (e) => {
-                if(isDragging && currentZoom > 1) {
+                if (isDragging && currentZoom > 1) {
                     translateX = e.clientX - startX; translateY = e.clientY - startY;
                     updateImageTransform();
                 }
             });
             viewerImg.addEventListener('touchstart', (e) => {
-                if(e.touches.length === 1 && currentZoom > 1) {
+                if (e.touches.length === 1 && currentZoom > 1) {
                     isDragging = true; startX = e.touches[0].clientX - translateX; startY = e.touches[0].clientY - translateY;
                 }
             });
             window.addEventListener('touchend', () => { isDragging = false; });
             window.addEventListener('touchmove', (e) => {
-                if(isDragging && currentZoom > 1 && e.touches.length === 1) {
+                if (isDragging && currentZoom > 1 && e.touches.length === 1) {
                     translateX = e.touches[0].clientX - startX; translateY = e.touches[0].clientY - startY;
                     updateImageTransform();
                 }
             });
         }
         function updateImageTransform() {
-            if(currentZoom === 1) { translateX = 0; translateY = 0; }
+            if (currentZoom === 1) { translateX = 0; translateY = 0; }
             viewerImg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentZoom})`;
         }
     </script>
@@ -562,5 +771,15 @@
             });
         }
     </script>
+    <!-- === ПЛАВАЮЩАЯ КНОПКА СКАЧАТЬ PDF (ВСЕГДА ВИДНА НА НУЖНЫХ ВКЛАДКАХ) === -->
+    <button id="fab-download-btn" onclick="handleFabDownload()"
+        class="fixed w-14 h-14 bg-indigo-600 text-white rounded-full items-center justify-center shadow-[0_10px_25px_rgba(79,70,229,0.5)] z-[500] active:scale-90 transition-all duration-300 hidden"
+        title="Скачать PDF">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        </svg>
+    </button>
 </body>
+
 </html>
