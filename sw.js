@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rbi-quality-cache-v16.1';
+const CACHE_NAME = 'rbi-quality-cache-v16.0.1';
 
 // Список файлов, которые нужно сохранить в память телефона для работы без интернета
 const urlsToCache = [
