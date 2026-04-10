@@ -1,29 +1,22 @@
 {
-  "name": "RBI Quality v16",
-  "short_name": "RBI",
-  "start_url": "/quality_rbi_beta_16/index.html",
-  "scope": "/quality_rbi_beta_16/",
+  "name": "RBI Quality v.16",
+  "short_name": "RBI Quality",
+  "description": "Система контроля качества и аудита",
+  "start_url": "./index.html",
   "display": "standalone",
-  "orientation": "portrait-primary",
   "background_color": "#f8fafc",
   "theme_color": "#4f46e5",
-  "description": "Контроль качества работ",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "icons/icon-192.png",
+      "src": "./icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "icons/icon-512.png",
+      "src": "./icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
-    },
-    {
-      "src": "icons/icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ]
 }
