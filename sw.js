@@ -1,69 +1,78 @@
-const CACHE_NAME = 'rbi-quality-v16.0';
+const CACHE_NAME = 'rbi-quality-cache-v16.0';
 
-// ПРАВИЛЬНЫЕ пути для кэширования
+// Список файлов, которые нужно сохранить в память телефона для работы без интернета
 const urlsToCache = [
-  '/quality_rbi_beta_16/',
-  '/quality_rbi_beta_16/index.html',
-  '/quality_rbi_beta_16/css/style.css',
-  '/quality_rbi_beta_16/js/app.js',
-  '/quality_rbi_beta_16/js/math.js',
-  '/quality_rbi_beta_16/js/storage.js',
-  '/quality_rbi_beta_16/js/templates.js',
-  '/quality_rbi_beta_16/manifest.webmanifest',
-  'https://cdn.tailwindcss.com',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap'
+  './',
+  './index.html',
+  './css/style.css',
+  './js/storage.js',
+  './js/templates.js',
+  './js/math.js',
+  './js/app.js',
+  './manifest.webmanifest'
+  // Если добавишь иконки, раскомментируй строки ниже:
+  // './icons/icon-192.png',
+  // './icons/icon-512.png'
 ];
 
-// Устанавливаем сервис-воркер и кэшируем файлы
+// 1. Установка Service Worker и кэширование файлов
 self.addEventListener('install', event => {
-  console.log('[SW] Установка');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('[SW] Кэширование файлов');
+        console.log('Кэш открыт, загружаем файлы...');
         return cache.addAll(urlsToCache);
       })
-      .then(() => self.skipWaiting())
   );
+  self.skipWaiting();
 });
 
-// Активация - удаляем старые кэши
+// 2. Активация и удаление старых кэшей (если обновилась версия)
 self.addEventListener('activate', event => {
-  console.log('[SW] Активация');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.map(cache => {
-          if (cache !== CACHE_NAME) {
-            console.log('[SW] Удаление старого кэша', cache);
-            return caches.delete(cache);
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('Удаляем старый кэш:', cacheName);
+            return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim())
+    })
   );
+  self.clients.claim();
 });
 
-// Перехват fetch-запросов - стратегия "сначала кэш, потом сеть"
+// 3. Перехват запросов (достаем из кэша, если нет интернета)
 self.addEventListener('fetch', event => {
+  // Пропускаем запросы к API или расширениям браузера (chrome-extension)
+  if (!event.request.url.startsWith('http')) return;
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
+        // Если файл есть в кэше — отдаем его
         if (response) {
           return response;
         }
-        return fetch(event.request).then(response => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
+        // Если файла нет в кэше — скачиваем из интернета
+        return fetch(event.request).then(
+          function(response) {
+            // Проверяем, что ответ нормальный
+            if(!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+            
+            // Динамически кэшируем новые ресурсы (например, скрипт Tailwind)
+            var responseToCache = response.clone();
+            caches.open(CACHE_NAME)
+              .then(function(cache) {
+                cache.put(event.request, responseToCache);
+              });
             return response;
           }
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then(cache => {
-              cache.put(event.request, responseToCache);
-            });
-          return response;
-        });
+        );
       })
   );
 });
