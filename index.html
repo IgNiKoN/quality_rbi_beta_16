@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RBI QUALITY v.16.0 (Modular)</title>
 
-    <link rel="manifest" href="https://ignikon.github.io/quality_rbi_beta_16/manifest.webmanifest">
+    <link rel="manifest" href="./manifest.webmanifest">
     <meta name="theme-color" content="#4f46e5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -14,7 +14,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Подключаем наши модульные стили v16.0 -->
-    <link rel="stylesheet" href="/quality_rbi_beta_16/css/style.css">
+    <link rel="stylesheet" href="css/style.css">
     <!-- Подключаем Chart.js для старых графиков -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -154,15 +154,6 @@
             <!-- Возвращаем кнопки действий -->
             <div class="grid grid-cols-2 gap-3 mt-8 mb-4" id="audit-actions" style="display:none;">
                 <button onclick="saveProductToArray()" class="bg-indigo-600 text-white rounded-xl py-4 font-black text-xs uppercase shadow-[0_10px_20px_rgba(79,70,229,0.3)] active:scale-95 transition-transform">✅ Сохранить в Историю</button>
-                <button onclick="resetChecklist()" class="bg-red-50 text-red-600 border border-red-200 rounded-xl py-4 font-black text-xs uppercase active:scale-95 transition-transform">🗑️ Очистить форму</button>
-            </div>
-        </div>
-
-
-        </div>
-
-            <div class="grid grid-cols-2 gap-3 mt-8" id="audit-actions" style="display:none;">
-                <button onclick="saveProductToArray()" class="bg-indigo-600 text-white rounded-xl py-4 font-black text-xs uppercase shadow-lg active:scale-95 transition-transform">✅ Сохранить в Историю</button>
                 <button onclick="resetChecklist()" class="bg-red-50 text-red-600 border border-red-200 rounded-xl py-4 font-black text-xs uppercase active:scale-95 transition-transform">🗑️ Очистить форму</button>
             </div>
         </div>
@@ -454,10 +445,10 @@
     </nav>
 
     <!-- === ПОДКЛЮЧЕНИЕ МОДУЛЕЙ JS === -->
-            <script src="/quality_rbi_beta_16/js/storage.js"></script>
-            <script src="/quality_rbi_beta_16/js/templates.js"></script>
-            <script src="/quality_rbi_beta_16/js/math.js"></script>
-            <script src="/quality_rbi_beta_16/js/app.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/templates.js"></script>
+    <script src="js/math.js"></script>
+    <script src="js/app.js"></script>
     
     <!-- Скрипт для модалок зума фото, которые переехали из v15 -->
     <script>
@@ -495,6 +486,21 @@
         function updateImageTransform() {
             if(currentZoom === 1) { translateX = 0; translateY = 0; }
             viewerImg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentZoom})`;
+        }
+    </script>
+
+    <!-- === ПОДКЛЮЧЕНИЕ PWA SERVICE WORKER === -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('Service Worker успешно зарегистрирован:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('Ошибка регистрации Service Worker:', error);
+                    });
+            });
         }
     </script>
 </body>

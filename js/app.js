@@ -1907,3 +1907,81 @@ function generatePdfHtmlShell(title, pName, iName, tName, content) {
         ${content}
     </div></body></html>`;
 }
+// === ФУНКЦИИ РЕДАКТИРОВАНИЯ ЗАКЛЮЧЕНИЯ ИИ ===
+let currentEditingExpertKey = null;
+let currentEditingTextAreaId = null;
+
+function editExpertText(expertKey, textAreaId) {
+    currentEditingExpertKey = expertKey;
+    currentEditingTextAreaId = textAreaId;
+    
+    const textArea = document.getElementById(textAreaId);
+    const modalInput = document.getElementById('modal-expert-input');
+    const overlay = document.getElementById('expert-modal-overlay');
+    
+    if(!textArea || !modalInput || !overlay) return;
+    
+    // Переносим текст из скрытого поля в модалку
+    modalInput.value = textArea.value;
+    
+    // Показываем модалку
+    overlay.style.display = 'flex';
+    document.body.classList.add('modal-open');
+}
+
+function cancelExpertEdit() {
+    const overlay = document.getElementById('expert-modal-overlay');
+    if(overlay) overlay.style.display = 'none';
+    document.body.classList.remove('modal-open');
+    currentEditingExpertKey = null;
+    currentEditingTextAreaId = null;
+}
+
+function resetExpertEdit() {
+    if(!currentEditingExpertKey) return;
+    if(confirm('Сбросить текст до оригинального заключения ИИ? Ваша редакция будет удалена.')) {
+        delete customExpertConclusions[currentEditingExpertKey];
+        cancelExpertEdit();
+        renderAnalyticsTab(); // Перерисовываем аналитику
+        showToast('Текст сброшен к исходному');
+    }
+}
+
+function saveExpertEdit() {
+    const modalInput = document.getElementById('modal-expert-input');
+    if(!modalInput || !currentEditingExpertKey) return;
+    
+    const newText = modalInput.value.trim();
+    if(newText === "") {
+        showToast('Текст не может быть пустым!');
+        return;
+    }
+    
+    // Сохраняем в глобальный объект
+    customExpertConclusions[currentEditingExpertKey] = newText;
+    
+    cancelExpertEdit();
+    renderAnalyticsTab(); // Перерисовываем с новым текстом
+    showToast('Изменения сохранены!');
+}
+
+function copyExpertText(btnId, textAreaId) {
+    const textArea = document.getElementById(textAreaId);
+    const btn = document.getElementById(btnId);
+    
+    if(!textArea || !btn) return;
+    
+    navigator.clipboard.writeText(textArea.value).then(() => {
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '✅<span class="hidden min-[400px]:inline"> Скопировано</span>';
+        btn.classList.add('bg-green-50', 'text-green-700', 'border-green-200');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('bg-green-50', 'text-green-700', 'border-green-200');
+        }, 2000);
+        showToast('Текст скопирован в буфер!');
+    }).catch(() => {
+        showToast('Ошибка копирования');
+    });
+}
