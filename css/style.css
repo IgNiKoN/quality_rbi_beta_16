@@ -61,8 +61,8 @@ body {
     padding-top: 140px; 
     padding-bottom: 90px; 
     transition: background 0.3s, color 0.3s; 
-    /* ВОТ ЭТИ ТРИ СТРОЧКИ ЖЕСТКО ЗАПРЕЩАЮТ ЭКРАНУ ПЛАВАТЬ ВЛЕВО-ВПРАВО: */
-    overflow-x: hidden !important;
+    /* ИСПРАВЛЕНИЕ: Используем clip вместо hidden, чтобы липкие панели работали! */
+    overflow-x: clip !important;
     width: 100vw;
     max-width: 100%;
 }
@@ -345,15 +345,14 @@ body.demo-mode .demo-hint {
 
 /* Плавный переход для вкладок */
 .view-section {
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity 0.3s ease; /* Убрали transform, чтобы не ломать fixed */
     opacity: 0;
-    transform: translateX(10px);
 }
 
 .view-section.active {
     opacity: 1;
-    transform: translateX(0);
-    animation: none; /* Убираем старую топорную анимацию */
+    transform: none !important; /* КРИТИЧЕСКАЯ ПРАВКА: разрешает position: fixed внутри вкладки */
+    animation: none; 
 }
 
 /* Схлопывание карточек (OK-состояние) */
@@ -410,52 +409,48 @@ body.nav-pos-auto .bottom-nav {
     .bottom-nav { border-radius: 0; } /* На телефонах на всю ширину */
 }
 
-/* Динамическое позиционирование подвкладок (Аналитика / Фильтры) */
+/* Динамическое позиционирование подвкладок (Аналитика / Фильтры / История) */
 .sticky-subnav {
     position: sticky;
     z-index: 40;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    transition: top 0.3s, bottom 0.3s, box-shadow 0.3s;
-}
-
-/* Если основное меню СВЕРХУ (или АВТО на ПК) */
-body.nav-pos-top .sticky-subnav,
-body.nav-pos-auto .sticky-subnav {
-    top: 70px; /* Прилипает сразу под шапкой */
-    bottom: auto;
+    transition: top 0.3s, box-shadow 0.3s;
+    /* Независимо от того, где находится главное меню, фильтры всегда прилипают сверху! */
+    top: 70px; 
     box-shadow: 0 4px 15px -3px rgba(0,0,0,0.05);
 }
 
-/* Если основное меню СНИЗУ (телефоны) */
+/* Принудительно отменяем прилипание к низу, если меню внизу */
 body.nav-pos-bottom .sticky-subnav {
-    top: auto;
-    bottom: 80px; /* Прилипает прямо над нижним меню */
-    box-shadow: 0 -4px 15px -3px rgba(0,0,0,0.05);
-    margin-bottom: 10px;
+    top: 70px;
+    bottom: auto;
+    margin-bottom: 20px;
 }
+
 /* Исправление для вылезающих кнопок на узких экранах */
 #tab-history .sticky-subnav .flex {
-    flex-wrap: wrap; /* Разрешаем кнопкам переноситься на новую строку */
+    flex-wrap: wrap; 
 }
 #tab-history .sticky-subnav {
     max-width: 100%;
     overflow-x: hidden;
 }
-/* === ПЛАВАЮЩАЯ КНОПКА СКАЧАТЬ (FAB) — адаптируется под меню === */
+
+/* === ПЛАВАЮЩАЯ КНОПКА СКАЧАТЬ (FAB) === */
 #fab-download-btn {
     bottom: 80px;
     right: 16px;
 }
 
-/* Если меню СВЕРХУ — кнопка опускается ниже */
+/* Если меню СВЕРХУ — кнопка опускается ниже, чтобы не висеть посреди экрана */
 body.nav-pos-top #fab-download-btn,
 body.nav-pos-auto #fab-download-btn {
     bottom: 24px;
     right: 16px;
 }
 
-/* На широких экранах — прижимаем к правому краю блока */
+/* На широких экранах (ПК) — прижимаем к правому краю контейнера */
 @media (min-width: 896px) {
     #fab-download-btn {
         right: calc(50vw - 26rem + 16px);
@@ -473,16 +468,6 @@ body.nav-pos-auto #fab-download-btn {
     to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* Адаптация sticky-subnav для Справочника — поведение как у Истории */
-#tab-reference .sticky-subnav {
-    top: 70px;
-}
-
-body.nav-pos-bottom #tab-reference .sticky-subnav {
-    top: auto;
-    bottom: 80px;
-}
-
 /* === ПЛАВНЫЕ ПЕРЕХОДЫ ДЛЯ СВОРАЧИВАЕМЫХ ПАНЕЛЕЙ ПОИСКА === */
 #hist-panel-body,
 #ref-panel-body {
@@ -497,4 +482,80 @@ body.nav-pos-bottom #tab-reference .sticky-subnav {
     display: inline-block;
     transition: transform 0.3s ease;
     font-style: normal;
+}
+
+/* === ИДЕАЛЬНОЕ ПОЗИЦИОНИРОВАНИЕ ЛИПКИХ ПАНЕЛЕЙ (ФИЛЬТРОВ И ВКЛАДОК) === */
+
+/* 1. ГЛОБАЛЬНЫЕ ФИЛЬТРЫ (История, Справочник, Аналитика) */
+.sticky-top-panel {
+    position: sticky !important;
+    top: 5px !important; /* Прилипает почти вплотную к потолку (если меню снизу) */
+    z-index: 40;
+    transition: top 0.3s ease;
+}
+
+/* Когда меню СВЕРХУ (добавляется высота меню 60px + 5px зазор) */
+body.nav-pos-top .sticky-top-panel {
+    top: 65px !important; 
+}
+
+/* Для ПК (режим авто переносит меню наверх) */
+@media (min-width: 768px) {
+    body.nav-pos-auto .sticky-top-panel {
+        top: 65px !important;
+    }
+}
+
+/* Плавная iOS-анимация сворачивания фильтров при скролле */
+#hist-panel-body,
+#ref-panel-body,
+#analytics-panel-body {
+    transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease, margin 0.3s ease;
+}
+
+
+/* 2. ПОДВКЛАДКИ АНАЛИТИКИ (Рейтинг, Инженерия и т.д.) */
+
+/* Меню СНИЗУ (телефоны) */
+body.nav-pos-auto #analytics-subtabs-block,
+body.nav-pos-bottom #analytics-subtabs-block {
+    position: fixed; 
+    bottom: calc(65px + env(safe-area-inset-bottom) + 10px);
+    left: 0; right: 0; z-index: 45;
+    width: 100%; max-width: 56rem; margin: 0 auto; padding-left: 1rem; padding-right: 1rem;
+}
+body.nav-pos-auto #tab-analytics,
+body.nav-pos-bottom #tab-analytics { padding-bottom: 70px; }
+body.nav-pos-auto #fab-download-btn,
+body.nav-pos-bottom #fab-download-btn {
+    bottom: calc(130px + env(safe-area-inset-bottom));
+    right: 16px;
+}
+
+/* Меню СВЕРХУ (Настройки) */
+body.nav-pos-top #analytics-subtabs-block {
+    position: sticky;
+    /* Прилипает ровно ПОД свернутыми фильтрами (65px меню + 45px свернутый фильтр + 5px зазор) */
+    top: 115px !important; 
+    bottom: auto; left: auto; right: auto; z-index: 45;
+    margin-bottom: 10px; padding-left: 0.25rem; padding-right: 0.25rem;
+}
+body.nav-pos-top #tab-analytics { padding-bottom: 0; }
+body.nav-pos-top #fab-download-btn { bottom: 30px; }
+
+
+/* Для ПК (Режим Авто) */
+@media (min-width: 768px) {
+    body.nav-pos-auto #analytics-subtabs-block {
+        position: sticky;
+        top: 115px !important;
+        bottom: auto; left: auto; right: auto; z-index: 45;
+        margin-bottom: 10px; padding-left: 0.25rem; padding-right: 0.25rem;
+    }
+    body.nav-pos-auto #tab-analytics { padding-bottom: 0; }
+    body.nav-pos-auto #fab-download-btn { bottom: 30px; }
+}
+
+@media (min-width: 896px) {
+    #fab-download-btn { right: calc(50vw - 26rem + 16px) !important; }
 }

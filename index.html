@@ -97,6 +97,24 @@
             </div>
         </div>
     </div>
+    <!-- === МОДАЛКА ПРИЧИНЫ И КОММЕНТАРИЯ === -->
+    <div id="comment-modal-overlay" class="fixed inset-0 bg-slate-900/70 z-[1600] hidden items-center justify-center p-4 backdrop-blur-sm" onclick="closeCommentModal()">
+        <div class="bg-[var(--card-bg)] w-full max-w-md p-6 rounded-2xl shadow-2xl transition-transform" onclick="event.stopPropagation()">
+            <div class="font-black text-[13px] uppercase tracking-tight mb-4 border-b border-[var(--card-border)] pb-3">📝 Детали дефекта</div>
+            <div class="mb-3">
+                <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Причина дефекта (Справочник)</label>
+                <select id="modal-cause-select" class="input-base w-full"></select>
+            </div>
+            <div class="mb-4">
+                <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Уточняющий комментарий</label>
+                <textarea id="modal-cause-comment" class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-xl p-3 text-[12px] outline-none h-24 resize-none" placeholder="Напишите детали (величину отклонения, размеры и т.д.)..."></textarea>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="closeCommentModal()" class="bg-slate-100 text-slate-600 px-4 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95">Отмена</button>
+                <button onclick="saveCommentModal()" class="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95">Сохранить</button>
+            </div>
+        </div>
+    </div>
 
     <!-- === ШАПКА === -->
     <header class="header-fixed" id="main-header">
@@ -124,76 +142,79 @@
                 </div>
             </div>
 
-            <!-- СТРОКА 2: Улучшенный Мини-дашборд (Кликабельный) -->
-            <div id="header-dashboard"
-                class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-1.5 mb-2 shadow-sm flex gap-2">
-                <!-- Блок Подрядчика -->
-                <div class="flex-1 cursor-pointer p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
-                    onclick="showContractorDetails()">
-                    <div class="flex justify-between items-center mb-1.5">
-                        <span class="text-[9px] font-black text-indigo-500 uppercase tracking-wide">Подрядчик</span>
-                        <span id="dash-c-text" class="text-[9px] font-bold text-slate-400">0/7</span>
+            <!-- СТРОКА 2: Двухуровневый Мини-дашборд -->
+            <div id="header-dashboard" class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-1.5 mb-2 shadow-sm transition-all duration-300">
+                
+                <!-- Верхний уровень (Всегда виден) -->
+                <div class="flex gap-2 items-center">
+                    <!-- Блок Подрядчика -->
+                    <div class="flex-1 cursor-pointer p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors border border-transparent" onclick="showContractorDetails()">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[9px] font-black text-indigo-600 uppercase tracking-wide">Подрядчик</span>
+                            <span id="dash-c-text" class="text-[9px] font-bold text-slate-400">0 изд.</span>
+                        </div>
+                        <div class="relative w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden shadow-inner border border-slate-200 dark:border-slate-600">
+                            <div id="dash-c-bar" class="absolute top-0 left-0 h-full bg-slate-300 transition-all duration-500" style="width: 0%"></div>
+                            <div id="dash-c-percent" class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-slate-800 dark:text-white drop-shadow-md z-10">--%</div>
+                        </div>
                     </div>
-                    <div
-                        class="relative w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden shadow-inner">
-                        <div id="dash-c-bar"
-                            class="absolute top-0 left-0 h-full bg-slate-300 transition-all duration-500"
-                            style="width: 0%"></div>
-                        <div id="dash-c-percent"
-                            class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white drop-shadow-md z-10"
-                            style="text-shadow: 0px 1px 2px rgba(0,0,0,0.5);">--%</div>
+
+                    <!-- Разделитель с кнопкой разворота -->
+                    <div class="flex flex-col items-center justify-center cursor-pointer px-1 active:scale-90 transition-transform" onclick="toggleDashboardExpand()">
+                        <div class="w-px h-3 bg-[var(--card-border)] mb-0.5"></div>
+                        <div id="dash-expand-icon" class="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full w-5 h-5 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm">▼</div>
+                        <div class="w-px h-3 bg-[var(--card-border)] mt-0.5"></div>
+                    </div>
+
+                    <!-- Блок Изделия -->
+                    <div class="flex-1 cursor-pointer p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors border border-transparent" onclick="showProductMath()">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[9px] font-black text-emerald-600 uppercase tracking-wide">Изделие</span>
+                            <span id="dash-p-text" class="text-[9px] font-bold text-slate-400">0/0</span>
+                        </div>
+                        <div class="relative w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden shadow-inner border border-slate-200 dark:border-slate-600">
+                            <div id="dash-p-bar" class="absolute top-0 left-0 h-full bg-slate-300 transition-all duration-500" style="width: 0%"></div>
+                            <div id="dash-p-percent" class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-slate-800 dark:text-white drop-shadow-md z-10">--%</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Разделитель -->
-                <div class="w-px bg-[var(--card-border)] my-1"></div>
-
-                <!-- Блок Изделия -->
-                <div class="flex-1 cursor-pointer p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
-                    onclick="showProductMath()">
-                    <div class="flex justify-between items-center mb-1.5">
-                        <span class="text-[9px] font-black text-slate-500 uppercase tracking-wide">Изделие</span>
-                        <span id="dash-p-text" class="text-[9px] font-bold text-slate-400">0/0</span>
+                <!-- Нижний уровень (Развернутый - Аналитика причин) -->
+                <div id="dash-expanded-view" class="hidden border-t border-[var(--card-border)] mt-1.5 pt-1.5">
+                    <div class="grid grid-cols-2 gap-3 px-1 pb-1">
+                        <!-- Детали Подрядчика -->
+                        <div class="text-[9px]">
+                            <div class="flex justify-between mb-0.5"><span class="text-[var(--text-muted)]">Системность (Ks):</span><span id="dash-c-ks" class="font-bold">-</span></div>
+                            <div class="flex justify-between mb-0.5"><span class="text-[var(--text-muted)]">Критичность (Kcrit):</span><span id="dash-c-kcrit" class="font-bold">-</span></div>
+                            <div class="flex justify-between mt-1 pt-1 border-t border-slate-100 dark:border-slate-700"><span class="text-[var(--text-muted)]">Изделий с B3:</span><span id="dash-c-b3" class="font-black text-red-500">0</span></div>
+                        </div>
+                        <!-- Детали Изделия -->
+                        <div class="text-[9px] border-l border-slate-100 dark:border-slate-700 pl-3">
+                            <div class="flex justify-between mb-0.5"><span class="text-[var(--text-muted)]">Концентрация (Kc):</span><span id="dash-p-kc" class="font-bold">-</span></div>
+                            <div class="flex justify-between mb-0.5"><span class="text-[var(--text-muted)]">Критичность (Kcrit):</span><span id="dash-p-kcrit" class="font-bold">-</span></div>
+                            <div class="flex justify-between mt-1 pt-1 border-t border-slate-100 dark:border-slate-700"><span class="text-[var(--text-muted)]">Дефекты B2/B3:</span><span class="font-black"><span id="dash-p-b2" class="text-orange-500">0</span> / <span id="dash-p-b3" class="text-red-500">0</span></span></div>
+                        </div>
                     </div>
-                    <div
-                        class="relative w-full h-4 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden shadow-inner">
-                        <div id="dash-p-bar"
-                            class="absolute top-0 left-0 h-full bg-slate-400 transition-all duration-500"
-                            style="width: 0%"></div>
-                        <div id="dash-p-percent"
-                            class="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white drop-shadow-md z-10"
-                            style="text-shadow: 0px 1px 2px rgba(0,0,0,0.5);">--%</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- СТРОКА 3: Данные объекта с закрепленным названием чек-листа -->
-            <div id="header-data-block" class="header-collapsible mb-2">
-                <div class="bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-lg p-2 shadow-inner">
-                    <div class="flex justify-between items-center mb-2 px-1 cursor-pointer" onclick="toggleDataBlock()">
-                        <div id="current-checklist-label"
-                            class="text-[10px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider truncate">
-                            Вид работ не выбран</div>
-                        <div id="data-toggle-icon"
-                            class="text-slate-400 text-[8px] font-bold bg-[var(--card-bg)] px-1.5 py-0.5 rounded border border-[var(--card-border)] shadow-sm">
-                            СВЕРНУТЬ ▲</div>
-                    </div>
-                    <div id="data-block-content" class="grid grid-cols-2 gap-2">
-                        <input type="text" id="inp-project" class="input-base" placeholder="Объект *"
-                            oninput="scheduleSessionSave()">
-                        <input type="text" id="inp-inspector" class="input-base" placeholder="Проверяющий *"
-                            oninput="scheduleSessionSave()">
-                        <input type="text" id="inp-contractor" class="input-base" placeholder="Подрядчик *"
-                            oninput="scheduleSessionSave()">
-                        <input type="text" id="inp-location" class="input-base" placeholder="Ось, Этаж, Пом. *"
-                            oninput="scheduleSessionSave()">
-                    </div>
-                    <div id="data-block-summary"
-                        class="hidden text-[10px] font-bold text-slate-500 text-center py-1 cursor-pointer"
-                        onclick="toggleDataBlock(true)"></div>
                 </div>
             </div>
 
+            <!-- СТРОКА 3: Данные объекта (Авто-сворачиваемая) -->
+            <div id="header-data-block" class="mb-2">
+                <!-- Аккуратная строка названия чек-листа (Размер как у стиков) -->
+                <div class="flex justify-between items-center bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-xl px-3 py-1.5 shadow-sm mb-2">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                        <svg class="w-3.5 h-3.5 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                        <div id="current-checklist-label" class="text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider truncate flex-1">Вид работ не выбран</div>
+                    </div>
+                </div>
+                <!-- Сами инпуты (Сворачиваются при скролле) -->
+                <div id="data-block-content" class="grid grid-cols-2 gap-2 header-collapsible">
+                    <input type="text" id="inp-project" class="input-base" placeholder="Объект *" oninput="scheduleSessionSave()">
+                    <input type="text" id="inp-inspector" class="input-base" placeholder="Проверяющий *" oninput="scheduleSessionSave()">
+                    <input type="text" id="inp-contractor" class="input-base" placeholder="Подрядчик *" oninput="scheduleSessionSave(); updateUI();">
+                    <input type="text" id="inp-location" class="input-base" placeholder="Ось, Этаж, Пом. *" oninput="scheduleSessionSave(); updateUI();">
+                </div>
+            </div>
             <!-- СТРОКА 4: Навигация (Всегда видна) -->
             <div id="audit-group-nav" class="overflow-x-auto whitespace-nowrap pb-1 no-scrollbar flex gap-2"></div>
 
@@ -238,7 +259,7 @@
                     </div>
                 </div>
             </div>
-
+            
             <!-- НОВОЕ: Горизонтальная навигация по группам -->
             <div id="audit-items"></div>
 
@@ -257,8 +278,7 @@
         <div id="tab-history" class="view-section">
 
             <!-- "Липкая" панель фильтров -->
-            <div id="hist-sticky-panel"
-                class="sticky-subnav bg-[var(--card-bg)]/95 p-3 rounded-2xl border border-[var(--card-border)] mb-4 shadow-ios">
+            <div id="hist-sticky-panel" class="sticky-top-panel bg-[var(--card-bg)]/95 p-3 rounded-2xl border border-[var(--card-border)] mb-4 shadow-ios">
 
                 <!-- Заголовок (кликабельный — сворачивает панель) -->
                 <div id="hist-panel-header" class="flex justify-between items-center mb-2">
@@ -348,147 +368,82 @@
             <div id="history-list"></div>
         </div>
 
-        <!-- ВКЛАДКА 3: АНАЛИТИКА И ОТЧЕТЫ -->
+        <!-- ВКЛАДКА 3: АНАЛИТИКА И ОТЧЕТЫ (ПРО 4.0) -->
         <div id="tab-analytics" class="view-section">
 
-            <!-- Подвкладки внутри Аналитики -->
-            <!-- Подвкладки внутри Аналитики -->
-            <div
-                class="sticky-subnav flex gap-1 p-1 bg-[var(--card-border)]/80 rounded-xl overflow-x-auto no-scrollbar whitespace-nowrap text-center shadow-ios mx-1">
-                <button onclick="switchAnalyticsSubTab('sub-rating', this)"
-                    class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)]">🏆
-                    Рейтинг</button>
-                <button onclick="switchAnalyticsSubTab('sub-charts', this)"
-                    class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md bg-white shadow-sm text-indigo-600">📊
-                    Аналитика</button>
-                <button onclick="switchAnalyticsSubTab('sub-reports', this)"
-                    class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)]">📄
-                    Отчёты</button>
-                <button onclick="switchAnalyticsSubTab('sub-data', this)"
-                    class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)]">⚙️
-                    Данные</button>
-            </div>
-
-            <!-- Раздел: Рейтинг -->
-            <div id="sub-rating" class="analytics-sub-section hidden">
-                <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 shadow-sm">
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3 flex justify-between">
-                        <span>Параметры рейтинга</span>
-                        <span class="text-indigo-500 cursor-pointer" onclick="showHelp('rating')">ⓘ</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <select id="rating-template-select" class="input-base" onchange="renderRatingTab()">
-                            <option value="ALL">Все виды работ</option>
-                        </select>
-                        <select id="rating-period-select" class="input-base" onchange="renderRatingTab()">
-                            <option value="ALL">За весь период</option>
+            <!-- БЛОК ФИЛЬТРОВ (Прилипает всегда сверху, сворачивается как iOS) -->
+            <div id="analytics-filters-block" class="sticky-top-panel bg-[var(--card-bg)]/95 p-3 rounded-xl border border-[var(--card-border)] shadow-sm mb-2 no-print backdrop-blur-md mx-1">
+                <div id="analytics-panel-header" class="text-[10px] font-black text-slate-400 uppercase mb-2 flex justify-between items-center cursor-pointer">
+                    <span class="flex items-center gap-1">
+                        <span id="analytics-panel-toggle-icon" style="display:inline-block; transition: transform 0.3s">▾</span>
+                        Глобальные фильтры
+                    </span>
+                </div>
+                <div id="analytics-panel-body" style="transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease; max-height: 200px; overflow: hidden;">
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <select id="global-filter-period" class="input-base text-[11px] !py-1.5" onchange="renderCurrentAnalyticsTab()">
+                            <option value="ALL">Всё время</option>
                             <option value="MONTH">За 30 дней</option>
                             <option value="WEEK">За 7 дней</option>
                             <option value="DAY">Сегодня</option>
                         </select>
-                    </div>
-                </div>
-                <div id="rating-empty-msg" class="text-center py-6 text-sm text-[var(--text-muted)]">Нет данных для
-                    рейтинга.</div>
-                <div id="rating-list"></div>
-                <!-- Возвращаем кнопку рейтинга -->
-                <div
-                    class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3 flex justify-between items-center">
-                    <span>Параметры рейтинга</span>
-                    <div class="flex items-center">
-                        <span
-                            class="text-indigo-500 cursor-pointer bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 mr-2 text-[10px]"
-                            onclick="showHelp('rating')">Справка ⓘ</span>
-                        <span
-                            onclick="alert('Рейтинг строится ТОЛЬКО для подрядчиков, у которых есть МИНИМУМ 7 проверок по одному и тому же виду работ. Чем выше УрК и ниже волатильность (скачки качества), тем выше место.')"
-                            class="demo-hint hidden">?</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Раздел: Графики (Аналитика) -->
-            <div id="sub-charts" class="analytics-sub-section">
-                <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 shadow-sm">
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3 flex justify-between">
-                        <span>Аналитика (Графики и Статистика)</span>
-                        <span class="text-indigo-500 cursor-pointer" onclick="showHelp('analytics')">ⓘ</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3 mb-3">
-                        <select id="analytics-contractor-select" class="input-base" onchange="renderAnalyticsTab()">
-                            <option value="ALL">Все подрядчики</option>
-                        </select>
-                        <select id="analytics-template-select" class="input-base" onchange="renderAnalyticsTab()">
+                        <select id="global-filter-template" class="input-base text-[11px] !py-1.5" onchange="renderCurrentAnalyticsTab()">
                             <option value="ALL">Все виды работ</option>
                         </select>
                     </div>
-                    <select id="analytics-period-select" class="input-base" onchange="renderAnalyticsTab()">
-                        <option value="ALL">За весь период</option>
-                        <option value="MONTH">За 30 дней</option>
-                        <option value="WEEK">За 7 дней</option>
-                        <option value="DAY">Сегодня</option>
+                    <select id="global-filter-contractor" class="input-base text-[11px] !py-1.5 w-full" onchange="renderCurrentAnalyticsTab()">
+                        <option value="ALL">Все подрядчики</option>
                     </select>
                 </div>
-                <div id="analytics-contractors-container"></div>
-                <!-- Возвращаем кнопку отчета -->
             </div>
 
-            <!-- Раздел: Отчеты -->
-            <div id="sub-reports" class="analytics-sub-section hidden">
-                <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 shadow-sm">
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3">Формирование отчётов
-                    </div>
-                    <div class="text-[10px] text-[var(--text-muted)] mb-4 leading-relaxed">Выберите фильтры (наследуются
-                        из Аналитики) для формирования сводного отчета по проверкам.</div>
-                    <div id="reports-preview-container"
-                        class="bg-[var(--hover-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 text-sm font-bold space-y-2">
-                        <!-- Предпросмотр генерируется через JS -->
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <button onclick="exportPdfReport()"
-                            class="bg-indigo-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-2">📄
-                            PDF Отчёт</button>
-                        <button onclick="handleDataExport('csv')"
-                            class="bg-green-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95 flex items-center justify-center gap-2">📊
-                            CSV Таблица</button>
-                    </div>
+            <!-- БЛОК ПОДВКЛАДОК (Прыгает вверх/вниз в зависимости от настроек) -->
+            <div id="analytics-subtabs-block" class="z-[45] transition-all duration-300 px-1 w-full max-w-4xl mx-auto">
+                <div class="flex gap-1 p-1 bg-[var(--card-border)]/90 backdrop-blur-md rounded-xl overflow-x-auto no-scrollbar whitespace-nowrap text-center shadow-md border border-slate-200/50 dark:border-slate-700/50">
+                    <button onclick="switchAnalyticsSubTab('sub-rating', this)" class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md bg-white shadow-sm text-indigo-600 flex flex-col items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                        Рейтинг
+                    </button>
+                    <button onclick="switchAnalyticsSubTab('sub-engineering', this)" class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)] flex flex-col items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        Инженерия
+                    </button>
+                    <button onclick="switchAnalyticsSubTab('sub-onepager', this)" class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)] flex flex-col items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Сводка
+                    </button>
+                    <button onclick="switchAnalyticsSubTab('sub-data', this)" class="sub-tab-btn flex-1 min-w-[80px] py-2 text-[10px] font-bold uppercase rounded-md text-[var(--text-muted)] flex flex-col items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                        База
+                    </button>
                 </div>
             </div>
 
-            <!-- Раздел: Управление Данными -->
+            <!-- Контейнеры подвкладок -->
+            <div id="sub-rating" class="analytics-sub-section"><div id="rating-content-container"></div></div>
+            <div id="sub-engineering" class="analytics-sub-section hidden"><div id="engineering-content-container"></div></div>
+            <div id="sub-onepager" class="analytics-sub-section hidden"><div id="onepager-content-container" class="bg-[var(--card-bg)] rounded-xl p-4 border border-[var(--card-border)] shadow-sm"></div></div>
+            
             <div id="sub-data" class="analytics-sub-section hidden">
-                <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 shadow-sm">
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3">Экспорт базы</div>
-                    <button onclick="handleDataExport('json')"
-                        class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">💾
-                        Скачать всю базу (Бэкап JSON)</button>
+                <div class="grid grid-cols-2 gap-2 mb-4 mx-1 no-print">
+                    <button onclick="handleDataExport('json')" class="bg-indigo-50 border border-indigo-200 text-indigo-700 py-3 rounded-xl font-bold text-[10px] uppercase active:scale-95 flex items-center justify-center gap-1 shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Скачать Бэкап</button>
+                    <button onclick="triggerDataImport()" class="bg-slate-50 border border-slate-200 text-slate-700 py-3 rounded-xl font-bold text-[10px] uppercase active:scale-95 flex items-center justify-center gap-1 shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg> Загрузить</button>
                 </div>
-                <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 shadow-sm">
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-3">Импорт базы</div>
-                    <div class="text-[10px] text-orange-600 bg-orange-50 p-2 rounded mb-3 font-bold">💡 Режим слияния:
-                        новые проверки добавятся к существующим, дубли по ID будут проигнорированы.</div>
-                    <button onclick="triggerDataImport()"
-                        class="w-full bg-indigo-50 border border-indigo-200 text-indigo-700 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">📥
-                        Загрузить БД (JSON)</button>
-                </div>
-                <div class="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4 shadow-sm">
-                    <div class="text-[11px] font-bold text-red-600 uppercase mb-3">Управление</div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <button onclick="clearHistory()"
-                            class="bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95">Очистить
-                            историю</button>
-                        <button onclick="fullFactoryReset()"
-                            class="bg-red-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95">Полный
-                            сброс</button>
+                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl overflow-hidden shadow-sm mx-1">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-[10px] whitespace-nowrap" id="data-table">
+                            <thead class="bg-[var(--hover-bg)] text-[var(--text-muted)] border-b border-[var(--card-border)]"><tr><th class="p-2 pl-3">Дата</th><th class="p-2">Подрядчик</th><th class="p-2">Локация</th><th class="p-2">Этап</th><th class="p-2 text-center">УрК</th><th class="p-2 text-center">B2/B3</th></tr></thead>
+                            <tbody id="data-table-body" class="divide-y divide-[var(--card-border)]"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-
         </div>
 
         <!-- ВКЛАДКА 4: СПРАВОЧНИК -->
         <div id="tab-reference" class="view-section">
 
-            <div id="ref-sticky-panel" class="sticky-subnav bg-[var(--card-bg)]/90 p-3 rounded-2xl border border-[var(--card-border)] mb-4 shadow-ios">
+            <div id="ref-sticky-panel" class="sticky-top-panel bg-[var(--card-bg)]/90 p-3 rounded-2xl border border-[var(--card-border)] mb-4 shadow-ios">
 
                 <!-- Заголовок — кликабельный -->
                 <div id="ref-panel-header" class="flex justify-between items-center mb-2" style="cursor:pointer">
@@ -560,11 +515,14 @@
                 </div>
                 <div class="p-4 flex justify-between items-center">
                     <div>
-                        <div class="font-bold text-sm">Скрыть мини-дашборд</div>
-                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Освободить место в шапке</div>
+                        <div class="font-bold text-sm">Мини-дашборд</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Отображение в шапке осмотра</div>
                     </div>
-                    <label class="toggle-switch"><input type="checkbox" id="set-hidedash"
-                            onchange="toggleSetting('hideDashboard', this)"><span class="toggle-slider"></span></label>
+                    <select id="set-dashmode" class="input-base w-32" onchange="toggleSetting('dashboardMode', this)">
+                        <option value="compact">Компактный</option>
+                        <option value="expanded">Развернутый</option>
+                        <option value="hidden">Отключить</option>
+                    </select>
                 </div>
             </div>
 
@@ -660,6 +618,9 @@
                 <button onclick="clearPdfCache()"
                     class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] text-slate-600 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">🗑️
                     Очистить кэш PDF</button>
+                <button onclick="fullFactoryReset()"
+                    class="w-full mt-3 bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-black text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">⚠️
+                    Полный сброс (Очистить всё)</button>    
             </div>
             <div class="text-center text-[10px] text-[var(--text-muted)] pb-10">
                 RBI Quality Progressive Web App<br>Версия 16.0 (Modular)<br>Developed by Igor Kondratiev

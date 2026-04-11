@@ -32,9 +32,10 @@ let appSettings = {
     sortFailTop: false,
     soundEnabled: true,
     autoSave: true,
-    aiEnabled: false,   // НОВОЕ
-    aiAuto: false,      // НОВОЕ
-    apiKey: ''          // НОВОЕ
+    aiEnabled: false,   
+    aiAuto: false,      
+    apiKey: '',
+    dashboardMode: 'compact' // НОВОЕ
 };
 
 // Звуковые эффекты (base64 для офлайна)
@@ -187,12 +188,24 @@ function updateBodyPadding() {
     const navEl = document.querySelector('.bottom-nav');
     let totalTop = 0;
     
-    // Если шапка видима, берем её реальную высоту
-    if (headerEl && headerEl.style.display !== 'none') totalTop += headerEl.offsetHeight;
-    
-    // Если навигация сверху (на ПК или по настройке), добавляем её высоту
-    if (navEl && getComputedStyle(navEl).top === '0px') totalTop += navEl.offsetHeight;
-    
+    // Проверяем, где находится навигация (сверху или снизу)
+    const isNavTop = (document.body.classList.contains('nav-pos-top')) || 
+                     (document.body.classList.contains('nav-pos-auto') && window.innerWidth >= 768);
+
+    // Добавляем высоту навигации, если она сверху
+    if (isNavTop && navEl) {
+        totalTop += navEl.offsetHeight; // Обычно 60px
+    }
+
+    // Проверяем, находимся ли мы на вкладке "Осмотр"
+    const isAuditActive = document.getElementById('tab-audit')?.classList.contains('active');
+
+    // Если активна вкладка "Осмотр" и шапка есть — добавляем её высоту
+    if (isAuditActive && headerEl && headerEl.style.display !== 'none') {
+        totalTop += headerEl.offsetHeight;
+    }
+
+    // Применяем отступ
     document.body.style.paddingTop = totalTop > 0 ? `${totalTop + 15}px` : '20px';
 }
 
@@ -218,7 +231,11 @@ function switchTab(tabId, navElement = null) {
         renderHistoryTab();
         initCollapsiblePanel('hist-sticky-panel', 'hist-panel-body', 'hist-panel-header', 'hist-panel-toggle-icon');
     } else if (tabId === 'tab-analytics' && typeof updateAnalyticsFilters === 'function') {
-        updateAnalyticsFilters(); renderAnalyticsTab();
+        updateAnalyticsFilters(); 
+        if (typeof renderCurrentAnalyticsTab === 'function') renderCurrentAnalyticsTab();
+        else renderAnalyticsTab();
+        // Включаем плавное iOS-сворачивание для фильтров аналитики
+        initCollapsiblePanel('analytics-filters-block', 'analytics-panel-body', 'analytics-panel-header', 'analytics-panel-toggle-icon');
     } else if (tabId === 'tab-reference') {
         renderReferenceTab();
         initCollapsiblePanel('ref-sticky-panel', 'ref-panel-body', 'ref-panel-header', 'ref-panel-toggle-icon');
@@ -227,7 +244,7 @@ function switchTab(tabId, navElement = null) {
     }
 
     // FAB-кнопка: показываем только на аналитике
-    updateFabButton(tabId);
+    if (typeof updateFabButton === 'function') updateFabButton(tabId);
 
     setTimeout(updateBodyPadding, 50);
     window.scrollTo(0, 0);
@@ -310,13 +327,32 @@ function applySettingsToUI() {
     
     document.body.classList.remove('nav-pos-auto', 'nav-pos-top', 'nav-pos-bottom');
     document.body.classList.add(`nav-pos-${appSettings.navPosition || 'auto'}`);
+    // Применяем режим мини-дашборда
+    const dash = document.getElementById('header-dashboard');
+    const dashExp = document.getElementById('dash-expanded-view');
+    const dashIcon = document.getElementById('dash-expand-icon');
 
+    if (appSettings.dashboardMode === 'hidden') {
+        if(dash) dash.style.display = 'none';
+    } else if (appSettings.dashboardMode === 'expanded') {
+        if(dash) dash.style.display = 'block';
+        if(dashExp) dashExp.classList.remove('hidden');
+        if(dashIcon) dashIcon.style.display = 'none'; // Прячем стрелку, так как он всегда развернут
+    } else {
+        // Компактный режим (по умолчанию)
+        if(dash) dash.style.display = 'block';
+        if(dashExp) dashExp.classList.add('hidden');
+        if(dashIcon) dashIcon.style.display = 'flex';
+    }
     setTimeout(() => {
         const headerEl = document.getElementById('main-header');
         if (headerEl) document.body.style.paddingTop = `${headerEl.offsetHeight + 10}px`;
     }, 100);
 
     if (document.getElementById('tab-audit')?.classList.contains('active') && typeof render === 'function') render();
+// НОВОЕ: Обновляем положение кнопки PDF, если мы сейчас в Аналитике
+    const activeTab = document.querySelector('.view-section.active');
+    if (activeTab) updateFabButton(activeTab.id);
 }
 
 function renderSettingsTab() {
@@ -338,7 +374,7 @@ function renderSettingsTab() {
     if(document.getElementById('set-fontsize')) document.getElementById('set-fontsize').value = appSettings.fontSize || 'medium';
     if(document.getElementById('set-navpos')) document.getElementById('set-navpos').value = appSettings.navPosition || 'auto';
     if(document.getElementById('set-apikey')) document.getElementById('set-apikey').value = appSettings.apiKey || '';
-    
+    if(document.getElementById('set-dashmode')) document.getElementById('set-dashmode').value = appSettings.dashboardMode || 'compact';
     updateStorageInfo();
 }
 
@@ -812,22 +848,30 @@ function toggleGroup(index) {
 function scrollToGroup(index) {
     const content = document.getElementById(`group_content_${index}`);
     if (content && content.previousElementSibling) {
-        // Жестко задаем отступ при скролле (шапка сжимается до ~100px)
-        const headerOffset = 110; 
+        // Динамически вычисляем высоту текущей шапки
+        const headerEl = document.getElementById('main-header');
+        const headerOffset = headerEl ? headerEl.offsetHeight + 10 : 120; 
+        
         const elementPosition = content.previousElementSibling.getBoundingClientRect().top;
         const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
         window.scrollTo({ top: offsetPosition, behavior: "smooth" });
     }
 }
 
+// === КНОПКИ ЭТАПОВ (РАСКРАСКА ПО КАЧЕСТВУ) ===
 function updateGroupCounters() {
     if(!currentTemplateKey) return;
+    
     currentChecklist.forEach((g, gIndex) => {
         let answered = 0;
-        let hasFails = false;
+        let stageState = {};
+        
+        // Собираем стейт только для этого этапа
         g.items.forEach(i => {
-            if (state[i.id]) answered++;
-            if (state[i.id] === 'fail' || state[i.id] === 'fail_escalated') hasFails = true;
+            if (state[i.id]) {
+                answered++;
+                stageState[i.id] = state[i.id];
+            }
         });
         
         const counterEl = document.getElementById(`group-counter-${gIndex}`);
@@ -836,13 +880,22 @@ function updateGroupCounters() {
         if (counterEl) counterEl.innerText = `${answered}/${g.items.length}`;
         
         if (navBtnEl) {
-            // Меняем цвет кнопки навигации в зависимости от статуса заполнения
-            if (answered === g.items.length) {
-                navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-black uppercase rounded-xl border transition-colors shadow-sm ${hasFails ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`;
-            } else if (answered > 0) {
-                navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-black uppercase rounded-xl border border-indigo-300 bg-indigo-50 text-indigo-700 transition-colors shadow-sm`;
-            } else {
+            // Если этап не начали проверять
+            if (answered === 0) {
                 navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-bold uppercase rounded-xl bg-[var(--hover-bg)] text-[var(--text-muted)] border border-[var(--card-border)] transition-colors active:scale-95`;
+            } else {
+                // Если начали, считаем его УрК
+                const stageMetrics = getProductMetrics(stageState, [g]);
+                const f = stageMetrics.final;
+                
+                // Красим в соответствии с УрК
+                if (f < 70 || stageMetrics.isDanger) {
+                    navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-black uppercase rounded-xl border-2 transition-all shadow-sm bg-red-50 text-red-700 border-red-400 dark:bg-red-900/30 dark:border-red-600 dark:text-red-300`;
+                } else if (f < 85) {
+                    navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-black uppercase rounded-xl border-2 transition-all shadow-sm bg-yellow-50 text-yellow-800 border-yellow-400 dark:bg-yellow-900/30 dark:border-yellow-600 dark:text-yellow-300`;
+                } else {
+                    navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-black uppercase rounded-xl border-2 transition-all shadow-sm bg-green-50 text-green-800 border-green-400 dark:bg-green-900/30 dark:border-green-600 dark:text-green-300`;
+                }
             }
         }
     });
@@ -983,42 +1036,75 @@ function initSwipes() {
 }
 
 // === ОБНОВЛЕНИЕ МИНИ-ДАШБОРДА ===
+// === ОБНОВЛЕНИЕ МИНИ-ДАШБОРДА ===
 function updateUI() {
     const p = currentTemplateKey ? getProductMetrics(state, currentChecklist) : null;
     
+    // Функция контраста текста
+    const getTextColor = (val, isDanger) => {
+        if(isDanger || val < 70) return 'text-white drop-shadow-md';
+        if(val < 85) return 'text-slate-900'; // На желтом черный текст лучше читается
+        return 'text-white drop-shadow-md'; // На зеленом белый норм
+    };
+
     // Обновляем изделие
     if (!p) {
         if(document.getElementById('dash-p-text')) document.getElementById('dash-p-text').innerText = "0/0";
         if(document.getElementById('dash-p-bar')) document.getElementById('dash-p-bar').style.width = "0%";
         if(document.getElementById('dash-p-percent')) document.getElementById('dash-p-percent').innerText = "--%";
-        ['dash-b1', 'dash-b2', 'dash-b3'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerText = "0"; });
+        ['dash-p-kc', 'dash-p-kcrit', 'dash-p-b2', 'dash-p-b3'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerText = "-"; });
     } else {
         if(document.getElementById('dash-p-text')) document.getElementById('dash-p-text').innerText = `${p.checkedCount}/${p.totalCount}`;
         if(document.getElementById('dash-p-bar')) {
             document.getElementById('dash-p-bar').style.width = `${p.final}%`;
             document.getElementById('dash-p-bar').className = `absolute top-0 left-0 h-full transition-all duration-500 ${p.isDanger ? 'bg-red-500' : (p.final < 85 ? 'bg-yellow-400' : 'bg-green-500')}`;
         }
-        if(document.getElementById('dash-p-percent')) document.getElementById('dash-p-percent').innerText = `${p.final}%`;
-        ['dash-b1', 'dash-b2', 'dash-b3'].forEach((id, idx) => { if(document.getElementById(id)) document.getElementById(id).innerText = [p.n_B1_fail, p.n_B2_fail, p.n_B3_fail][idx]; });
+        if(document.getElementById('dash-p-percent')) {
+            document.getElementById('dash-p-percent').innerText = `${p.final}%`;
+            document.getElementById('dash-p-percent').className = `absolute inset-0 flex items-center justify-center text-[11px] font-black z-10 ${getTextColor(p.final, p.isDanger)}`;
+        }
+        
+        // Детали развернутого вида
+        if(document.getElementById('dash-p-kc')) document.getElementById('dash-p-kc').innerText = p.kc.toFixed(2);
+        if(document.getElementById('dash-p-kcrit')) document.getElementById('dash-p-kcrit').innerText = p.kcrit.toFixed(2);
+        if(document.getElementById('dash-p-b2')) document.getElementById('dash-p-b2').innerText = p.n_B2_fail;
+        if(document.getElementById('dash-p-b3')) document.getElementById('dash-p-b3').innerText = p.n_B3_fail;
     }
 
     // Обновляем подрядчика
     const currentContr = document.getElementById('inp-contractor')?.value.trim();
     const filteredArr = currentContr ? contractorArray.filter(i => i.contractorName === currentContr && i.templateKey === currentTemplateKey) : [];
     
-    if (filteredArr.length < 7) {
-        if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${filteredArr.length}/7`;
+    if (filteredArr.length < 3) { // Порог достоверности
+        if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${filteredArr.length} шт.`;
         if(document.getElementById('dash-c-bar')) document.getElementById('dash-c-bar').style.width = "0%";
         if(document.getElementById('dash-c-percent')) document.getElementById('dash-c-percent').innerText = "СБОР";
+        ['dash-c-ks', 'dash-c-kcrit', 'dash-c-b3'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerText = "-"; });
     } else {
         const c = getContractorMetrics(filteredArr, userTemplates);
         if(c) {
             if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${c.count} шт.`;
-            if(document.getElementById('dash-c-percent')) document.getElementById('dash-c-percent').innerText = `${c.finalC}%`;
             if(document.getElementById('dash-c-bar')) {
                 document.getElementById('dash-c-bar').style.width = `${c.finalC}%`;
                 document.getElementById('dash-c-bar').className = `absolute top-0 left-0 h-full transition-all duration-500 ${c.isRedZone ? 'bg-red-500' : (c.finalC < 85 ? 'bg-yellow-400' : 'bg-green-500')}`;
             }
+            if(document.getElementById('dash-c-percent')) {
+                document.getElementById('dash-c-percent').innerText = `${c.finalC}%`;
+                document.getElementById('dash-c-percent').className = `absolute inset-0 flex items-center justify-center text-[11px] font-black z-10 ${getTextColor(c.finalC, c.isRedZone)}`;
+            }
+            
+            // Детали развернутого вида
+            if(document.getElementById('dash-c-ks')) {
+                const ksEl = document.getElementById('dash-c-ks');
+                ksEl.innerText = c.ks.toFixed(2);
+                ksEl.className = `font-black ${c.ks < 1 ? 'text-red-500' : 'text-green-600'}`;
+            }
+            if(document.getElementById('dash-c-kcrit')) {
+                const kcritEl = document.getElementById('dash-c-kcrit');
+                kcritEl.innerText = c.kcritC.toFixed(2);
+                kcritEl.className = `font-black ${c.kcritC < 1 ? 'text-red-500' : 'text-green-600'}`;
+            }
+            if(document.getElementById('dash-c-b3')) document.getElementById('dash-c-b3').innerText = c.n_изделий_с_B3;
         }
     }
     
@@ -1030,11 +1116,9 @@ function updateUI() {
 
     updateGroupCounters();
 }
+
 // === СОХРАНЕНИЕ / ОЧИСТКА ===
 function saveProductToArray() {
-    const p = getProductMetrics(state, currentChecklist);
-    if (!p) return showToast('Чек-лист пуст. Заполните данные.');
-    
     // --- ПРОВЕРКА ЗАПОЛНЕННОСТИ ПОЛЕЙ (Валидация) ---
     const fields = ['inp-project', 'inp-inspector', 'inp-contractor', 'inp-location'];
     let hasError = false;
@@ -1055,25 +1139,70 @@ function saveProductToArray() {
         return;
     }
 
-    const newItem = { 
-        id: Date.now(), date: new Date().toISOString(), 
-        projectName: document.getElementById('inp-project').value.trim(), 
-        inspectorName: document.getElementById('inp-inspector').value.trim(), 
-        contractorName: document.getElementById('inp-contractor').value.trim(),
-        templateKey: currentTemplateKey, 
-        templateTitle: document.getElementById('checklist-selector').options[document.getElementById('checklist-selector').selectedIndex].text,
-        location: document.getElementById('inp-location').value.trim(), 
-        state: JSON.parse(JSON.stringify(state)), details: JSON.parse(JSON.stringify(details)), photos: JSON.parse(JSON.stringify(photos)), metrics: p
-    };
+    // --- НОВАЯ ЛОГИКА (ШАГ 1): ПОЭТАПНОЕ СОХРАНЕНИЕ ---
+    let savedStagesCount = 0;
 
-    contractorArray.push(newItem);
-    dbPut(STORES.HISTORY, newItem); // Пишем в IndexedDB
+    // Проходим по всем группам (этапам) текущего чек-листа
+    currentChecklist.forEach((group, gIndex) => {
+        // Контейнеры для данных конкретно этого этапа
+        let stageState = {};
+        let stageDetails = {};
+        let stagePhotos = {};
+        let hasAnswers = false;
+
+        // Перебираем пункты только текущей группы
+        group.items.forEach(item => {
+            if (state[item.id]) {
+                stageState[item.id] = state[item.id];
+                if (details[item.id]) stageDetails[item.id] = details[item.id];
+                if (photos[item.id]) stagePhotos[item.id] = photos[item.id];
+                hasAnswers = true;
+            }
+        });
+
+        // Если в этом этапе инженер ответил хотя бы на 1 пункт - сохраняем этап отдельно
+        if (hasAnswers) {
+            // Считаем метрики локально только для этого этапа
+            const stageMetrics = getProductMetrics(stageState, [group]);
+
+            const newItem = { 
+                id: Date.now() + Math.floor(Math.random() * 1000) + gIndex, // Уникальный ID (добавляем индекс, чтобы ID были разными при быстром сохранении)
+                date: new Date().toISOString(), 
+                projectName: document.getElementById('inp-project').value.trim(), 
+                inspectorName: document.getElementById('inp-inspector').value.trim(), 
+                contractorName: document.getElementById('inp-contractor').value.trim(),
+                templateKey: currentTemplateKey, 
+                templateTitle: document.getElementById('checklist-selector').options[document.getElementById('checklist-selector').selectedIndex].text,
+                location: document.getElementById('inp-location').value.trim(), 
+                
+                // НОВЫЕ ПОЛЯ АРХИТЕКТУРЫ
+                stageId: gIndex,
+                stageName: group.group || group.title,
+                isCompleted: false, // Флаг полного завершения изделия (будет меняться позже)
+                
+                // ДАННЫЕ ЭТАПА
+                state: JSON.parse(JSON.stringify(stageState)), 
+                details: JSON.parse(JSON.stringify(stageDetails)), 
+                photos: JSON.parse(JSON.stringify(stagePhotos)), 
+                metrics: stageMetrics 
+            };
+
+            contractorArray.push(newItem);
+            dbPut(STORES.HISTORY, newItem); // Пишем в IndexedDB
+            savedStagesCount++;
+        }
+    });
+
+    if (savedStagesCount === 0) {
+        return showToast('Чек-лист пуст. Заполните данные хотя бы одного этапа.');
+    }
     
-    state = {}; details = {}; photos = {}; document.getElementById('inp-location').value = ''; 
+    // Очищаем форму, НО не трогаем Локацию (инженер может продолжить проверять этот же объект)
+    state = {}; details = {}; photos = {}; 
     scheduleSessionSave(); 
     
     window.scrollTo({ top: 0, behavior: "smooth" });
-    showToast(`✅ Изделие успешно сохранено!`);
+    showToast(`✅ Сохранено этапов: ${savedStagesCount}`);
     render(); updateUI();
 }
 
@@ -1208,18 +1337,80 @@ function processDataImport(event) {
 }
 
 // === ФОТО И КОММЕНТАРИИ (СОВМЕСТИМОСТЬ v15) ===
+// === ФОТО И КОММЕНТАРИИ (С ПРИЧИНАМИ ДЕФЕКТОВ) ===
+const DEFECT_CAUSES = [
+    { code: 'C01', name: 'Нарушение технологии (ППР)', group: 'Технология' },
+    { code: 'C02', name: 'Отклонение от проекта/РД', group: 'Проект' },
+    { code: 'C03', name: 'Некачественный материал', group: 'Материалы' },
+    { code: 'C04', name: 'Низкая квалификация рабочих', group: 'Персонал' },
+    { code: 'C05', name: 'Отсутствие контроля (ИТР)', group: 'Организация' },
+    { code: 'C06', name: 'Спешка / Нарушение сроков', group: 'Организация' },
+    { code: 'C07', name: 'Погодные условия', group: 'Внешние факторы' },
+    { code: 'C00', name: 'Иное (указать в комментарии)', group: 'Другое' }
+];
+
+let currentCommentId = null;
+
 function toggleCommentField(id) {
-    // В v15 использовалась модалка
-    const val = prompt('Введите комментарий к дефекту:', details[id]?.comment || '');
-    if (val !== null) {
-        details[id] = details[id] || {};
-        details[id].comment = val;
-        updateCardDOM(id); saveSessionData();
+    currentCommentId = id;
+    const select = document.getElementById('modal-cause-select');
+    const textarea = document.getElementById('modal-cause-comment');
+    
+    // Заполняем селектор причин один раз
+    if(select.options.length === 0) {
+        let html = '<option value="">Не выбрано (Без причины)</option>';
+        DEFECT_CAUSES.forEach(c => html += `<option value="${c.code}">${c.name}</option>`);
+        select.innerHTML = html;
     }
+    
+    const currentData = details[id] || {};
+    select.value = currentData.causeCode || '';
+    
+    // Если комментарий содержит причину в скобках [Причина], вырезаем её для чистого отображения в textarea
+    let pureComment = currentData.comment || '';
+    if(pureComment.startsWith('[')) {
+        pureComment = pureComment.replace(/^\[.*?\]\s*/, '');
+    }
+    textarea.value = pureComment;
+    
+    document.getElementById('comment-modal-overlay').style.display = 'flex';
+    document.body.classList.add('modal-open');
 }
+
+function closeCommentModal() {
+    document.getElementById('comment-modal-overlay').style.display = 'none';
+    document.body.classList.remove('modal-open');
+    currentCommentId = null;
+}
+
+function saveCommentModal() {
+    if(!currentCommentId) return;
+    const code = document.getElementById('modal-cause-select').value;
+    const text = document.getElementById('modal-cause-comment').value.trim();
+    
+    details[currentCommentId] = details[currentCommentId] || {};
+    details[currentCommentId].causeCode = code;
+    
+    let causeName = code ? DEFECT_CAUSES.find(c => c.code === code)?.name : '';
+    // Формируем красивый итоговый комментарий для карточки
+    let finalComment = text;
+    if(causeName) {
+        finalComment = text ? `[${causeName}] ${text}` : `[${causeName}]`;
+    }
+    
+    details[currentCommentId].comment = finalComment;
+    
+    updateCardDOM(currentCommentId);
+    saveSessionData();
+    closeCommentModal();
+}
+
 function deleteComment(id, e) {
     if(e) e.stopPropagation();
-    if(details[id]) details[id].comment = "";
+    if(details[id]) {
+        details[id].comment = "";
+        details[id].causeCode = "";
+    }
     updateCardDOM(id); saveSessionData();
 }
 
@@ -1288,9 +1479,8 @@ function openPhotoViewer(src) {
 }
 /* Файл: js/app.js (БЛОК 3: Демо-режим, Справки, Модалки расчетов) */
 
-// === ДЕМО-РЕЖИМ (Совместимость с v15) ===
+// === ДЕМО-РЕЖИМ (С ИСПРАВЛЕННЫМИ ШАБЛОНАМИ) ===
 function startDemoMode() {
-    // Сохраняем реальные данные перед запуском демо
     realState = JSON.parse(JSON.stringify(state));
     realDetails = JSON.parse(JSON.stringify(details));
     realPhotos = JSON.parse(JSON.stringify(photos));
@@ -1300,44 +1490,43 @@ function startDemoMode() {
     isDemoMode = true;
     document.body.classList.add('demo-mode');
     
-    // Генерируем фейковую базу
+    // Генерируем фейковую базу (она уже исправлена нами в Шаге 2)
     contractorArray = generateDemoHistory();
 
-    // Заполняем поля шапки
     document.getElementById('inp-project').value = 'ЖК "Демонстрационный"';
     document.getElementById('inp-inspector').value = 'Иванов И.И. (Демо)';
-    document.getElementById('inp-contractor').value = 'ООО "Монолит-Строй" (Каркас)';
-    document.getElementById('inp-location').value = 'Секция 2, Эт 5, Стены';
+    document.getElementById('inp-contractor').value = 'ООО "Монолит-Строй"';
+    document.getElementById('inp-location').value = 'Секция 2, Пилон П-10';
 
-    // Включаем системный шаблон монолита
-    currentTemplateKey = 'sys_monolit';
+    // Включаем РЕАЛЬНЫЙ системный шаблон "Арматурные работы"
+    currentTemplateKey = 'sys_armature';
     if(document.getElementById('checklist-selector')) document.getElementById('checklist-selector').value = currentTemplateKey;
-    currentChecklist = SYSTEM_TEMPLATES['monolit'].groups;
+    currentChecklist = SYSTEM_TEMPLATES['armature'].groups;
     
-    // Имитируем заполнение чек-листа
+    // Имитируем заполнение чек-листа реальными ID из шаблона armature
     state = {}; details = {}; photos = {};
-    const flatList = getFlatList(currentChecklist);
-    flatList.forEach((item, index) => {
-        if (index === 1) { // Ошибка B2
-            state[item.id] = 'fail';
-            details[item.id] = { comment: "Отклонение превышает допуск на 5мм" };
-        } else if (index === 2) { // Критическая ошибка B3
-            state[item.id] = 'fail_escalated';
-            details[item.id] = { comment: "Жесткое нарушение, арматура торчит" };
-        } else { // Остальное OK
-            state[item.id] = 'ok';
-        }
-    });
+    
+    // 201 - Документация (Этап 1)
+    state['201'] = 'ok';
+    // 204 - Отклонение шага (B2) (Этап 2)
+    state['204'] = 'fail'; 
+    details['204'] = { causeCode: 'C04', comment: '[Персонал] Отклонение превышает допуск на 5мм' };
+    // 210 - Защитный слой (Критический B3 через эскалацию) (Этап 2)
+    state['210'] = 'fail_escalated'; 
+    details['210'] = { causeCode: 'C01', comment: '[Технология] Жесткое нарушение, арматура торчит' };
 
-    // Обновляем интерфейс
     updateDataSummary();
     document.getElementById('empty-checklist-state').style.display = 'none';
     document.getElementById('audit-items').style.display = 'block';
     document.getElementById('audit-actions').style.display = 'grid';
     
     render(); updateUI();
+    // НОВОЕ: Принудительно рендерим остальные вкладки, чтобы данные появились сразу
+    renderHistoryTab(); 
+    renderCurrentAnalyticsTab(); 
+    
     showToast('🎮 Демо-режим активирован!');
-    toggleDataBlock(true); // Разворачиваем шапку
+    toggleDataBlock(true); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1373,63 +1562,60 @@ function exitDemoMode() {
 }
 
 function generateDemoHistory() {
-    let mockArray =[];
+    let mockArray = [];
     const now = new Date();
     
-    // Красивое заглушечное фото для демо, чтобы не "весить" в памяти
     const demoPhoto = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23f1f5f9'/><path d='M150 100 L250 100 L200 200 Z' fill='%23cbd5e1'/><circle cx='200' cy='80' r='20' fill='%23fbbf24'/><text x='200' y='250' font-family='Arial' font-size='20' font-weight='bold' fill='%23475569' text-anchor='middle'>ФОТО НАРУШЕНИЯ</text></svg>";
 
-    const createMockMetric = (final, b1, b2, b3, danger, txt, cls, reason) => ({
-        final, baseUrkPerc: final + Math.floor(Math.random()*10), 
-        checkedCount: 15, totalCount: 20, 
-        n_B1_fail: b1, n_B2_fail: b2, n_B3_fail: b3, b3_found: b3>0, 
-        kc: b2 > 2 ? 0.85 : 1.0, kcrit: b3>0 ? 0.5 : 1.0, 
-        statusTxt: txt, statusCls: cls, isDanger: danger, reason, warnings:[]
+    const createStageRecord = (id, daysAgo, contr, tmplKey, tmplTitle, loc, stageId, stageName, states, detailsData, photoData, metricsData) => {
+        let d = new Date(now); d.setDate(now.getDate() - daysAgo);
+        return {
+            id, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.',
+            contractorName: contr, templateKey: tmplKey, templateTitle: tmplTitle, location: loc,
+            stageId, stageName, isCompleted: true,
+            state: states, details: detailsData, photos: photoData, metrics: metricsData
+        };
+    };
+
+    const mockMetrics = (f, b1, b2, b3) => ({
+        final: f, baseUrkPerc: f+5, checkedCount: 5, totalCount: 5, n_B1_fail: b1, n_B2_fail: b2, n_B3_fail: b3, b3_found: b3>0, 
+        kc: b2>2?0.85:1.0, kcrit: b3>0?0.5:1.0, isDanger: b3>0
     });
 
-    // --- Подрядчик 1: Топовый (Победитель) ---
+    // --- Подрядчик 1: Топовый ---
     for(let i=0; i<8; i++) {
-        let d = new Date(now); d.setDate(now.getDate() - (i*2));
-        mockArray.push({
-            id: 1000 + i, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.',
-            contractorName: 'ООО "Альфа-Отделка" (Ремонт)', templateKey: 'sys_nvf_facade', templateTitle: 'Навесной вентилируемый фасад',
-            location: `Секция 1, Эт ${i+2}`,
-            state: {'101': 'ok', '102': 'ok', '103': 'ok', '106': (i===3?'fail':'ok')}, 
-            details: {}, photos: {}, // Идеальным подрядчикам фото не ставим
-            metrics: createMockMetric(i===3?80:92, 0, i===3?1:0, 0, false, i===3?'ИСПРАВИТЬ':'ПРИНЯТО', i===3?'tag-yellow':'tag-green', 'Мелкие огрехи')
-        });
+        // Изделие i. Состоит из двух этапов
+        mockArray.push(createStageRecord(1000+i*2, i*2, 'ООО "Альфа-Отделка"', 'sys_nvf_facade', 'Вент. фасад', `Секция 1, Ось ${i+1}`, 
+            0, "1. Документация", {'101':'ok', '102':'ok'}, {}, {}, mockMetrics(100,0,0,0)));
+            
+        let hasDefect = i === 3;
+        mockArray.push(createStageRecord(1001+i*2, i*2, 'ООО "Альфа-Отделка"', 'sys_nvf_facade', 'Вент. фасад', `Секция 1, Ось ${i+1}`, 
+            1, "2. Подготовка", {'106':hasDefect?'fail':'ok', '107':'ok'}, 
+            hasDefect ? {'106': {causeCode: 'C06', comment: '[Спешка] Не убрали пыль'}} : {}, {}, 
+            mockMetrics(hasDefect?80:100, 0, hasDefect?1:0, 0)));
     }
 
-    // --- Подрядчик 2: Средний (Косяки B2 + Фото) ---
+    // --- Подрядчик 2: Средний с косяками ---
     for(let i=0; i<7; i++) {
-        let d = new Date(now); d.setDate(now.getDate() - (i*3));
-        let hasDefect = (i % 2 === 0); // Каждый второй с дефектом
-        let p_data = hasDefect ? {'204': demoPhoto} : {}; // Прикрепляем фото
-        
-        mockArray.push({
-            id: 2000 + i, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.',
-            contractorName: 'ООО "Монолит-Строй" (Каркас)', templateKey: 'sys_armature', templateTitle: 'Арматурные работы',
-            location: `Секция 2, Пилон П-${i+1}`,
-            state: {'201': 'ok', '204': hasDefect?'fail':'ok', '206': 'ok'}, 
-            details: {}, photos: p_data,
-            metrics: createMockMetric(hasDefect?76:85, 1, hasDefect?2:0, 0, false, hasDefect?'ИСПРАВИТЬ':'ПРИНЯТО', hasDefect?'tag-yellow':'tag-green', 'Отклонения геометрии')
-        });
+        let hasDefect = (i % 2 === 0);
+        mockArray.push(createStageRecord(2000+i*2, i*3, 'ООО "Монолит-Строй"', 'sys_armature', 'Арматура', `Пилон П-${i+1}`, 
+            0, "1. Документация", {'201':'ok'}, {}, {}, mockMetrics(100,0,0,0)));
+            
+        mockArray.push(createStageRecord(2001+i*2, i*3, 'ООО "Монолит-Строй"', 'sys_armature', 'Арматура', `Пилон П-${i+1}`, 
+            1, "2. Монтаж", {'204':hasDefect?'fail':'ok', '206':'ok', '210':'ok'}, 
+            hasDefect ? {'204': {causeCode: 'C04', comment: '[Персонал] Шаг арматуры нарушен'}} : {}, 
+            hasDefect ? {'204': demoPhoto} : {}, 
+            mockMetrics(hasDefect?76:100, 1, hasDefect?2:0, 0)));
     }
 
-    // --- Подрядчик 3: Плохой (С дефектами B3 + Фото) ---
+    // --- Подрядчик 3: Плохой (С дефектами B3) ---
     for(let i=0; i<9; i++) {
-        let d = new Date(now); d.setDate(now.getDate() - i);
-        let hasB3 = i === 2 || i === 5 || i === 7; // 3 критических дефекта
-        let p_data = hasB3 ? {'310': demoPhoto} : {}; // Прикрепляем фото только к B3
-        
-        mockArray.push({
-            id: 3000 + i, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.',
-            contractorName: 'ИП Петров (Вентблоки)', templateKey: 'sys_vent_stairs', templateTitle: 'Вент. блоки и Лестничные марши',
-            location: `Секция 3, Этаж ${i+1}`,
-            state: {'301': 'ok', '310': hasB3?'fail_escalated':'ok', '305': 'fail'}, 
-            details: hasB3 ? {'310': {comment: "Трещины более 0.2мм, нарушение ГОСТ"}} : {}, photos: p_data,
-            metrics: createMockMetric(hasB3?45:82, 0, 1, hasB3?1:0, hasB3, hasB3?'БРАК / СТОП':'ИСПРАВИТЬ', hasB3?'tag-red':'tag-yellow', hasB3?'Критическое нарушение':'Нарушение слоя')
-        });
+        let hasB3 = i === 2 || i === 5 || i === 7; 
+        mockArray.push(createStageRecord(3000+i*2, i, 'ИП Петров (Вентблоки)', 'sys_vent_stairs', 'Вент. блоки', `Секция 3, Эт ${i+1}`, 
+            1, "2. Вент. блоки", {'305':'fail', '310':hasB3?'fail_escalated':'ok'}, 
+            hasB3 ? {'310': {causeCode: 'C03', comment: '[Материалы] Трещины >0.2мм'}} : {'305': {causeCode: 'C01', comment: '[Технология] Смещение'}}, 
+            hasB3 ? {'310': demoPhoto} : {}, 
+            mockMetrics(hasB3?45:82, 0, 1, hasB3?1:0)));
     }
 
     return mockArray;
@@ -1634,231 +1820,395 @@ function switchAnalyticsSubTab(tabId, btnElement) {
     }
 }
 
-// === ПОЛНАЯ АНАЛИТИКА С ГРАФИКАМИ CHART.JS (СОВМЕСТИМОСТЬ v15) ===
-function renderAnalyticsTab() {
-    const container = document.getElementById('analytics-contractors-container');
-    if(!container) return;
+// === АНАЛИТИКА И ОТЧЕТЫ (ПРО 4.0) ===
+
+let currentActiveAnalyticsTab = 'sub-rating';
+
+function updateAnalyticsFilters() {
+    const selectC = document.getElementById('global-filter-contractor');
+    const selectT = document.getElementById('global-filter-template');
+    if(!selectC || !selectT) return;
     
-    // Уничтожаем старые графики перед перерисовкой
+    const uniqueCs = [...new Set(contractorArray.map(i => i.contractorName).filter(Boolean))];
+    selectC.innerHTML = `<option value="ALL">Все подрядчики</option>` + uniqueCs.map(c => `<option value="${c}">${c}</option>`).join('');
+    
+    // Обновляем шаблоны из селектора на главной
+    const tmplSelect = document.getElementById('checklist-selector');
+    if(tmplSelect) {
+        let opts = `<option value="ALL">Все виды работ</option>`;
+        Array.from(tmplSelect.options).forEach(o => {
+            if(o.value && o.value !== "HOME" && o.value !== "UPLOAD") opts += `<option value="${o.value}">${o.text}</option>`;
+        });
+        selectT.innerHTML = opts;
+    }
+}
+
+function switchAnalyticsSubTab(tabId, btnElement) {
+    currentActiveAnalyticsTab = tabId;
+    document.querySelectorAll('.analytics-sub-section').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.sub-tab-btn').forEach(el => {
+        el.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600', 'dark:bg-slate-700', 'dark:text-indigo-400');
+        el.classList.add('text-[var(--text-muted)]');
+    });
+    
+    document.getElementById(tabId).classList.remove('hidden');
+    if(btnElement) {
+        btnElement.classList.add('bg-white', 'shadow-sm', 'text-indigo-600', 'dark:bg-slate-700', 'dark:text-indigo-400');
+        btnElement.classList.remove('text-[var(--text-muted)]');
+    }
+
+    renderCurrentAnalyticsTab();
+    
+    const fab = document.getElementById('fab-download-btn');
+    if (fab) {
+        fab.style.display = 'flex';
+        fab.dataset.context = tabId;
+    }
+}
+
+// Фильтрация данных для всех вкладок аналитики
+function getFilteredAnalyticsData() {
+    const selPeriod = document.getElementById('global-filter-period')?.value || 'ALL';
+    const selTmpl = document.getElementById('global-filter-template')?.value || 'ALL';
+    const selContr = document.getElementById('global-filter-contractor')?.value || 'ALL';
+    
+    let arr = contractorArray;
+    const now = new Date();
+    
+    if (selPeriod === 'DAY') arr = arr.filter(i => new Date(i.date).toDateString() === now.toDateString()); 
+    else if (selPeriod === 'MONTH') { const m = new Date(); m.setDate(now.getDate()-30); arr = arr.filter(i => new Date(i.date) >= m); } 
+    else if (selPeriod === 'WEEK') { const w = new Date(); w.setDate(now.getDate()-7); arr = arr.filter(i => new Date(i.date) >= w); }
+
+    if(selContr !== "ALL") arr = arr.filter(i => i.contractorName === selContr);
+    if(selTmpl !== "ALL") arr = arr.filter(i => i.templateKey === selTmpl);
+    
+    return arr;
+}
+
+function renderCurrentAnalyticsTab() {
     for (const key in chartInstances) { if (chartInstances[key]) chartInstances[key].destroy(); }
     chartInstances = {};
 
-    if (contractorArray.length === 0) {
-        container.innerHTML = `<p class="text-sm text-[var(--text-muted)] text-center bg-[var(--card-bg)] border border-[var(--card-border)] p-6 rounded-xl">Нет данных для аналитики.</p>`; 
+    const data = getFilteredAnalyticsData();
+    
+    if (currentActiveAnalyticsTab === 'sub-rating') renderRatingSubTab(data);
+    else if (currentActiveAnalyticsTab === 'sub-engineering') renderEngineeringSubTab(data);
+    else if (currentActiveAnalyticsTab === 'sub-onepager') renderOnePagerSubTab(data);
+    else if (currentActiveAnalyticsTab === 'sub-data') renderDataSubTab(data);
+}
+
+// === ПОДВКЛАДКА 1: РЕЙТИНГ ПОДРЯДЧИКОВ ===
+function renderRatingSubTab(data) {
+    const container = document.getElementById('rating-content-container');
+    if(data.length === 0) { container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">Нет данных по фильтрам</div>`; return; }
+
+    const grouped = {};
+    data.forEach(item => { const cName = item.contractorName || 'Не указан'; if(!grouped[cName]) grouped[cName] = []; grouped[cName].push(item); });
+    
+    const ratingData = [];
+    for(let cName in grouped) { const metrics = getContractorMetrics(grouped[cName], userTemplates); if (metrics) ratingData.push({ name: cName, metrics: metrics, raw: grouped[cName] }); }
+    
+    if (ratingData.length === 0) { container.innerHTML = '<p class="p-6 text-center text-slate-500 text-sm">Мало данных. Для расчета рейтинга нужно мин. 3 изделия.</p>'; return; }
+
+    ratingData.sort((a,b) => b.metrics.finalC - a.metrics.finalC);
+
+    const cLabels = ratingData.map(r => r.name.length > 12 ? r.name.substring(0,12)+'...' : r.name);
+    const cData = ratingData.map(r => r.metrics.finalC);
+
+    let html = `
+        <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 mb-6 shadow-sm mx-1">
+            <div class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-2 text-center">Сравнение Подрядчиков (УрК)</div>
+            <div style="height: 180px; position: relative;"><canvas id="chart_rating_compare"></canvas></div>
+        </div>
+        <div class="mx-1">`;
+
+    html += ratingData.map((r, index) => `
+        <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-4 mb-3 shadow-sm relative overflow-hidden">
+            <div class="flex items-start gap-3 border-b border-[var(--card-border)] pb-3 mb-3">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg shadow-md shrink-0 bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">${index + 1}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="text-[13px] font-black leading-tight truncate">${r.name}</div>
+                    <span class="${r.metrics.confCls} mt-1 inline-block text-[9px]">${r.metrics.confStatus} (Изделий: ${r.metrics.count})</span>
+                </div>
+                <div class="text-right shrink-0">
+                    <div class="text-3xl font-black leading-none ${r.metrics.finalC < 70 ? 'text-red-500' : (r.metrics.finalC < 85 ? 'text-orange-500' : 'text-green-600')}">${r.metrics.finalC}%</div>
+                    <span class="${r.metrics.riskCls} text-[9px] uppercase block mt-1">${r.metrics.riskStatus}</span>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-[10px] font-bold mb-3">
+                <div class="bg-[var(--hover-bg)] p-2 rounded border border-[var(--card-border)]"><span class="text-[var(--text-muted)] block mb-0.5">Системный брак (Ks):</span> <span class="${r.metrics.ks < 1 ? 'text-red-500' : 'text-green-600'} text-[12px]">${r.metrics.ks.toFixed(2)}</span> <span class="font-normal">(${r.metrics.maxFailRate.toFixed(1)}%)</span></div>
+                <div class="bg-[var(--hover-bg)] p-2 rounded border border-[var(--card-border)]"><span class="text-[var(--text-muted)] block mb-0.5">Критичность (Kcrit):</span> <span class="${r.metrics.kcritC < 1 ? 'text-red-500' : 'text-green-600'} text-[12px]">${r.metrics.kcritC.toFixed(2)}</span> <span class="font-normal">(B3: ${r.metrics.n_изделий_с_B3} шт)</span></div>
+                <div class="bg-[var(--hover-bg)] p-2 rounded border border-[var(--card-border)]"><span class="text-[var(--text-muted)] block mb-0.5">Индекс стабильности:</span> <span class="text-[12px]">${r.metrics.stabilityIndex} / 100</span></div>
+                <div class="bg-[var(--hover-bg)] p-2 rounded border border-[var(--card-border)]"><span class="text-[var(--text-muted)] block mb-0.5">Волатильность (СКО):</span> <span class="text-[12px]">${r.metrics.volatility.toFixed(1)}</span></div>
+            </div>
+        </div>`).join('');
+    
+    html += `</div>`;
+    container.innerHTML = html;
+
+    const ctx = document.getElementById('chart_rating_compare').getContext('2d');
+    chartInstances['chart_rating_compare'] = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: cLabels, datasets: [{ data: cData, backgroundColor: cData.map(v => v<70?'#ef4444':(v<85?'#f59e0b':'#22c55e')), borderRadius: 4 }] },
+        options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { display: false } } }
+    });
+}
+
+// === ПОДВКЛАДКА 2: ИНЖЕНЕРНЫЙ АНАЛИЗ ===
+// === ПОДВКЛАДКА 2: ИНЖЕНЕРНЫЙ АНАЛИЗ (ОБНОВЛЕНО) ===
+function renderEngineeringSubTab(data) {
+    const container = document.getElementById('engineering-content-container');
+    if(data.length === 0) { container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">Нет данных по выбранным фильтрам</div>`; return; }
+
+    const causesCount = {}; let totalB2B3 = 0;
+    const stageData = {}; 
+    const critList = [];
+    const allPhotos = [];
+
+    data.forEach(unit => {
+        const sKey = `${unit.templateTitle} | ${unit.stageName}`;
+        if(!stageData[sKey]) stageData[sKey] = { checks: 0, sumUrk: 0, b3Count: 0 };
+        stageData[sKey].checks++;
+        if(unit.metrics) {
+            stageData[sKey].sumUrk += unit.metrics.final;
+            stageData[sKey].b3Count += unit.metrics.n_B3_fail;
+        }
+
+        if(unit.state && unit.details) {
+            Object.keys(unit.state).forEach(itemId => {
+                const state = unit.state[itemId];
+                if(state === 'fail' || state === 'fail_escalated') {
+                    totalB2B3++;
+                    let causeCode = unit.details[itemId]?.causeCode || 'C00';
+                    causesCount[causeCode] = (causesCount[causeCode] || 0) + 1;
+                    
+                    if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state==='fail')) {
+                        critList.push({ loc: unit.location, stage: unit.stageName, date: unit.date, text: unit.details[itemId]?.comment });
+                    }
+                }
+                if(unit.photos && unit.photos[itemId]) {
+                    allPhotos.push({ src: unit.photos[itemId], loc: unit.location, stage: unit.stageName, date: unit.date });
+                }
+            });
+        }
+    });
+
+    let stagesHtml = Object.keys(stageData).map(k => {
+        const avg = Math.round(stageData[k].sumUrk / stageData[k].checks);
+        return `<tr class="border-b border-[var(--card-border)] last:border-0"><td class="p-2 text-[10px] font-bold whitespace-normal">${k}</td><td class="p-2 text-center text-[11px]">${stageData[k].checks}</td><td class="p-2 text-center text-[11px] font-black ${avg<70?'text-red-500':(avg<85?'text-orange-500':'text-green-600')}">${avg}%</td><td class="p-2 text-center">${stageData[k].b3Count>0?'Да':'-'}</td></tr>`;
+    }).join('');
+
+    let causesChartLabels = []; let causesChartData = [];
+    let causesHtml = Object.keys(causesCount).map(code => {
+        const name = DEFECT_CAUSES.find(c => c.code === code)?.name || 'Иное';
+        const perc = ((causesCount[code] / totalB2B3) * 100).toFixed(1);
+        causesChartLabels.push(name.substring(0,10)+'.'); causesChartData.push(causesCount[code]);
+        return `<div class="flex justify-between items-center text-[10px] mb-1 font-bold"><span class="truncate pr-2">${name}</span><span>${perc}% (${causesCount[code]})</span></div>`;
+    }).join('');
+
+    // --- УМНЫЕ КОММЕНТАРИИ (СТРОГИЙ СТИЛЬ) ---
+    let smartComments = [];
+    const b3Rate = critList.length;
+    
+    if(b3Rate > 0) {
+        smartComments.push({
+            type: 'critical',
+            text: `Выявлено ${b3Rate} инцидентов с дефектами B3. Требуется приостановка работ на зафиксированных участках и вызов комиссии.`
+        });
+    } else {
+        smartComments.push({
+            type: 'success',
+            text: `Критических нарушений (категории B3) в текущей выборке не зафиксировано.`
+        });
+    }
+
+    if(causesChartData.length > 0) {
+        const maxCauseIdx = causesChartData.indexOf(Math.max(...causesChartData));
+        const dominantCause = causesChartLabels[maxCauseIdx];
+        const domPerc = ((causesChartData[maxCauseIdx] / totalB2B3) * 100).toFixed(0);
+        smartComments.push({
+            type: 'warning',
+            text: `Доминирующая причина брака — «${dominantCause}» (${domPerc}% от всех дефектов). Рекомендуется направить предписание для корректировки процесса.`
+        });
+    }
+
+    let galleryHtml = allPhotos.length > 0 ? `<div class="grid grid-cols-2 md:grid-cols-4 gap-2">${allPhotos.slice(-8).reverse().map(p => `<div class="border border-[var(--card-border)] rounded-lg overflow-hidden relative" onclick="openPhotoViewer('${p.src}')"><img src="${p.src}" class="w-full h-24 object-cover" /><div class="absolute bottom-0 w-full bg-black/80 text-white text-[8px] p-1.5 font-bold leading-tight">${p.loc}<br><span class="text-slate-300 font-normal">${p.stage}</span></div></div>`).join('')}</div>` : `<p class="text-xs text-[var(--text-muted)] text-center py-4">Нет фотографий.</p>`;
+
+    let html = `
+        <div class="mx-1 space-y-4">
+            
+            <!-- Смарт-комментарии -->
+            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-4 shadow-sm">
+                <div class="text-[10px] font-black text-slate-400 uppercase mb-3 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Аналитический срез
+                </div>
+                <div class="space-y-2">
+                    ${smartComments.map(c => {
+                        let borderCls = c.type === 'critical' ? 'border-red-500 bg-red-50 text-red-800' : (c.type === 'warning' ? 'border-orange-500 bg-orange-50 text-orange-800' : 'border-green-500 bg-green-50 text-green-800');
+                        let darkBorderCls = c.type === 'critical' ? 'dark:bg-red-900/20 dark:text-red-300' : (c.type === 'warning' ? 'dark:bg-orange-900/20 dark:text-orange-300' : 'dark:bg-green-900/20 dark:text-green-300');
+                        return `
+                        <div class="border-l-4 ${borderCls} ${darkBorderCls} p-2.5 rounded-r text-[11px] font-bold leading-snug flex justify-between gap-2 items-start">
+                            <span>${c.text}</span>
+                            <button onclick="navigator.clipboard.writeText('${c.text}'); showToast('Текст скопирован');" class="text-[var(--text-muted)] hover:text-indigo-600 shrink-0 active:scale-90 transition-colors">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            </button>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+
+            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Сводка по этапам</div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left whitespace-nowrap"><thead class="bg-[var(--hover-bg)] text-[10px] text-[var(--text-muted)] border-b border-[var(--card-border)]"><tr><th class="p-2">Этап</th><th class="p-2 text-center">Пров.</th><th class="p-2 text-center">УрК</th><th class="p-2 text-center">B3</th></tr></thead><tbody class="divide-y divide-[var(--card-border)]">${stagesHtml}</tbody></table>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Причины дефектов</div>
+                    <div style="height: 150px; position: relative; margin-bottom: 10px;"><canvas id="chart_eng_causes"></canvas></div>
+                    ${causesHtml || '<div class="text-xs text-center text-slate-500">Нет дефектов</div>'}
+                </div>
+                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
+                    <div class="text-[10px] font-black text-red-500 uppercase mb-2 flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        Журнал B3
+                    </div>
+                    <div class="max-h-[200px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                        ${critList.length>0 ? critList.map(c => `<div class="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/50 p-2 rounded text-[10px]"><span class="font-black text-red-700 block">${c.loc}</span><span class="text-red-500 block mb-1">${c.stage}</span><span class="italic font-bold text-red-800 dark:text-red-300">Комментарий: ${c.text}</span></div>`).join('') : '<div class="text-[11px] text-green-600 font-bold text-center py-4">Критических отклонений нет.</div>'}
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Фотоотчет</div>
+                ${galleryHtml}
+            </div>
+        </div>`;
+
+    container.innerHTML = html;
+
+    if(causesChartData.length > 0) {
+        const ctx = document.getElementById('chart_eng_causes').getContext('2d');
+        chartInstances['chart_eng_causes'] = new Chart(ctx, {
+            type: 'bar', indexAxis: 'y',
+            data: { labels: causesChartLabels, datasets: [{ data: causesChartData, backgroundColor: '#6366f1', borderRadius: 4 }] },
+            options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+}
+
+// === ПОДВКЛАДКА 3: ONE-PAGER ДЛЯ РУКОВОДСТВА ===
+function renderOnePagerSubTab(data) {
+    const container = document.getElementById('onepager-content-container');
+    if(data.length === 0) { container.innerHTML = `<div class="text-center text-slate-500 text-sm">Нет данных</div>`; return; }
+
+    const uniqueLocs = [...new Set(data.map(i => i.location))];
+    const uniqueContrs = [...new Set(data.map(i => i.contractorName))];
+    
+    let sumUrk = 0; let sumB3 = 0;
+    data.forEach(i => { if(i.metrics) { sumUrk += i.metrics.final; sumB3 += i.metrics.n_B3_fail; } });
+    const globalUrk = Math.round(sumUrk / data.length);
+    
+    const urkColor = globalUrk < 70 ? 'text-red-600' : (globalUrk < 85 ? 'text-orange-500' : 'text-green-600');
+    
+    // Динамика (группировка по дням)
+    const trendMap = {};
+    data.forEach(i => {
+        const d = new Date(i.date).toLocaleDateString();
+        if(!trendMap[d]) trendMap[d] = { sum: 0, count: 0 };
+        trendMap[d].sum += i.metrics.final; trendMap[d].count++;
+    });
+    const trendLabels = Object.keys(trendMap).slice(-7); // Последние 7 дней активности
+    const trendData = trendLabels.map(k => Math.round(trendMap[k].sum / trendMap[k].count));
+
+    let html = `
+        <div class="text-center border-b border-[var(--card-border)] pb-4 mb-4">
+            <h2 class="text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white">Сводный статус качества</h2>
+            <div class="text-[10px] font-bold text-[var(--text-muted)]">${new Date().toLocaleDateString('ru-RU')} | Выборка: ${data.length} проверок</div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-inner">
+                <div class="text-[9px] uppercase font-bold text-[var(--text-muted)] mb-1">Глобальный УрК</div>
+                <div class="text-3xl font-black ${urkColor}">${globalUrk}%</div>
+            </div>
+            <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-inner">
+                <div class="text-[9px] uppercase font-bold text-[var(--text-muted)] mb-1">Критические дефекты</div>
+                <div class="text-3xl font-black ${sumB3>0?'text-red-600':'text-green-600'}">${sumB3}</div>
+            </div>
+            <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-inner">
+                <div class="text-[9px] uppercase font-bold text-[var(--text-muted)] mb-1">Осмотрено изделий</div>
+                <div class="text-xl font-black text-slate-700 dark:text-slate-200 mt-1">${uniqueLocs.length}</div>
+            </div>
+            <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-inner">
+                <div class="text-[9px] uppercase font-bold text-[var(--text-muted)] mb-1">Подрядчиков</div>
+                <div class="text-xl font-black text-slate-700 dark:text-slate-200 mt-1">${uniqueContrs.length}</div>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <div class="text-[11px] font-black text-[var(--text-muted)] uppercase mb-2 pl-1">Тренд качества (последние осмотры)</div>
+            <div style="height: 140px; position: relative;"><canvas id="chart_onepager_trend"></canvas></div>
+        </div>
+
+        <div class="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900 rounded-xl p-3">
+            <div class="text-[11px] font-black text-red-600 uppercase mb-2 flex items-center gap-1"><span>🚨</span> Зоны риска</div>
+            <ul class="text-[11px] font-bold text-red-800 dark:text-red-300 space-y-1 ml-4 list-disc marker:text-red-400">
+                ${globalUrk < 85 ? `<li>Глобальный рейтинг объекта ниже нормы (Цель: >85%)</li>` : `<li>Глобальный рейтинг в норме</li>`}
+                ${sumB3 > 0 ? `<li>Зафиксировано ${sumB3} инцидентов с дефектами категории B3.</li>` : `<li>Критических дефектов на объекте не зафиксировано.</li>`}
+            </ul>
+        </div>
+    `;
+
+    container.innerHTML = html;
+
+    const ctx = document.getElementById('chart_onepager_trend').getContext('2d');
+    chartInstances['chart_onepager_trend'] = new Chart(ctx, {
+        type: 'line', 
+        data: { labels: trendLabels, datasets: [{ data: trendData, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: true, tension: 0.3, borderWidth: 2, pointRadius: 4 }] },
+        options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { display: false } } }
+    });
+}
+
+// === ПОДВКЛАДКА 4: СЫРЫЕ ДАННЫЕ (ТАБЛИЦА) ===
+function renderDataSubTab(data) {
+    const tbody = document.getElementById('data-table-body');
+    if(!tbody) return;
+
+    if(data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-[var(--text-muted)]">Нет данных</td></tr>`;
         return;
     }
 
-    const selContr = document.getElementById('analytics-contractor-select')?.value || 'ALL';
-    const selTmpl = document.getElementById('analytics-template-select')?.value || 'ALL';
-    const selPeriod = document.getElementById('analytics-period-select')?.value || 'ALL';
-    
-    let baseArray = contractorArray;
-    const now = new Date();
-    
-    if (selPeriod === 'DAY') baseArray = baseArray.filter(i => new Date(i.date).toDateString() === now.toDateString()); 
-    else if (selPeriod === 'MONTH') { const m = new Date(); m.setDate(now.getDate()-30); baseArray = baseArray.filter(i => new Date(i.date) >= m); } 
-    else if (selPeriod === 'WEEK') { const w = new Date(); w.setDate(now.getDate()-7); baseArray = baseArray.filter(i => new Date(i.date) >= w); }
+    const sortedData = [...data].sort((a,b) => new Date(b.date) - new Date(a.date));
 
-    if(selContr !== "ALL") baseArray = baseArray.filter(i => i.contractorName === selContr);
-    if(selTmpl !== "ALL") baseArray = baseArray.filter(i => i.templateKey === selTmpl);
+    // Выводим максимум 50 последних записей для производительности мобилок
+    const limit = Math.min(sortedData.length, 50);
+    let html = '';
 
-    if (baseArray.length === 0) { 
-        container.innerHTML = `<p class="text-sm text-[var(--text-muted)] text-center bg-[var(--card-bg)] border border-[var(--card-border)] p-6 rounded-xl">По заданным фильтрам данных нет.</p>`; 
-        return; 
+    for(let i=0; i<limit; i++) {
+        const r = sortedData[i];
+        const d = new Date(r.date).toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'});
+        const m = r.metrics;
+        const color = m ? (m.final < 70 ? 'text-red-500' : (m.final < 85 ? 'text-orange-500' : 'text-green-600')) : '';
+        const bText = m ? `<span class="text-orange-500">${m.n_B2_fail}</span> / <span class="text-red-500">${m.n_B3_fail}</span>` : '-';
+        
+        html += `
+            <tr class="hover:bg-[var(--hover-bg)] cursor-pointer" onclick="showHistoryDetail(${r.id})">
+                <td class="p-2 pl-3">${d}</td>
+                <td class="p-2 max-w-[80px] truncate" title="${r.contractorName}">${r.contractorName}</td>
+                <td class="p-2 max-w-[80px] truncate font-bold text-slate-700 dark:text-slate-300" title="${r.location}">${r.location}</td>
+                <td class="p-2 max-w-[80px] truncate text-slate-500" title="${r.stageName}">${r.stageName}</td>
+                <td class="p-2 text-center font-black ${color}">${m ? m.final+'%' : '-'}</td>
+                <td class="p-2 text-center font-bold bg-slate-50 dark:bg-slate-900 border-l border-[var(--card-border)]">${bText}</td>
+            </tr>
+        `;
     }
 
-    let html = ""; let chartConfigs = [];
-    let sumUrk = 0; let sumB3 = 0;
-    let contractorMap = {}; let templateMap = {};
-
-    baseArray.forEach(item => {
-        sumUrk += item.metrics.final;
-        sumB3 += item.metrics.n_B3_fail;
-
-        let cName = item.contractorName || 'Не указан';
-        if (!contractorMap[cName]) contractorMap[cName] = { sum: 0, count: 0 };
-        contractorMap[cName].sum += item.metrics.final;
-        contractorMap[cName].count++;
-
-        let tName = item.templateTitle || 'Не указано';
-        if (!templateMap[tName]) templateMap[tName] = { sum: 0, count: 0 };
-        templateMap[tName].sum += item.metrics.final;
-        templateMap[tName].count++;
-    });
-
-    const avgUrk = Math.round(sumUrk / baseArray.length);
-    const avgColor = avgUrk < 70 ? 'text-red-600' : (avgUrk < 85 ? 'text-orange-500' : 'text-green-600');
-    const b3Color = sumB3 > 0 ? 'text-red-600' : 'text-slate-800 dark:text-slate-200';
-
-    const cLabels = Object.keys(contractorMap).map(k => k.length > 15 ? k.substring(0, 15) + '...' : k);
-    const cData = Object.keys(contractorMap).map(k => Math.round(contractorMap[k].sum / contractorMap[k].count));
-    
-    const tLabels = Object.keys(templateMap).map(k => k.length > 15 ? k.substring(0, 15) + '...' : k);
-    const tData = Object.keys(templateMap).map(k => Math.round(templateMap[k].sum / templateMap[k].count));
-
-    html += `
-    <div class="mb-8 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl overflow-hidden shadow-md">
-        <div class="bg-slate-800 dark:bg-slate-900 text-white p-3 font-black text-sm uppercase tracking-wider flex justify-between items-center gap-2">
-            <span>📊 Сводный Дашборд</span>
-            <span class="text-[10px] bg-slate-700 px-2 py-1 rounded">Выборка: ${baseArray.length}</span>
-        </div>
-        <div class="p-3 bg-[var(--hover-bg)]">
-            <div class="grid grid-cols-3 gap-2 mb-4 text-center">
-                <div class="bg-[var(--card-bg)] p-3 rounded-xl border border-[var(--card-border)] shadow-sm">
-                    <div class="text-[9px] text-[var(--text-muted)] uppercase font-bold mb-1">Средний УрК</div>
-                    <div class="text-2xl font-black ${avgColor} leading-none">${avgUrk}%</div>
-                </div>
-                <div class="bg-[var(--card-bg)] p-3 rounded-xl border border-[var(--card-border)] shadow-sm">
-                    <div class="text-[9px] text-[var(--text-muted)] uppercase font-bold mb-1">Проверок</div>
-                    <div class="text-2xl font-black leading-none">${baseArray.length}</div>
-                </div>
-                <div class="bg-[var(--card-bg)] p-3 rounded-xl border border-[var(--card-border)] shadow-sm">
-                    <div class="text-[9px] text-[var(--text-muted)] uppercase font-bold mb-1">Крит. ошибки</div>
-                    <div class="text-2xl font-black ${b3Color} leading-none">${sumB3}</div>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
-                    <div class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-2 text-center">Качество Подрядчиков</div>
-                    <div style="height: 160px; position: relative;"><canvas id="chart_summary_c"></canvas></div>
-                </div>
-                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
-                    <div class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-2 text-center">Качество по Видам работ</div>
-                    <div style="height: 160px; position: relative;"><canvas id="chart_summary_t"></canvas></div>
-                </div>
-            </div>
-        </div>
-    </div>`;
-
-    chartConfigs.push({ id: 'chart_summary_c', type: 'bar', labels: cLabels, data: cData });
-    chartConfigs.push({ id: 'chart_summary_t', type: 'bar', labels: tLabels, data: tData });
-
-    // Группировка по подрядчикам для детального разбора
-    let blocksToProcess = [];
-    const uniqueCs = [...new Set(baseArray.map(i => i.contractorName))];
-    uniqueCs.forEach(cName => {
-        const cDataGroup = baseArray.filter(i => i.contractorName === cName);
-        const uniqueTs = [...new Set(cDataGroup.map(i => i.templateKey))];
-        uniqueTs.forEach(tKey => {
-            blocksToProcess.push({ 
-                contractor: cName, 
-                templateKey: tKey,
-                templateTitle: cDataGroup.find(i => i.templateKey === tKey).templateTitle, 
-                data: cDataGroup.filter(i => i.templateKey === tKey) 
-            });
-        });
-    });
-
-    blocksToProcess.forEach((block, index) => {
-        const filteredArray = block.data;
-        const safeNameId = block.contractor.replace(/\W/g, '_') + '_' + index;
-        const labels = filteredArray.map((_, i) => `#${i+1}`);
-        const dataUrk = filteredArray.map(item => item.metrics.final);
-
-        let failCounts = {}, critList = [], allPhotos = [];
-        const type = block.templateKey.split('_')[0]; 
-        const key = block.templateKey.replace(type + '_', '');
-        const refChecklist = type === 'sys' && SYSTEM_TEMPLATES[key] ? SYSTEM_TEMPLATES[key].groups : (userTemplates[key] ? userTemplates[key].groups : currentChecklist);
-        
-        const flatList = getFlatList(refChecklist);
-        flatList.forEach(i => failCounts[i.id] = { count: 0, n: i.n, w: i.w, photo: null });
-
-        filteredArray.forEach((unit) => {
-            flatList.forEach(i => {
-                const s = unit.state[i.id];
-                if (s === 'fail' || s === 'fail_escalated') {
-                    if(failCounts[i.id]) failCounts[i.id].count++;
-                    let photoTag = '';
-                    if (unit.photos && unit.photos[i.id]) {
-                        if(failCounts[i.id]) failCounts[i.id].photo = unit.photos[i.id];
-                        photoTag = `<img src="${unit.photos[i.id]}" class="w-7 h-7 rounded object-cover border border-[var(--card-border)] ml-2" onclick="openPhotoViewer('${unit.photos[i.id]}')" />`;
-                        allPhotos.push({ src: unit.photos[i.id], loc: unit.location, date: new Date(unit.date).toLocaleDateString('ru-RU') });
-                    }
-                    if (i.w === 3 || s === 'fail_escalated') {
-                        critList.push(`<div class="flex justify-between items-center border-b border-red-100 dark:border-red-900/50 pb-2 mb-2"><div class="text-[11px] text-red-700 dark:text-red-400 font-bold"><span class="text-red-400 dark:text-red-600 block text-[9px]">[${new Date(unit.date).toLocaleDateString()}] ${unit.location}</span>${i.n}</div>${photoTag}</div>`);
-                    }
-                }
-            });
-        });
-
-        const sortedFails = Object.values(failCounts).filter(x => x.count > 0).sort((a, b) => b.count - a.count).slice(0, 5);
-        let topDefectsHtml = sortedFails.length > 0 ? sortedFails.map(f => `
-            <div class="flex justify-between items-center p-2 border-b border-[var(--hover-bg)]">
-                <div class="flex-1 leading-snug"><span class="weight-tag wt-${f.w}">B${f.w}</span> <span class="text-[11px] font-bold">${f.n}</span></div>
-                <div class="flex items-center gap-2"><div class="bg-[var(--hover-bg)] px-2 py-1 rounded text-[10px] font-black">${f.count} раз</div>${f.photo ? `<img src="${f.photo}" class="w-7 h-7 rounded object-cover border border-[var(--card-border)]" onclick="openPhotoViewer('${f.photo}')"/>` : ''}</div>
-            </div>`).join('') : `<p class="text-xs text-[var(--text-muted)] p-2 text-center">Дефектов не найдено</p>`;
-        
-        let critDefectsHtml = critList.length > 0 ? critList.join('') : `<p class="text-[11px] text-red-400 p-2 font-bold text-center">Критических дефектов нет.</p>`;
-        let galleryHtml = allPhotos.length > 0 ? `<div class="grid grid-cols-3 gap-2">${allPhotos.slice(-6).reverse().map(p => `<div class="border border-[var(--card-border)] rounded-lg overflow-hidden relative" onclick="openPhotoViewer('${p.src}')"><img src="${p.src}" class="w-full h-20 object-cover" /><div class="absolute bottom-0 w-full bg-black/70 text-white text-[8px] p-1 font-bold">${p.loc}</div></div>`).join('')}</div>` : `<p class="text-xs text-[var(--text-muted)] text-center py-6">Нет фотографий.</p>`;
-
-        let expHtml = "";
-        if (filteredArray.length >= 7) {
-            const metrics = getContractorMetrics(filteredArray, userTemplates);
-            if (metrics) {
-                const expert = getExpertConclusion(metrics, block.contractor, block.templateTitle, filteredArray.length, safeNameId, customExpertConclusions);
-                expHtml = expert.uiHtml;
-            }
-        } else {
-            expHtml = `<div class="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-[10px] mt-4 mb-4 font-bold border border-yellow-200 shadow-sm">Собрано ${filteredArray.length} изд. Для расчета УрК нужно минимум 7.</div>`;
-        }
-
-        html += `
-            <div class="mb-8 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl overflow-hidden shadow-sm">
-                <div class="bg-slate-800 dark:bg-slate-900 text-white p-3 font-black text-sm uppercase tracking-wider flex justify-between items-center gap-2">
-                    <span class="truncate">🏗️ ${block.contractor}</span>
-                    <span class="text-[10px] bg-slate-700 px-2 py-1 rounded shrink-0">Выборка: ${filteredArray.length}</span>
-                </div>
-                <div class="bg-[var(--hover-bg)] border-b border-[var(--card-border)] px-4 py-2 text-[10px] font-bold text-[var(--text-muted)] uppercase">${block.templateTitle}</div>
-                <div class="p-4">
-                    ${expHtml}
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">График качества</div>
-                    <div class="bg-white dark:bg-slate-800 border border-[var(--card-border)] rounded-xl p-3 mb-6 h-[200px] shadow-sm"><canvas id="chart_ui_${safeNameId}"></canvas></div>
-                    
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">Топ-5 ошибок</div>
-                    <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-2 mb-6 shadow-sm">${topDefectsHtml}</div>
-                    
-                    <div class="text-[11px] font-bold text-red-500 uppercase mb-2">Критические ошибки (B3)</div>
-                    <div class="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900 rounded-xl p-3 mb-6 shadow-sm">${critDefectsHtml}</div>
-                    
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">Фотоотчет (Последние)</div>
-                    <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm min-h-[100px]">${galleryHtml}</div>
-                </div>
-            </div>`;
-        
-        chartConfigs.push({ id: `chart_ui_${safeNameId}`, type: 'line', labels: labels, data: dataUrk });
-    });
-
-    container.innerHTML = html;
-    
-    // Инициализация Chart.js
-    const getColor = (val) => val < 70 ? '#ef4444' : (val < 85 ? '#f59e0b' : '#22c55e');
-
-    chartConfigs.forEach(cfg => {
-        const ctx = document.getElementById(cfg.id).getContext('2d');
-        if (cfg.type === 'bar') {
-            chartInstances[cfg.id] = new Chart(ctx, {
-                type: 'bar',
-                data: { labels: cfg.labels, datasets: [{ data: cfg.data, backgroundColor: cfg.data.map(getColor), borderRadius: 4 }] },
-                options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { display: false } } }
-            });
-        } else {
-            chartInstances[cfg.id] = new Chart(ctx, {
-                type: 'line', 
-                data: { labels: cfg.labels, datasets: [{ data: cfg.data, borderColor: '#4f46e5', backgroundColor: '#4f46e5', tension: 0.3, borderWidth: 2, pointRadius: 3 }] },
-                options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { display: false } } },
-                plugins: [{ 
-                    id: 'targetZone', 
-                    beforeDraw: (chart) => {
-                        const { ctx, chartArea: { left, right }, scales: { y } } = chart; 
-                        ctx.save();
-                        ctx.fillStyle = 'rgba(34, 197, 94, 0.08)'; ctx.fillRect(left, y.getPixelForValue(100), right - left, y.getPixelForValue(85) - y.getPixelForValue(100));
-                        ctx.fillStyle = 'rgba(234, 179, 8, 0.08)'; ctx.fillRect(left, y.getPixelForValue(85), right - left, y.getPixelForValue(70) - y.getPixelForValue(85));
-                        ctx.restore();
-                    }
-                }]
-            });
-        }
-    });
+    tbody.innerHTML = html;
 }
 
 // === РЕЙТИНГ ПОДРЯДЧИКОВ ===
@@ -1924,164 +2274,6 @@ function renderRatingTab() {
     }).join('');
 }
 
-// === ВЫГРУЗКА PDF (Аналитика и Рейтинг) ===
-function exportPdfReport() {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return alert('Разрешите всплывающие окна в браузере.');
-
-    const selContr = document.getElementById('analytics-contractor-select')?.value || 'ALL';
-    const selTmpl = document.getElementById('analytics-template-select')?.value || 'ALL';
-    
-    let baseArray = contractorArray;
-    if(selContr !== "ALL") baseArray = baseArray.filter(i => i.contractorName === selContr);
-    if(selTmpl !== "ALL") baseArray = baseArray.filter(i => i.templateKey === selTmpl);
-    
-    if (baseArray.length === 0) { printWindow.close(); return alert('Нет данных для экспорта.'); }
-
-    let pName = baseArray[0].projectName || "Не указан";
-    let iName = baseArray[0].inspectorName || "Не указан";
-    let reportBlocksHTML = "";
-
-    // Сводный дашборд PDF
-    let sumUrk = 0; let sumB3 = 0;
-    baseArray.forEach(item => { sumUrk += item.metrics.final; sumB3 += item.metrics.n_B3_fail; });
-    const avgUrk = Math.round(sumUrk / baseArray.length);
-
-    const canvasSumC = document.getElementById('chart_summary_c');
-    const canvasSumT = document.getElementById('chart_summary_t');
-    let imgSumC = canvasSumC ? `<img src="${canvasSumC.toDataURL('image/png')}" class="chart-img" style="max-height: 200px;" />` : '';
-    let imgSumT = canvasSumT ? `<img src="${canvasSumT.toDataURL('image/png')}" class="chart-img" style="max-height: 200px;" />` : '';
-
-    reportBlocksHTML += `
-    <div class="avoid-break" style="margin-bottom: 40px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1;">
-        <h2 style="text-align: center; margin-top: 0;">СВОДНЫЙ ДАШБОРД ОБЪЕКТА</h2>
-        <table class="metrics-table" style="margin-top: 15px;"><tr>
-            <td><div class="metric-title">Средний УрК</div><div class="metric-val text-xl" style="color: ${avgUrk < 70 ? '#dc2626' : (avgUrk < 85 ? '#d97706' : '#16a34a')}">${avgUrk}%</div></td>
-            <td><div class="metric-title">Всего проверок</div><div class="metric-val text-xl">${baseArray.length}</div></td>
-            <td><div class="metric-title">Критические ошибки (B3)</div><div class="metric-val text-xl" style="color: ${sumB3 > 0 ? '#dc2626' : '#1e293b'}">${sumB3}</div></td>
-        </tr></table>
-        <div class="split-view" style="margin-top: 20px;">
-            <div class="split-col" style="text-align:center;"><h3>Качество Подрядчиков</h3>${imgSumC}</div>
-            <div class="split-col" style="text-align:center;"><h3>Качество по Видам работ</h3>${imgSumT}</div>
-        </div>
-    </div>`;
-
-    // Детализация по подрядчикам
-    const uniqueContractors = [...new Set(baseArray.map(i => i.contractorName))];
-    let globalBlockIndex = 0;
-
-    uniqueContractors.forEach((cName, cIndex) => {
-        const cDataAllTmpls = baseArray.filter(i => i.contractorName === cName);
-        const uniqueTemplates = [...new Set(cDataAllTmpls.map(i => i.templateKey))];
-        
-        reportBlocksHTML += `<div class="${cIndex > 0 ? 'contractor-group' : ''} avoid-break" style="margin-bottom: 40px;"><h2>ПОДРЯДЧИК: ${cName}</h2>`;
-
-        uniqueTemplates.forEach((tKey) => {
-            const cData = cDataAllTmpls.filter(i => i.templateKey === tKey);
-            const tmplTitle = cData[0].templateTitle;
-            const cCount = cData.length;
-            const safeNameId = cName.replace(/\W/g, '_') + '_' + globalBlockIndex++;
-            const uiChartCanvas = document.getElementById(`chart_ui_${safeNameId}`);
-            let chartImgHtml = uiChartCanvas ? `<img src="${uiChartCanvas.toDataURL('image/png')}" class="chart-img" />` : `<p style="color:#64748b; font-size:12px;">График недоступен</p>`;
-
-            reportBlocksHTML += `<div style="margin-top:20px; border-top:2px dashed #cbd5e1; padding-top:15px;"><h3>Вид работ: ${tmplTitle}</h3></div>`;
-
-            if (cCount >= 7) {
-                const c = getContractorMetrics(cData, userTemplates);
-                const expertData = getExpertConclusion(c, cName, tmplTitle, cCount, safeNameId, customExpertConclusions);
-                reportBlocksHTML += `
-                    ${expertData.pdfHtml}
-                    <table class="metrics-table" style="margin-top: 15px;"><tr>
-                        <td><div class="metric-title">УрК Подрядчика</div><div class="metric-val text-xl">${c.finalC}%</div></td>
-                        <td><div class="metric-title">Статус риска</div><div class="metric-val" style="color: ${c.riskStatus === 'Высокий риск' ? '#dc2626' : (c.riskStatus === 'Средний риск' ? '#d97706' : '#16a34a')}">${c.riskStatus}</div></td>
-                        <td><div class="metric-title">Достоверность</div><div class="metric-val text-sm">${c.confStatus} (${c.count} изд.)</div></td>
-                    </tr></table>
-                `;
-            } else {
-                reportBlocksHTML += `<div class="warning-box">Собрано ${cCount} изделий. Для расчета УрК требуется минимум 7.</div>`;
-            }
-
-            reportBlocksHTML += `<div class="avoid-break mt-20"><h3>Динамика качества</h3><div class="chart-wrapper">${chartImgHtml}</div></div>`;
-        });
-        reportBlocksHTML += `</div>`;
-    });
-
-    const reportTitle = selContr === "ALL" ? "СВОДНЫЙ ОТЧЕТ АУДИТА" : `ОТЧЕТ АУДИТА: ${selContr}`;
-    const finalHtml = generatePdfHtmlShell(reportTitle, pName, iName, "По фильтрам", reportBlocksHTML);
-    printWindow.document.open(); printWindow.document.write(finalHtml); printWindow.document.close();
-}
-
-function exportRatingPdf() {
-    const listDiv = document.getElementById('rating-list'); 
-    if(!listDiv || listDiv.innerHTML === '') return alert('Нет данных для экспорта рейтинга.');
-    
-    const printWindow = window.open('', '_blank'); 
-    if (!printWindow) return alert('Разрешите всплывающие окна в браузере.');
-    
-    const selTmpl = document.getElementById('rating-template-select')?.options[document.getElementById('rating-template-select').selectedIndex].text || 'Все';
-    let pName = contractorArray.length > 0 ? contractorArray[0].projectName || "Не указан" : "Не указан";
-    let iName = contractorArray.length > 0 ? contractorArray[0].inspectorName || "Не указан" : "Не указан";
-    
-    const tableRowsHtml = Array.from(listDiv.children).map((card, index) => {
-        const name = card.querySelector('.truncate').innerText; 
-        const urk = card.querySelector('.text-3xl').innerText;
-        const riskEl = card.querySelector('span[class*="risk-"]'); const risk = riskEl ? riskEl.innerText : '—';
-        const riskColor = riskEl ? (riskEl.classList.contains('risk-high') ? '#dc2626' : (riskEl.classList.contains('risk-low') ? '#16a34a' : '#d97706')) : '#000';
-        return `<tr class="avoid-break"><td class="text-center bold lg">${index+1}</td><td><b>${name}</b></td><td class="text-center black xl">${urk}</td><td class="text-center bold" style="color: ${riskColor};">${risk}</td></tr>`;
-    }).join('');
-
-    const reportBlocksHTML = `<table class="rating-table"><thead><tr class="avoid-break"><th style="width: 10%;">Место</th><th style="width: 50%; text-align: left;">Подрядчик</th><th style="width: 15%;">УрК</th><th style="width: 25%;">Статус Риска</th></tr></thead><tbody>${tableRowsHtml}</tbody></table>`;
-    
-    const finalHtml = generatePdfHtmlShell("РЕЙТИНГ ПОДРЯДЧИКОВ", pName, iName, selTmpl, reportBlocksHTML);
-    printWindow.document.open(); printWindow.document.write(finalHtml); printWindow.document.close();
-}
-
-// Оболочка для PDF
-function generatePdfHtmlShell(title, pName, iName, tName, content) {
-    return `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>${title}</title>
-    <style>
-        @page { size: auto; margin: 12mm 10mm; }
-        body { font-family: 'Inter', sans-serif; color: #0f172a; margin: 0; padding: 20px; background: white; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        .container { max-width: 1000px; margin: 0 auto; width: 100%; }
-        .print-controls { position: fixed; bottom: 30px; right: 20px; display: flex; flex-direction: column; gap: 12px; z-index: 1000; }
-        .btn { width: 50px; height: 50px; border-radius: 25px; display: flex; justify-content: center; align-items: center; cursor: pointer; border: none; box-shadow: 0 10px 15px rgba(0,0,0,0.2); }
-        .btn-close { background: #475569; color: white; } .btn-print { background: #4f46e5; color: white; }
-        @media print { .print-controls { display: none !important; } .container { max-width: 100% !important; } .avoid-break { page-break-inside: avoid !important; } .contractor-group { page-break-before: always; } }
-        h1 { font-size: 22px; font-weight: 900; text-align: center; text-transform: uppercase; }
-        h2 { font-size: 18px; background: #1e293b; color: white; padding: 10px 15px; border-radius: 6px; }
-        h3 { font-size: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
-        .header-info { width: 100%; background: #f8fafc; border: 1px solid #cbd5e1; border-collapse: collapse; font-size: 14px; margin-bottom: 20px; }
-        .header-info td { padding: 15px; vertical-align: top; border: 1px solid #cbd5e1; }
-        .metrics-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 15px; }
-        .metrics-table td { background: #f1f5f9; padding: 12px; border: 1px solid #cbd5e1; text-align: center; }
-        .metric-title { font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; }
-        .metric-val { font-weight: 900; color: #1e293b; margin-top: 4px; }
-        .text-xl { font-size: 20px; }
-        .warning-box { background: #fef9c3; border: 1px solid #fef08a; padding: 10px; font-size: 11px; font-weight: bold; color: #854d0e; border-left: 5px solid #f59e0b; }
-        .chart-wrapper { width: 100%; border: 1px solid #cbd5e1; padding: 10px; text-align: center; }
-        .chart-img { max-width: 100%; max-height: 250px; object-fit: contain; }
-        .split-view { display: table; width: 100%; table-layout: fixed; }
-        .split-col { display: table-cell; width: 50%; vertical-align: top; border: 1px solid #cbd5e1; padding: 15px; }
-        .rating-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        .rating-table th { background: #1e293b; color: white; padding: 12px; border: 1px solid #cbd5e1; }
-        .rating-table td { padding: 12px; border: 1px solid #cbd5e1; }
-        .text-center { text-align: center; } .bold { font-weight: bold; } .black { font-weight: 900; } .lg { font-size: 14px; } .xl { font-size: 18px; }
-    </style></head><body>
-    <div class="print-controls">
-        <button class="btn btn-print" onclick="window.print()"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg></button>
-        <button class="btn btn-close" onclick="window.close()"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
-    </div>
-    <div class="container">
-        <div class="avoid-break" style="border-bottom: 3px solid #1e293b; padding-bottom: 20px; margin-bottom: 30px;">
-            <h1>${title}</h1>
-            <table class="header-info"><tr>
-                <td><p><b>Объект:</b> ${pName}</p><p><b>Проверяющий:</b> ${iName}</p></td>
-                <td style="text-align:right;"><p><b>Выборка:</b> ${tName}</p><p style="color:#64748b;">Дата: ${new Date().toLocaleString('ru-RU')}</p></td>
-            </tr></table>
-        </div>
-        ${content}
-    </div></body></html>`;
-}
 // === ФУНКЦИИ РЕДАКТИРОВАНИЯ ЗАКЛЮЧЕНИЯ ИИ ===
 let currentEditingExpertKey = null;
 let currentEditingTextAreaId = null;
@@ -2274,12 +2466,291 @@ function updateFabButton(tabId) {
     }
 }
 
+// === КОНТЕКСТНЫЙ ЭКСПОРТ PDF (ШАГ 5) ===
+
 function handleFabDownload() {
-    const ctx = document.getElementById('fab-download-btn')?.dataset.context || 'pdf';
-    if (ctx === 'rating') exportRatingPdf();
-    else exportPdfReport();
+    const data = getFilteredAnalyticsData();
+    if(data.length === 0) return showToast('Нет данных для выгрузки PDF');
+
+    if (currentActiveAnalyticsTab === 'sub-rating') exportPdfRating(data);
+    else if (currentActiveAnalyticsTab === 'sub-engineering') exportPdfEngineering(data);
+    else if (currentActiveAnalyticsTab === 'sub-onepager') exportPdfOnePager(data);
+    else if (currentActiveAnalyticsTab === 'sub-data') exportPdfData(data);
 }
 
+// 1. PDF: Рейтинг Подрядчиков
+function exportPdfRating(data) {
+    const grouped = {};
+    data.forEach(item => { const cName = item.contractorName || 'Не указан'; if(!grouped[cName]) grouped[cName] = []; grouped[cName].push(item); });
+    
+    const ratingData = [];
+    for(let cName in grouped) { const metrics = getContractorMetrics(grouped[cName], userTemplates); if (metrics) ratingData.push({ name: cName, metrics: metrics }); }
+    ratingData.sort((a,b) => b.metrics.finalC - a.metrics.finalC);
+
+    const canvas = document.getElementById('chart_rating_compare');
+    const chartImg = canvas ? `<div class="chart-box"><img src="${canvas.toDataURL('image/png')}"></div>` : '';
+
+    let rowsHtml = ratingData.map((r, i) => `
+        <tr class="avoid-break">
+            <td class="text-center font-bold">${i + 1}</td>
+            <td><b>${r.name}</b><br><span style="font-size:10px; color:#64748b;">${r.metrics.confStatus} (Изд: ${r.metrics.count})</span></td>
+            <td class="text-center font-bold text-xl" style="color:${r.metrics.finalC<70?'#dc2626':(r.metrics.finalC<85?'#f59e0b':'#16a34a')}">${r.metrics.finalC}%</td>
+            <td class="text-center"><span class="badge ${r.metrics.ks<1?'badge-red':'badge-green'}">Ks: ${r.metrics.ks.toFixed(2)}</span></td>
+            <td class="text-center"><span class="badge ${r.metrics.kcritC<1?'badge-red':'badge-green'}">Kcrit: ${r.metrics.kcritC.toFixed(2)}</span></td>
+            <td class="text-center text-sm">${r.metrics.stabilityIndex}/100</td>
+            <td class="text-center" style="color:${r.metrics.riskStatus==='Высокий риск'?'#dc2626':'#16a34a'}"><b>${r.metrics.riskStatus}</b></td>
+        </tr>
+    `).join('');
+
+    const content = `
+        <h2 class="section-title">Сравнение и Рейтинг Подрядчиков</h2>
+        ${chartImg}
+        <table class="data-table mt-20">
+            <thead><tr><th>Место</th><th>Подрядчик</th><th>УрК</th><th>Системность</th><th>Критичность</th><th>Стабильность</th><th>Риск</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+    `;
+    printPdfShell("Рейтинг Подрядчиков", content);
+}
+
+// 2. PDF: Инженерный Анализ
+function exportPdfEngineering(data) {
+    const stageData = {}; let critList = []; let allPhotos = [];
+    data.forEach(unit => {
+        const sKey = `${unit.templateTitle} | ${unit.stageName}`;
+        if(!stageData[sKey]) stageData[sKey] = { checks: 0, sumUrk: 0, b3Count: 0 };
+        stageData[sKey].checks++;
+        if(unit.metrics) { stageData[sKey].sumUrk += unit.metrics.final; stageData[sKey].b3Count += unit.metrics.n_B3_fail; }
+
+        if(unit.state && unit.details) {
+            Object.keys(unit.state).forEach(itemId => {
+                const state = unit.state[itemId];
+                if(state === 'fail' || state === 'fail_escalated') {
+                    if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state==='fail')) {
+                        critList.push({ loc: unit.location, stage: unit.stageName, text: unit.details[itemId]?.comment || 'Без комментария' });
+                    }
+                }
+                if(unit.photos && unit.photos[itemId]) {
+                    allPhotos.push({ src: unit.photos[itemId], loc: unit.location, stage: unit.stageName, cause: unit.details[itemId]?.causeCode || '' });
+                }
+            });
+        }
+    });
+
+    let stagesHtml = Object.keys(stageData).map(k => {
+        const avg = Math.round(stageData[k].sumUrk / stageData[k].checks);
+        return `<tr><td>${k}</td><td class="text-center">${stageData[k].checks}</td><td class="text-center font-bold" style="color:${avg<70?'#dc2626':(avg<85?'#f59e0b':'#16a34a')}">${avg}%</td><td class="text-center">${stageData[k].b3Count>0?'🚨 Да':'Нет'}</td></tr>`;
+    }).join('');
+
+    let critHtml = critList.length > 0 ? critList.map(c => `<div class="crit-box"><b>${c.loc} (${c.stage}):</b> ${c.text}</div>`).join('') : '<div class="badge badge-green">Критических дефектов не обнаружено</div>';
+    
+    let photoHtml = allPhotos.slice(-12).map(p => `
+        <div class="photo-card avoid-break">
+            <img src="${p.src}">
+            <div class="photo-label"><b>${p.loc}</b><br>${p.stage}</div>
+        </div>
+    `).join('');
+
+    const canvasCauses = document.getElementById('chart_eng_causes');
+    const chartImg = canvasCauses ? `<div class="chart-box avoid-break mt-20"><h3 style="text-align:center; margin-bottom:10px;">Распределение причин дефектов</h3><img style="max-height: 250px;" src="${canvasCauses.toDataURL('image/png')}"></div>` : '';
+
+    const content = `
+        <h2 class="section-title">Инженерный Анализ</h2>
+        <table class="data-table mb-20">
+            <thead><tr><th>Этап работ</th><th>Проверок</th><th>Средний УрК</th><th>Крит. дефекты (B3)</th></tr></thead>
+            <tbody>${stagesHtml}</tbody>
+        </table>
+        ${chartImg}
+        <div class="avoid-break mt-20">
+            <h3 style="border-bottom: 2px solid #ef4444; color: #991b1b; padding-bottom: 5px;">Критические Нарушения (Журнал B3)</h3>
+            ${critHtml}
+        </div>
+        ${photoHtml ? `<div class="mt-20"><h3 style="border-bottom: 2px solid #cbd5e1; padding-bottom: 5px; margin-bottom: 15px;">Фотоотчет (последние фиксации)</h3><div class="photo-grid">${photoHtml}</div></div>` : ''}
+    `;
+    printPdfShell("Инженерный Отчет", content);
+}
+
+// 3. PDF: One-Pager для Руководства
+function exportPdfOnePager(data) {
+    const uniqueLocs = [...new Set(data.map(i => i.location))];
+    const uniqueContrs = [...new Set(data.map(i => i.contractorName))];
+    
+    let sumUrk = 0; let sumB3 = 0;
+    data.forEach(i => { if(i.metrics) { sumUrk += i.metrics.final; sumB3 += i.metrics.n_B3_fail; } });
+    const globalUrk = Math.round(sumUrk / data.length);
+    
+    const canvasTrend = document.getElementById('chart_onepager_trend');
+    const chartImg = canvasTrend ? `<div class="chart-box"><img style="max-height: 200px;" src="${canvasTrend.toDataURL('image/png')}"></div>` : '';
+
+    const content = `
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="font-size: 28px; margin: 0; color: #0f172a;">СВОДНЫЙ СТАТУС КАЧЕСТВА</h1>
+            <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Руководителю проекта | Данные на ${new Date().toLocaleDateString('ru-RU')}</p>
+        </div>
+        
+        <table style="width: 100%; table-layout: fixed; margin-bottom: 30px; border-collapse: separate; border-spacing: 10px;">
+            <tr>
+                <td style="background: #f1f5f9; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #cbd5e1;">
+                    <div style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold;">Глобальный УрК</div>
+                    <div style="font-size: 42px; font-weight: 900; color: ${globalUrk < 70 ? '#dc2626' : (globalUrk < 85 ? '#f59e0b' : '#16a34a')};">${globalUrk}%</div>
+                </td>
+                <td style="background: #fef2f2; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #fecaca;">
+                    <div style="font-size: 12px; color: #991b1b; text-transform: uppercase; font-weight: bold;">Критические дефекты</div>
+                    <div style="font-size: 42px; font-weight: 900; color: #dc2626;">${sumB3}</div>
+                </td>
+            </tr>
+            <tr>
+                <td style="background: #f8fafc; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #cbd5e1;">
+                    <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: bold;">Осмотрено изделий</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #1e293b;">${uniqueLocs.length}</div>
+                </td>
+                <td style="background: #f8fafc; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #cbd5e1;">
+                    <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: bold;">Активных подрядчиков</div>
+                    <div style="font-size: 24px; font-weight: 900; color: #1e293b;">${uniqueContrs.length}</div>
+                </td>
+            </tr>
+        </table>
+
+        <div style="margin-bottom: 30px;">
+            <h3 style="text-align: center; color: #475569; text-transform: uppercase; font-size: 12px;">Тренд качества (последние осмотры)</h3>
+            ${chartImg}
+        </div>
+
+        <div style="background: #fef2f2; border: 2px solid #fca5a5; border-radius: 12px; padding: 20px;">
+            <h3 style="margin-top: 0; color: #b91c1c; text-transform: uppercase; font-size: 16px;">🚨 Зоны риска и Внимание</h3>
+            <ul style="color: #991b1b; font-weight: bold; font-size: 14px; padding-left: 20px; margin-bottom: 0;">
+                ${globalUrk < 85 ? `<li style="margin-bottom: 10px;">Глобальный рейтинг объекта находится в зоне риска (<85%).</li>` : `<li style="margin-bottom: 10px;">Глобальный рейтинг объекта в пределах нормы.</li>`}
+                ${sumB3 > 0 ? `<li>Необходимо срочное вмешательство: обнаружено ${sumB3} критических нарушений технологии.</li>` : `<li>Критических дефектов на текущий момент нет.</li>`}
+            </ul>
+        </div>
+    `;
+    printPdfShell("Сводка для Руководства (One-Pager)", content);
+}
+
+// 4. PDF: Таблица Данных
+function exportPdfData(data) {
+    const sortedData = [...data].sort((a,b) => new Date(b.date) - new Date(a.date));
+    const limit = Math.min(sortedData.length, 100); // Ограничим 100 строками для PDF
+    
+    let rowsHtml = '';
+    for(let i=0; i<limit; i++) {
+        const r = sortedData[i];
+        const d = new Date(r.date).toLocaleDateString('ru-RU');
+        const m = r.metrics;
+        const color = m ? (m.final < 70 ? '#dc2626' : (m.final < 85 ? '#f59e0b' : '#16a34a')) : '#000';
+        rowsHtml += `
+            <tr class="avoid-break">
+                <td>${d}</td>
+                <td>${r.contractorName}</td>
+                <td><b>${r.location}</b></td>
+                <td>${r.stageName}</td>
+                <td class="text-center font-bold" style="color:${color}">${m ? m.final+'%' : '-'}</td>
+                <td class="text-center"><span style="color:#f59e0b">${m ? m.n_B2_fail : 0}</span> / <span style="color:#dc2626">${m ? m.n_B3_fail : 0}</span></td>
+            </tr>
+        `;
+    }
+
+    const content = `
+        <h2 class="section-title">Журнал инспекций (Сырые данные)</h2>
+        <p style="font-size: 12px; color: #64748b;">Выгружено записей: ${limit} шт.</p>
+        <table class="data-table mt-10">
+            <thead><tr><th>Дата</th><th>Подрядчик</th><th>Локация</th><th>Этап</th><th>УрК</th><th>B2 / B3</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+    `;
+    printPdfShell("Журнал Данных", content);
+}
+
+// === МАСТЕР-ШАБЛОН ДЛЯ ПЕЧАТИ (A3 LANDSCAPE) ===
+function printPdfShell(title, content) {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return alert('Разрешите всплывающие окна в браузере для выгрузки PDF.');
+
+    const projName = document.getElementById('inp-project')?.value || 'Не указан';
+    const inspName = document.getElementById('inp-inspector')?.value || 'Не указан';
+    
+    const html = `
+    <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>${title}</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        /* Печать А3 Альбомная */
+        @page { size: A3 landscape; margin: 15mm; }
+        
+        body { font-family: 'Inter', sans-serif; color: #0f172a; margin: 0; padding: 0; background: #e2e8f0; font-size: 13px; line-height: 1.5; }
+        
+        /* Имитация листа A3 для предпросмотра в браузере */
+        .preview-container {
+            max-width: 400mm; /* Ограничиваем ширину на больших экранах */
+            margin: 20px auto; 
+            background: white; 
+            padding: 20px 25mm; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            min-height: 280mm;
+        }
+        
+        .print-controls { position: fixed; bottom: 30px; right: 20px; display: flex; flex-direction: column; gap: 12px; z-index: 1000; }
+        .btn { width: 60px; height: 60px; border-radius: 30px; display: flex; justify-content: center; align-items: center; cursor: pointer; border: none; box-shadow: 0 10px 15px rgba(0,0,0,0.2); font-size: 24px; }
+        .btn-print { background: #4f46e5; color: white; }
+        .btn-close { background: #475569; color: white; }
+        
+        @media print { 
+            body { background: white; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .preview-container { margin: 0; padding: 0; box-shadow: none; max-width: none; }
+            .print-controls { display: none !important; } 
+            .avoid-break { page-break-inside: avoid !important; } 
+        }
+        
+        .header { border-bottom: 3px solid #1e293b; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .header-title { font-size: 24px; font-weight: 900; text-transform: uppercase; margin: 0; }
+        .header-meta { font-size: 11px; color: #64748b; text-align: right; }
+        
+        .section-title { font-size: 18px; background: #1e293b; color: white; padding: 10px 15px; border-radius: 6px; text-transform: uppercase; margin-bottom: 20px; }
+        
+        .data-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 25px; }
+        .data-table th { background: #f1f5f9; padding: 12px; border: 1px solid #cbd5e1; color: #475569; text-transform: uppercase; }
+        .data-table td { padding: 12px; border: 1px solid #cbd5e1; }
+        .data-table tr:nth-child(even) { background-color: #f8fafc; }
+        
+        .chart-box { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; background: #f8fafc; margin-bottom: 25px; }
+        .chart-box img { max-width: 100%; max-height: 250px; object-fit: contain; }
+        
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .badge-green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .badge-red { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        
+        .crit-box { background: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; margin-bottom: 10px; font-size: 12px; color: #7f1d1d; font-weight: 500;}
+        
+        .photo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+        .photo-card { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; }
+        .photo-card img { width: 100%; height: 160px; object-fit: cover; display: block; border-bottom: 1px solid #cbd5e1; }
+        .photo-label { padding: 8px; font-size: 10px; line-height: 1.3; color: #334155; }
+        
+        .text-center { text-align: center; } .font-bold { font-weight: bold; } .text-xl { font-size: 20px; } .mt-20 { margin-top: 25px; } .mb-20 { margin-bottom: 25px; }
+    </style></head><body>
+    
+    <div class="print-controls">
+        <button class="btn btn-print" onclick="window.print()" title="Печать / Сохранить в PDF">🖨️</button>
+        <button class="btn btn-close" onclick="window.close()" title="Закрыть">✖️</button>
+    </div>
+    
+    <div class="preview-container">
+        <div class="header">
+            <div>
+                <h1 class="header-title">${title}</h1>
+                <div style="font-size: 13px; margin-top: 6px; font-weight: bold; color: #475569;">Объект: ${projName} | Инспектор: ${inspName}</div>
+            </div>
+            <div class="header-meta">Сформировано:<br>${new Date().toLocaleString('ru-RU')}<br>RBI Quality Pro 4.0</div>
+        </div>
+        
+        ${content}
+    </div>
+    
+    </body></html>`;
+    
+    printWindow.document.open(); printWindow.document.write(html); printWindow.document.close();
+}
+
+// === СВОРАЧИВАЕМЫЕ ПАНЕЛИ (История / Справочник) ===
 // === СВОРАЧИВАЕМЫЕ ПАНЕЛИ (История / Справочник) ===
 function initCollapsiblePanel(panelId, bodyId, headerId, iconId) {
     const panel  = document.getElementById(panelId);
@@ -2287,7 +2758,6 @@ function initCollapsiblePanel(panelId, bodyId, headerId, iconId) {
     const header = document.getElementById(headerId);
     const icon   = document.getElementById(iconId);
     if (!panel || !body) return;
-    // Если уже инициализировали — не вешаем второй раз
     if (panel.dataset.inited) return;
     panel.dataset.inited = '1';
 
@@ -2296,21 +2766,19 @@ function initCollapsiblePanel(panelId, bodyId, headerId, iconId) {
 
     function setCollapsed(val) {
         collapsed = val;
-        body.style.maxHeight  = collapsed ? '0px'   : '300px';
+        body.style.maxHeight  = collapsed ? '0px'   : '400px';
         body.style.opacity    = collapsed ? '0'     : '1';
-        body.style.overflow   = collapsed ? 'hidden': '';
+        // ВАЖНО: когда панель открыта, overflow должен быть visible, чтобы списки (select) не обрезались!
+        body.style.overflow   = collapsed ? 'hidden': 'visible';
         if (icon) icon.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
     }
 
-    // Клик по заголовку — тоггл
     if (header) {
         header.addEventListener('click', () => setCollapsed(!collapsed));
     }
 
-    // Скролл — авто-поведение
     window.addEventListener('scroll', () => {
         const y = window.scrollY;
-        // Только если эта вкладка сейчас активна
         if (!panel.closest('.view-section.active') && !panel.closest('.active')) return;
         if (y > lastY + 8 && y > 40 && !collapsed) setCollapsed(true);
         if (y < lastY - 8 && collapsed)             setCollapsed(false);

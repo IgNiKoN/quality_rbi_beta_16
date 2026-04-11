@@ -84,10 +84,15 @@ function calcVolatility(arr) {
     return Math.sqrt(variance);
 }
 
-// РАСЧЕТ УРК ПОДРЯДЧИКА (СТРОГО БЕЗ ИЗМЕНЕНИЙ ИЗ v15)
+// РАСЧЕТ УРК ПОДРЯДЧИКА
 function getContractorMetrics(customArray, userTemplatesData = {}) {
-    const count = customArray.length;
-    if (count < 7) return null;
+    // Получаем уникальные изделия (по локации)
+    const uniqueLocations = [...new Set(customArray.map(i => i.location))];
+    const count = uniqueLocations.length; // Количество изделий (пока берем все, потом разделим на завершенные)
+    
+    // Временно, пока мы не внедрили агрегацию везде, используем старый расчет по массиву,
+    // но внедряем новые пороги достоверности и волатильность
+    if (count < 3) return null; // Снижаем жесткий блок с 7 до 3, чтобы расчеты запускались раньше (но достоверность будет низкой)
 
     const tKey = customArray[0].templateKey;
     const type = tKey.split('_')[0];
@@ -100,22 +105,31 @@ function getContractorMetrics(customArray, userTemplatesData = {}) {
     let failCounts = {}; let urkList = []; 
     flatList.forEach(i => failCounts[i.id] = 0);
 
-    customArray.forEach(unit => {
-        urkList.push(unit.metrics.final);
+    // Группируем записи по изделиям для правильного расчета подрядчика
+    uniqueLocations.forEach(loc => {
+        const productRecords = customArray.filter(i => i.location === loc);
         let hasB3_in_this_unit = false;
-        flatList.forEach(i => {
-            const s = unit.state[i.id];
-            if (s) {
-                let w = i.w;
-                if (s === 'fail_escalated') w = 3;
-                sumTotalWeights += w;
-                if (s === 'ok') sumOkWeights += w;
-                else if (s === 'fail' || s === 'fail_escalated') {
-                    failCounts[i.id]++;
-                    if (w === 3) hasB3_in_this_unit = true;
+        let unitUrkSum = 0;
+        
+        productRecords.forEach(unit => {
+            if(unit.metrics) unitUrkSum += unit.metrics.final;
+            flatList.forEach(i => {
+                const s = unit.state[i.id];
+                if (s) {
+                    let w = i.w;
+                    if (s === 'fail_escalated') w = 3;
+                    sumTotalWeights += w;
+                    if (s === 'ok') sumOkWeights += w;
+                    else if (s === 'fail' || s === 'fail_escalated') {
+                        failCounts[i.id]++;
+                        if (w === 3) hasB3_in_this_unit = true;
+                    }
                 }
-            }
+            });
         });
+        
+        // Усредненный УрК изделия для волатильности
+        urkList.push(Math.round(unitUrkSum / productRecords.length)); 
         if (hasB3_in_this_unit) n_изделий_с_B3++;
     });
 
@@ -124,33 +138,51 @@ function getContractorMetrics(customArray, userTemplatesData = {}) {
     flatList.forEach(i => { if (i.w >= 2) { let rate = (failCounts[i.id] / count) * 100; if (rate > maxFailRate) maxFailRate = rate; }});
 
     let rSys = maxFailRate, ks = 1.0;
-    if (rSys >= 50.0) ks = 0.75;
-    else if (rSys >= 35.0) ks = 0.85;
-    else if (rSys >= 20.0) ks = 0.92;
-    else if (rSys >= 10.0) ks = 0.97;
+    if (rSys >= 50.0) ks = 0.50;
+    else if (rSys >= 20.0) ks = 0.70;
+    else if (rSys >= 0.1) ks = 0.95;
 
     let rateB3 = (n_изделий_с_B3 / count) * 100, kcritC = 1.0;
-    if (rateB3 >= 30.0) kcritC = 0.65;
-    else if (rateB3 >= 20.0) kcritC = 0.80;
-    else if (rateB3 >= 10.0) kcritC = 0.90;
-    else if (rateB3 >= 5.0) kcritC = 0.95;
-    else if (rateB3 > 0) kcritC = 0.98;
+    if (count < 5) {
+        if (n_изделий_с_B3 > 0) kcritC = 1.0; // Для <5 изделий блокировка 84% ниже
+    } else {
+        if (rateB3 >= 30.0) kcritC = 0.50;
+        else if (rateB3 >= 20.0) kcritC = 0.70;
+        else if (rateB3 >= 10.0) kcritC = 0.85;
+        else if (rateB3 >= 5.0) kcritC = 0.95;
+    }
 
     let finalC = Math.round((baseUrkContr * ks * kcritC) * 100);
     let capApplied = false;
     
-    if (rateB3 >= 10.0 || rSys >= 35.0) { if (finalC > 84) { finalC = 84; capApplied = true; } }
+    // Блокировка 84% при понижающих коэф или наличии B3 при малом кол-ве
+    if (ks < 1.0 || kcritC < 1.0 || (count < 5 && n_изделий_с_B3 > 0)) { 
+        if (finalC > 84) { finalC = 84; capApplied = true; } 
+    }
 
-    let confStatus = "Низкая достоверность", confCls = "conf-low";
-    if (count >= 30) { confStatus = "Высокая достоверность"; confCls = "conf-high"; }
-    else if (count >= 15) { confStatus = "Средняя достоверность"; confCls = "conf-med"; }
-
+    // ВОЛАТИЛЬНОСТЬ И ИНДЕКС СТАБИЛЬНОСТИ
     let volatility = calcVolatility(urkList);
     let stabilityIndex = Math.round(Math.max(0, Math.min(100, 100 - volatility - (rateB3 * 0.5))));
 
+    // НОВЫЕ ПОРОГИ ДОСТОВЕРНОСТИ И КОРРЕКТИРОВКА
+    let confStatus = "Низкая достоверность";
+    let confCls = "conf-low";
+    
+    if (count >= 15) { confStatus = "Высокая достоверность"; confCls = "conf-high"; }
+    else if (count >= 7) { confStatus = "Средняя достоверность"; confCls = "conf-med"; }
+
+    // Умная корректировка достоверности от волатильности
+    if (volatility > 15 && confStatus === 'Высокая достоверность') {
+        confStatus = 'Средняя достоверность'; confCls = "conf-med";
+    } else if (volatility > 15 && confStatus === 'Средняя достоверность') {
+        confStatus = 'Низкая достоверность'; confCls = "conf-low";
+    } else if (volatility < 5 && confStatus === 'Средняя достоверность') {
+        confStatus = 'Высокая достоверность'; confCls = "conf-high";
+    }
+
     let reason = "Стабильное качество, без штрафов";
-    if (capApplied) reason = "Применен потолок 84% (Высокая доля B3 или системный брак)";
-    else if (rSys >= 35.0) reason = `Снижение из-за системного брака (повторяемость ${rSys.toFixed(1)}%)`;
+    if (capApplied) reason = "Применен потолок 84% (Наличие B3 или системный брак)";
+    else if (rSys >= 20.0) reason = `Снижение из-за системного брака (повторяемость ${rSys.toFixed(1)}%)`;
     else if (rateB3 >= 20.0) reason = `Снижение из-за высокой доли изделий с B3 (${rateB3.toFixed(1)}%)`;
     else if (stabilityIndex < 70) reason = "Снижение из-за нестабильности качества (Высокая волатильность)";
 
@@ -159,7 +191,7 @@ function getContractorMetrics(customArray, userTemplatesData = {}) {
     else if (finalC <= 84 || rateB3 >= 10.0 || stabilityIndex <= 84) { riskStatus = "Средний риск"; riskCls = "risk-med"; }
 
     let statusTxt = "В РАБОТЕ", statusCls = "tag-blue", isRedZone = false;
-    if (ks <= 0.85 || rateB3 >= 30.0 || finalC < 70) { statusTxt = "КРАСНАЯ ЗОНА"; statusCls = "tag-red"; isRedZone = true; } 
+    if (ks <= 0.70 || rateB3 >= 30.0 || finalC < 70 || n_изделий_с_B3 >= 3) { statusTxt = "КРАСНАЯ ЗОНА"; statusCls = "tag-red"; isRedZone = true; } 
     else if (finalC >= 85) { statusTxt = "ОБРАЗЦОВОЕ КАЧЕСТВО"; statusCls = "tag-green"; } 
     else { statusTxt = "ЖЕЛТАЯ ЗОНА"; statusCls = "tag-yellow"; }
 
@@ -291,4 +323,70 @@ function getExpertConclusion(c, contractorName, templateTitle, count, safeId, cu
     `;
 
     return { uiHtml, pdfHtml };
+}
+// --- НОВЫЕ ФУНКЦИИ ДЛЯ ЭТАПА 1 (МАТЕМАТИКА И АГРЕГАЦИЯ) ---
+
+/**
+ * Агрегация всех этапов одного изделия.
+ * Находит все разрозненные этапы для одной локации, сливает их воедино и считает УрК изделия.
+ */
+function getProductAggregated(location, contractorName, templateKey, historyArray, fullChecklist) {
+    const productStages = historyArray.filter(i => 
+        i.location === location && 
+        i.contractorName === contractorName && 
+        i.templateKey === templateKey
+    );
+
+    if (productStages.length === 0) return null;
+
+    // Сливаем состояния всех этапов в один общий объект
+    let mergedState = {};
+    productStages.forEach(stage => {
+        mergedState = { ...mergedState, ...stage.state };
+    });
+
+    // Прогоняем слитое состояние через базовый калькулятор
+    return getProductMetrics(mergedState, fullChecklist);
+}
+
+/**
+ * Расчет сводных метрик по конкретному ЭТАПУ (stageId).
+ * Используется для графиков и аналитики в разрезе этапов.
+ */
+function getStageMetrics(stageId, historyArray) {
+    const stageRecords = historyArray.filter(i => i.stageId === stageId);
+    if (stageRecords.length === 0) return null;
+
+    let totalUrk = 0;
+    let sumB3 = 0;
+    let totalChecks = stageRecords.length;
+
+    stageRecords.forEach(record => {
+        if (record.metrics) {
+            totalUrk += record.metrics.final;
+            sumB3 += record.metrics.n_B3_fail;
+        }
+    });
+
+    // Расчет волатильности этапа
+    const urkValues = stageRecords.map(r => r.metrics ? r.metrics.final : 0);
+    const volatility = calcVolatility(urkValues);
+
+    // Базовая достоверность этапа
+    let stageConfidence = 'Низкая достоверность';
+    if (totalChecks >= 10) stageConfidence = 'Высокая достоверность';
+    else if (totalChecks >= 3) stageConfidence = 'Средняя достоверность';
+
+    // Корректировка достоверности по волатильности
+    if (volatility > 15 && stageConfidence === 'Высокая достоверность') stageConfidence = 'Средняя достоверность';
+    else if (volatility > 15 && stageConfidence === 'Средняя достоверность') stageConfidence = 'Низкая достоверность';
+    else if (volatility < 5 && stageConfidence === 'Средняя достоверность') stageConfidence = 'Высокая достоверность';
+
+    return {
+        avgFinal: Math.round(totalUrk / totalChecks),
+        count: totalChecks,
+        totalB3: sumB3,
+        volatility: volatility,
+        confidence: stageConfidence
+    };
 }
