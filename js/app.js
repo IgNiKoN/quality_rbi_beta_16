@@ -52,9 +52,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         await loadSettings();
         applySettingsToUI();
         
-        // РАДАР ВЫСОТЫ ШАПКИ (решает проблему наплывания)
+        // РАДАР ВЫСОТЫ ШАПКИ
         const headerEl = document.getElementById('main-header');
-        if (headerEl) new ResizeObserver(updateBodyPadding).observe(headerEl);
+        // Наблюдатель (Observer) удален, так как он вызывал рывки при скролле.
+        // Оставляем только реакцию на смену ориентации экрана:
         window.addEventListener('resize', updateBodyPadding);
         
         let lastScroll = 0;
@@ -194,18 +195,23 @@ function updateBodyPadding() {
 
     // Добавляем высоту навигации, если она сверху
     if (isNavTop && navEl) {
-        totalTop += navEl.offsetHeight; // Обычно 60px
+        totalTop += navEl.offsetHeight; 
     }
 
     // Проверяем, находимся ли мы на вкладке "Осмотр"
     const isAuditActive = document.getElementById('tab-audit')?.classList.contains('active');
 
-    // Если активна вкладка "Осмотр" и шапка есть — добавляем её высоту
     if (isAuditActive && headerEl && headerEl.style.display !== 'none') {
+        // ВАЖНО: Вычисляем отступ по ПОЛНОМУ размеру шапки, 
+        // чтобы контент больше не дергался при скролле.
+        const wasCollapsed = headerEl.classList.contains('header-collapsed');
+        if (wasCollapsed) headerEl.classList.remove('header-collapsed'); // Временно разворачиваем для замера
+        
         totalTop += headerEl.offsetHeight;
+        
+        if (wasCollapsed) headerEl.classList.add('header-collapsed'); // Возвращаем как было
     }
 
-    // Применяем отступ
     document.body.style.paddingTop = totalTop > 0 ? `${totalTop + 15}px` : '20px';
 }
 
@@ -987,20 +993,29 @@ function updateCardDOM(id, itemData = null) {
 }
 
 // === СВАЙПЫ (ЛОГИКА) ===
+// === СВАЙПЫ (УМНАЯ ЛОГИКА И ПЛАВНОСТЬ iOS) ===
 function initSwipes() {
     const container = document.getElementById('audit-items');
     let startX = 0, currentX = 0, isDragging = false, currentCard = null, content = null;
+    let bgOk = null, bgFail = null;
 
     container.addEventListener('touchstart', (e) => {
         if (!appSettings.swipeEnabled) return;
         const target = e.target.closest('.swipe-container');
-        if (!target || e.target.closest('.btn-status')) return; // Не свайпаем, если нажали на кнопку
+        if (!target || e.target.closest('.btn-status') || e.target.closest('.photo-thumb')) return; 
         
         currentCard = target;
         content = currentCard.querySelector('.swipe-content');
+        bgOk = currentCard.querySelector('.swipe-bg-ok');
+        bgFail = currentCard.querySelector('.swipe-bg-fail');
+        
         startX = e.touches[0].clientX;
         isDragging = true;
         currentCard.classList.add('swiping');
+        
+        // Сбрасываем стили
+        if(bgOk) bgOk.style.opacity = '0';
+        if(bgFail) bgFail.style.opacity = '0';
     }, {passive: true});
 
     container.addEventListener('touchmove', (e) => {
@@ -1008,14 +1023,23 @@ function initSwipes() {
         currentX = e.touches[0].clientX;
         const diff = currentX - startX;
         
-        // Показываем подложку нужного цвета в зависимости от направления
-        const bgOk = currentCard.querySelector('.swipe-bg-ok');
-        const bgFail = currentCard.querySelector('.swipe-bg-fail');
-        if(diff > 0) { bgOk.style.zIndex = 1; bgFail.style.zIndex = 0; } 
-        else { bgOk.style.zIndex = 0; bgFail.style.zIndex = 1; }
+        // Ограничитель с эффектом "резинки"
+        const maxSwipe = 100;
+        let moveX = diff;
+        if (diff > maxSwipe) moveX = maxSwipe + (diff - maxSwipe) * 0.2; 
+        if (diff < -maxSwipe) moveX = -maxSwipe + (diff + maxSwipe) * 0.2;
+        
+        content.style.transform = `translateX(${moveX}px)`;
 
-        if (Math.abs(diff) < 150) { // Ограничитель свайпа
-            content.style.transform = `translateX(${diff}px)`;
+        // Плавное проявление цвета подложки (Opacity)
+        if (diff > 0 && bgOk && bgFail) {
+            bgOk.style.zIndex = 1; bgFail.style.zIndex = 0;
+            bgOk.style.opacity = Math.min(diff / 80, 1).toString();
+            bgFail.style.opacity = '0';
+        } else if (diff < 0 && bgOk && bgFail) {
+            bgOk.style.zIndex = 0; bgFail.style.zIndex = 1;
+            bgFail.style.opacity = Math.min(Math.abs(diff) / 80, 1).toString();
+            bgOk.style.opacity = '0';
         }
     }, {passive: true});
 
@@ -1027,11 +1051,19 @@ function initSwipes() {
         const diff = currentX - startX;
         const id = parseInt(currentCard.dataset.id);
 
-        if (diff > 80) toggleOk(id); // Свайп вправо
-        else if (diff < -80) toggleFail(id); // Свайп влево
-        
+        // Возвращаем карточку на место
         content.style.transform = `translateX(0)`;
-        currentCard = null; content = null;
+        if(bgOk) bgOk.style.opacity = '0';
+        if(bgFail) bgFail.style.opacity = '0';
+
+        // Отложенное срабатывание (ждем пока карточка визуально отскочит)
+        if (diff > 80) {
+            setTimeout(() => toggleOk(id), 150);
+        } else if (diff < -80) {
+            setTimeout(() => toggleFail(id), 150);
+        }
+        
+        currentCard = null; content = null; bgOk = null; bgFail = null;
     });
 }
 
@@ -1426,6 +1458,7 @@ function removePhoto(id, e) {
 }
 
 // Обработка загрузки фото (Конвертация в сжатый формат для экономии IndexedDB)
+// Обработка загрузки фото (Повышенное качество для презентаций)
 function handlePhotoUpload(event) {
     const file = event.target.files[0];
     if (!file || !currentPhotoId) return;
@@ -1437,7 +1470,8 @@ function handlePhotoUpload(event) {
             const canvas = document.getElementById('photo-canvas') || document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
-            const MAX_WIDTH = 800; const MAX_HEIGHT = 800;
+            // Увеличили разрешение для отличного качества на экранах
+            const MAX_WIDTH = 1280; const MAX_HEIGHT = 1280;
             let width = img.width; let height = img.height;
 
             if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } 
@@ -1451,13 +1485,15 @@ function handlePhotoUpload(event) {
             const timestamp = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
             
             ctx.fillStyle = 'rgba(0,0,0,0.6)'; 
-            ctx.fillRect(10, height - 30, 140, 24);
-            ctx.font = '14px Arial'; 
+            // Увеличили плашку под новое разрешение
+            ctx.fillRect(15, height - 40, 200, 30);
+            ctx.font = 'bold 18px Arial'; 
             ctx.fillStyle = 'white'; 
-            ctx.fillText(timestamp, 16, height - 13);
+            ctx.fillText(timestamp, 25, height - 19);
 
-            photos[currentPhotoId] = canvas.toDataURL('image/jpeg', 0.6);
-            showToast("📸 Фото добавлено");
+            // Увеличили качество JPEG с 0.6 до 0.85 (оптимальный баланс вес/качество)
+            photos[currentPhotoId] = canvas.toDataURL('image/jpeg', 0.85);
+            showToast("📸 Фото добавлено (HD)");
             
             updateCardDOM(currentPhotoId); 
             scheduleSessionSave();
@@ -1567,58 +1603,82 @@ function generateDemoHistory() {
     
     const demoPhoto = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23f1f5f9'/><path d='M150 100 L250 100 L200 200 Z' fill='%23cbd5e1'/><circle cx='200' cy='80' r='20' fill='%23fbbf24'/><text x='200' y='250' font-family='Arial' font-size='20' font-weight='bold' fill='%23475569' text-anchor='middle'>ФОТО НАРУШЕНИЯ</text></svg>";
 
-    const createStageRecord = (id, daysAgo, contr, tmplKey, tmplTitle, loc, stageId, stageName, states, detailsData, photoData, metricsData) => {
+    const createRecord = (id, daysAgo, contr, tmplKey, tmplTitle, loc, stageId, stageName, states, detailsData, photoData, m) => {
         let d = new Date(now); d.setDate(now.getDate() - daysAgo);
         return {
             id, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.',
             contractorName: contr, templateKey: tmplKey, templateTitle: tmplTitle, location: loc,
-            stageId, stageName, isCompleted: true,
-            state: states, details: detailsData, photos: photoData, metrics: metricsData
+            stageId, stageName, isCompleted: true, state: states, details: detailsData, photos: photoData, metrics: m
         };
     };
 
-    const mockMetrics = (f, b1, b2, b3) => ({
+    const metric = (f, b1, b2, b3) => ({
         final: f, baseUrkPerc: f+5, checkedCount: 5, totalCount: 5, n_B1_fail: b1, n_B2_fail: b2, n_B3_fail: b3, b3_found: b3>0, 
         kc: b2>2?0.85:1.0, kcrit: b3>0?0.5:1.0, isDanger: b3>0
     });
 
-    // --- Подрядчик 1: Топовый ---
-    for(let i=0; i<8; i++) {
-        // Изделие i. Состоит из двух этапов
-        mockArray.push(createStageRecord(1000+i*2, i*2, 'ООО "Альфа-Отделка"', 'sys_nvf_facade', 'Вент. фасад', `Секция 1, Ось ${i+1}`, 
-            0, "1. Документация", {'101':'ok', '102':'ok'}, {}, {}, mockMetrics(100,0,0,0)));
-            
-        let hasDefect = i === 3;
-        mockArray.push(createStageRecord(1001+i*2, i*2, 'ООО "Альфа-Отделка"', 'sys_nvf_facade', 'Вент. фасад', `Секция 1, Ось ${i+1}`, 
+    // 1. Подрядчик ОТЛИЧНИК (ООО "Альфа-Отделка") - Фасады
+    for(let i=0; i<12; i++) {
+        mockArray.push(createRecord(100+i, i, 'ООО "Альфа-Отделка"', 'sys_nvf_facade', 'Вент. фасад', `Секция 1, Ось ${i+1}`, 
+            0, "1. Документация", {'101':'ok', '102':'ok'}, {}, {}, metric(100,0,0,0)));
+        let hasDefect = (i === 5 || i === 9);
+        mockArray.push(createRecord(150+i, i, 'ООО "Альфа-Отделка"', 'sys_nvf_facade', 'Вент. фасад', `Секция 1, Ось ${i+1}`, 
             1, "2. Подготовка", {'106':hasDefect?'fail':'ok', '107':'ok'}, 
-            hasDefect ? {'106': {causeCode: 'C06', comment: '[Спешка] Не убрали пыль'}} : {}, {}, 
-            mockMetrics(hasDefect?80:100, 0, hasDefect?1:0, 0)));
+            hasDefect ? {'106': {causeCode: 'C06', comment: '[Спешка] Пыль на основании'}} : {}, {}, 
+            metric(hasDefect?80:100, 0, hasDefect?1:0, 0)));
     }
 
-    // --- Подрядчик 2: Средний с косяками ---
-    for(let i=0; i<7; i++) {
-        let hasDefect = (i % 2 === 0);
-        mockArray.push(createStageRecord(2000+i*2, i*3, 'ООО "Монолит-Строй"', 'sys_armature', 'Арматура', `Пилон П-${i+1}`, 
-            0, "1. Документация", {'201':'ok'}, {}, {}, mockMetrics(100,0,0,0)));
-            
-        mockArray.push(createStageRecord(2001+i*2, i*3, 'ООО "Монолит-Строй"', 'sys_armature', 'Арматура', `Пилон П-${i+1}`, 
+    // 2. Подрядчик ХОРОШИСТ (СМУ-7) - Арматура
+    for(let i=0; i<10; i++) {
+        let hasDefect = (i % 3 === 0); // Каждый 3-й с косяком
+        mockArray.push(createRecord(200+i, i*2, 'СМУ-7', 'sys_armature', 'Арматура', `Секция 2, Перекрытие ${i+1}`, 
             1, "2. Монтаж", {'204':hasDefect?'fail':'ok', '206':'ok', '210':'ok'}, 
-            hasDefect ? {'204': {causeCode: 'C04', comment: '[Персонал] Шаг арматуры нарушен'}} : {}, 
+            hasDefect ? {'204': {causeCode: 'C04', comment: '[Персонал] Шаг нарушен на 10мм'}} : {}, 
             hasDefect ? {'204': demoPhoto} : {}, 
-            mockMetrics(hasDefect?76:100, 1, hasDefect?2:0, 0)));
+            metric(hasDefect?75:100, 1, hasDefect?2:0, 0)));
     }
 
-    // --- Подрядчик 3: Плохой (С дефектами B3) ---
+    // 3. Подрядчик СРЕДНЯК (ООО "Монолит-Строй") - Арматура
+    for(let i=0; i<15; i++) {
+        let hasDefect = (i % 2 === 0); // Половина с косяками
+        mockArray.push(createRecord(300+i, i*1.5, 'ООО "Монолит-Строй"', 'sys_armature', 'Арматура', `Пилон П-${i+1}`, 
+            1, "2. Монтаж", {'204':hasDefect?'fail':'ok', '206':'ok', '210':'ok'}, 
+            hasDefect ? {'204': {causeCode: 'C05', comment: '[Организация] Нет контроля'}} : {}, 
+            hasDefect ? {'204': demoPhoto} : {}, 
+            metric(hasDefect?70:100, 1, hasDefect?3:0, 0)));
+    }
+
+    // 4. Подрядчик ТРОЕЧНИК (ВентФасадПро) - Фасады
+    for(let i=0; i<8; i++) {
+        let isBad = (i < 4); 
+        mockArray.push(createRecord(400+i, i*3, 'ВентФасадПро', 'sys_nvf_facade', 'Вент. фасад', `Секция 3, Этаж ${i+1}`, 
+            2, "3. Монтаж кронштейнов", {'109':isBad?'fail':'ok', '112':'fail'}, 
+            isBad ? {'109': {causeCode: 'C01', comment: 'Смещение >15мм'}, '112': {causeCode: 'C04', comment: 'Не чистят отверстия'}} : {}, 
+            isBad ? {'109': demoPhoto} : {}, 
+            metric(isBad?65:80, 0, isBad?4:2, 0)));
+    }
+
+    // 5. Подрядчик ДВОЕЧНИК С КРИТИКОЙ (ИП Петров) - Вентблоки
     for(let i=0; i<9; i++) {
-        let hasB3 = i === 2 || i === 5 || i === 7; 
-        mockArray.push(createStageRecord(3000+i*2, i, 'ИП Петров (Вентблоки)', 'sys_vent_stairs', 'Вент. блоки', `Секция 3, Эт ${i+1}`, 
+        let hasB3 = (i === 1 || i === 4 || i === 7); 
+        mockArray.push(createRecord(500+i, i+1, 'ИП Петров (Вентблоки)', 'sys_vent_stairs', 'Вент. блоки', `Секция 3, Эт ${i+1}`, 
             1, "2. Вент. блоки", {'305':'fail', '310':hasB3?'fail_escalated':'ok'}, 
-            hasB3 ? {'310': {causeCode: 'C03', comment: '[Материалы] Трещины >0.2мм'}} : {'305': {causeCode: 'C01', comment: '[Технология] Смещение'}}, 
+            hasB3 ? {'310': {causeCode: 'C03', comment: '[Материалы] Трещины >0.2мм в массиве'}} : {'305': {causeCode: 'C01', comment: '[Технология] Смещение осей'}}, 
             hasB3 ? {'310': demoPhoto} : {}, 
-            mockMetrics(hasB3?45:82, 0, 1, hasB3?1:0)));
+            metric(hasB3?45:82, 0, 1, hasB3?1:0)));
     }
 
-    return mockArray;
+    // 6. Подрядчик КАТАСТРОФА (СК Эталон) - Лестницы
+    for(let i=0; i<7; i++) {
+        let hasB3 = (i > 2); // Больше половины с B3!
+        mockArray.push(createRecord(600+i, i, 'СК Эталон', 'sys_vent_stairs', 'Вент. блоки', `Лестница ЛК-${i+1}`, 
+            2, "3. Лестничные марши", {'316':'fail', '319':hasB3?'fail_escalated':'ok'}, 
+            hasB3 ? {'319': {causeCode: 'C03', comment: 'Сломан марш при монтаже'}} : {'316': {causeCode: 'C04', comment: 'Ступени кривые'}}, 
+            hasB3 ? {'319': demoPhoto} : {}, 
+            metric(hasB3?30:75, 0, 2, hasB3?1:0)));
+    }
+
+    return mockArray.sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
 // === ПОДСКАЗКИ СПРАВКИ (v15) ===
@@ -1922,26 +1982,61 @@ function renderRatingSubTab(data) {
         </div>
         <div class="mx-1">`;
 
-    html += ratingData.map((r, index) => `
+    html += ratingData.map((r, index) => {
+        const m = r.metrics;
+        const barColor = m.finalC < 70 ? 'bg-red-500' : (m.finalC < 85 ? 'bg-orange-500' : 'bg-green-500');
+        const isLeader = index === 0 && m.finalC >= 85;
+
+        return `
         <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-4 mb-3 shadow-sm relative overflow-hidden">
+            ${isLeader ? '<div class="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[8px] font-black px-3 py-1 rounded-bl-lg uppercase shadow-sm">🏆 Лидер</div>' : ''}
+            
             <div class="flex items-start gap-3 border-b border-[var(--card-border)] pb-3 mb-3">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg shadow-md shrink-0 bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300">${index + 1}</div>
-                <div class="flex-1 min-w-0">
-                    <div class="text-[13px] font-black leading-tight truncate">${r.name}</div>
-                    <span class="${r.metrics.confCls} mt-1 inline-block text-[9px]">${r.metrics.confStatus} (Изделий: ${r.metrics.count})</span>
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-xl shadow-inner shrink-0 ${index === 0 ? 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900' : (index === 1 ? 'bg-gradient-to-br from-slate-300 to-slate-400 text-slate-800' : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300')}">${index + 1}</div>
+                <div class="flex-1 min-w-0 pt-1">
+                    <div class="text-[14px] font-black leading-tight truncate text-slate-800 dark:text-white">${r.name}</div>
+                    <span class="${m.confCls} mt-1 inline-block text-[9px] uppercase tracking-wide">${m.confStatus} (Выборка: ${m.count})</span>
                 </div>
                 <div class="text-right shrink-0">
-                    <div class="text-3xl font-black leading-none ${r.metrics.finalC < 70 ? 'text-red-500' : (r.metrics.finalC < 85 ? 'text-orange-500' : 'text-green-600')}">${r.metrics.finalC}%</div>
-                    <span class="${r.metrics.riskCls} text-[9px] uppercase block mt-1">${r.metrics.riskStatus}</span>
+                    <div class="text-3xl font-black leading-none ${m.finalC < 70 ? 'text-red-600' : (m.finalC < 85 ? 'text-orange-500' : 'text-green-600')}">${m.finalC}%</div>
+                    <span class="${m.riskCls} text-[9px] uppercase block mt-1 font-bold">${m.riskStatus}</span>
                 </div>
             </div>
-            <div class="grid grid-cols-2 gap-2 text-[10px] font-bold mb-3">
-                <div class="bg-[var(--hover-bg)] p-2 rounded border border-[var(--card-border)]"><span class="text-[var(--text-muted)] block mb-0.5">Системный брак (Ks):</span> <span class="${r.metrics.ks < 1 ? 'text-red-500' : 'text-green-600'} text-[12px]">${r.metrics.ks.toFixed(2)}</span> <span class="font-normal">(${r.metrics.maxFailRate.toFixed(1)}%)</span></div>
-                <div class="bg-[var(--hover-bg)] p-2 rounded border border-[var(--card-border)]"><span class="text-[var(--text-muted)] block mb-0.5">Критичность (Kcrit):</span> <span class="${r.metrics.kcritC < 1 ? 'text-red-500' : 'text-green-600'} text-[12px]">${r.metrics.kcritC.toFixed(2)}</span> <span class="font-normal">(B3: ${r.metrics.n_изделий_с_B3} шт)</span></div>
-                <div class="bg-[var(--hover-bg)] p-2 rounded border border-[var(--card-border)]"><span class="text-[var(--text-muted)] block mb-0.5">Индекс стабильности:</span> <span class="text-[12px]">${r.metrics.stabilityIndex} / 100</span></div>
-                <div class="bg-[var(--hover-bg)] p-2 rounded border border-[var(--card-border)]"><span class="text-[var(--text-muted)] block mb-0.5">Волатильность (СКО):</span> <span class="text-[12px]">${r.metrics.volatility.toFixed(1)}</span></div>
+
+            <!-- Визуальный Прогресс-бар -->
+            <div class="mb-4 relative">
+                <div class="flex justify-between text-[8px] font-bold text-slate-400 mb-1">
+                    <span>0%</span>
+                    <span class="text-red-500 absolute" style="left: 70%; transform: translateX(-50%);">СТОП (70%)</span>
+                    <span class="text-green-500 absolute" style="left: 85%; transform: translateX(-50%);">НОРМА (85%)</span>
+                    <span>100%</span>
+                </div>
+                <div class="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden relative border border-slate-200 dark:border-slate-600">
+                    <div class="absolute top-0 left-[70%] w-px h-full bg-red-400 z-10"></div>
+                    <div class="absolute top-0 left-[85%] w-px h-full bg-green-400 z-10"></div>
+                    <div class="h-full ${barColor} transition-all duration-1000" style="width: ${m.finalC}%"></div>
+                </div>
             </div>
-        </div>`).join('');
+
+            <div class="grid grid-cols-2 gap-2 text-[10px] font-bold mb-3">
+                <div class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)]">
+                    <span class="text-[var(--text-muted)] block mb-0.5">Системность (Ks):</span> 
+                    <span class="${m.ks < 1 ? 'text-red-500' : 'text-green-600'} text-[12px]">${m.ks.toFixed(2)}</span> 
+                    <span class="font-normal">(${m.maxFailRate.toFixed(1)}%)</span>
+                </div>
+                <div class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)]">
+                    <span class="text-[var(--text-muted)] block mb-0.5">Критичность (Kcrit):</span> 
+                    <span class="${m.kcritC < 1 ? 'text-red-500' : 'text-green-600'} text-[12px]">${m.kcritC.toFixed(2)}</span> 
+                    <span class="font-normal text-red-500">(B3: ${m.n_изделий_с_B3} шт)</span>
+                </div>
+            </div>
+            
+            <!-- Вердикт -->
+            <div class="text-[10px] font-bold ${m.finalC < 70 || m.n_изделий_с_B3 > 0 ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20' : (m.finalC < 85 ? 'bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-900/20' : 'bg-green-50 text-green-800 border-green-200 dark:bg-green-900/20')} p-2.5 rounded-lg border shadow-sm leading-snug">
+                <span class="uppercase text-[9px] block mb-0.5 opacity-70">Вывод системы:</span> ${m.reason}
+            </div>
+        </div>`;
+    }).join('');
     
     html += `</div>`;
     container.innerHTML = html;
@@ -1954,223 +2049,606 @@ function renderRatingSubTab(data) {
     });
 }
 
-// === ПОДВКЛАДКА 2: ИНЖЕНЕРНЫЙ АНАЛИЗ ===
-// === ПОДВКЛАДКА 2: ИНЖЕНЕРНЫЙ АНАЛИЗ (ОБНОВЛЕНО) ===
+// --- НОВАЯ ФУНКЦИЯ ДЛЯ ГРАФИКОВ ДИНАМИКИ ---
+function buildTrendChartData(data, fieldName, topN = 5) {
+    const monthMap = {}; 
+    const categoriesTotal = {}; 
+
+    // Сортируем хронологически
+    const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    sortedData.forEach(item => {
+        if (!item.metrics) return;
+        const d = new Date(item.date);
+        const mLabel = d.toLocaleString('ru-RU', { month: 'short', year: '2-digit' });
+        const cat = item[fieldName] || 'Неизвестно';
+
+        categoriesTotal[cat] = (categoriesTotal[cat] || 0) + 1;
+
+        if (!monthMap[mLabel]) monthMap[mLabel] = {};
+        if (!monthMap[mLabel][cat]) monthMap[mLabel][cat] = { sum: 0, cnt: 0 };
+
+        monthMap[mLabel][cat].sum += item.metrics.final;
+        monthMap[mLabel][cat].cnt++;
+    });
+
+    const topCats = Object.keys(categoriesTotal).sort((a,b) => categoriesTotal[b] - categoriesTotal[a]).slice(0, topN);
+    const labels = Object.keys(monthMap);
+
+    const colors = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
+
+    const datasets = topCats.map((cat, i) => {
+        const dataPoints = labels.map(l => {
+            if (monthMap[l][cat]) return Math.round(monthMap[l][cat].sum / monthMap[l][cat].cnt);
+            return null; // Если в этом месяце не было проверок, линия прервется/соединится
+        });
+        return {
+            label: cat.length > 15 ? cat.substring(0, 15) + '...' : cat,
+            data: dataPoints,
+            borderColor: colors[i % colors.length],
+            backgroundColor: colors[i % colors.length],
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 3,
+            spanGaps: true // Соединять точки, если есть пропуски
+        };
+    });
+
+    return { labels, datasets };
+}
+// --- Вспомогательная функция: номер недели ---
+function getWeekNumber(d) {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    var weekNo = Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
+    return weekNo;
+}
+
+// --- УМНЫЙ ГЕНЕРАТОР ДАННЫХ ДЛЯ ТРЕНДОВ ---
+function buildTrendChartData(data, fieldName, topN = 5, period = 'MONTH') {
+    const timeMap = {}; 
+    const categoriesTotal = {}; 
+
+    // Сортируем хронологически от старых к новым
+    const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    sortedData.forEach(item => {
+        if (!item.metrics) return;
+        const d = new Date(item.date);
+        let tLabel = '';
+
+        // Группировка по выбранному периоду
+        if (period === 'YEAR') {
+            tLabel = d.getFullYear().toString();
+        } else if (period === 'QUARTER') {
+            tLabel = `Q${Math.floor(d.getMonth() / 3) + 1} '${d.getFullYear().toString().slice(-2)}`;
+        } else if (period === 'WEEK') {
+            tLabel = `Нед.${getWeekNumber(d)} '${d.getFullYear().toString().slice(-2)}`;
+        } else {
+            // MONTH (по умолчанию)
+            tLabel = d.toLocaleString('ru-RU', { month: 'short', year: '2-digit' });
+        }
+
+        const cat = fieldName === 'TOTAL' ? 'Общий УрК' : (item[fieldName] || 'Неизвестно');
+
+        categoriesTotal[cat] = (categoriesTotal[cat] || 0) + 1;
+
+        if (!timeMap[tLabel]) timeMap[tLabel] = {};
+        if (!timeMap[tLabel][cat]) timeMap[tLabel][cat] = { sum: 0, cnt: 0 };
+
+        timeMap[tLabel][cat].sum += item.metrics.final;
+        timeMap[tLabel][cat].cnt++;
+    });
+
+    const topCats = Object.keys(categoriesTotal).sort((a,b) => categoriesTotal[b] - categoriesTotal[a]).slice(0, topN);
+    const labels = Object.keys(timeMap);
+
+    const colors = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6'];
+
+    const datasets = topCats.map((cat, i) => {
+        const dataPoints = labels.map(l => {
+            if (timeMap[l][cat]) return Math.round(timeMap[l][cat].sum / timeMap[l][cat].cnt);
+            return null; // Разрыв линии, если нет данных
+        });
+        return {
+            label: cat.length > 15 ? cat.substring(0, 15) + '...' : cat,
+            data: dataPoints,
+            borderColor: fieldName === 'TOTAL' ? '#4f46e5' : colors[i % colors.length],
+            backgroundColor: fieldName === 'TOTAL' ? 'rgba(79, 70, 229, 0.1)' : colors[i % colors.length],
+            fill: fieldName === 'TOTAL', // Заливка только для общего графика
+            tension: 0.4, // Плавная кривая
+            borderWidth: 3,
+            pointRadius: 4,
+            spanGaps: true // Соединять точки при пропусках
+        };
+    });
+
+    return { labels, datasets };
+}
+
+// --- ЯДРО ГРАФИКОВ ТРЕНДОВ И ФИЛЬТРОВ ---
+
+// Теперь для каждого графика хранится свой период
+let trendGroupings = { contrs: 'MONTH', works: 'MONTH', global: 'MONTH' }; 
+let selectedChartFilters = { contrs: [], works: [] }; // Пустой массив = Авто (ТОП-5)
+
+function getWeekNumber(d) {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    return Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
+}
+
+function buildTrendChartData(data, fieldName, allowedCats = [], period = 'MONTH') {
+    const timeMap = {}; const categoriesTotal = {}; 
+    const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    sortedData.forEach(item => {
+        if (!item.metrics) return;
+        const d = new Date(item.date);
+        let tLabel = '';
+
+        if (period === 'YEAR') tLabel = d.getFullYear().toString();
+        else if (period === 'QUARTER') tLabel = `Q${Math.floor(d.getMonth() / 3) + 1} '${d.getFullYear().toString().slice(-2)}`;
+        else if (period === 'WEEK') tLabel = `Нед.${getWeekNumber(d)} '${d.getFullYear().toString().slice(-2)}`;
+        else tLabel = d.toLocaleString('ru-RU', { month: 'short', year: '2-digit' });
+
+        const cat = fieldName === 'TOTAL' ? 'Общий УрК' : (item[fieldName] || 'Неизвестно');
+        categoriesTotal[cat] = (categoriesTotal[cat] || 0) + 1;
+
+        if (!timeMap[tLabel]) timeMap[tLabel] = {};
+        if (!timeMap[tLabel][cat]) timeMap[tLabel][cat] = { sum: 0, cnt: 0 };
+        timeMap[tLabel][cat].sum += item.metrics.final;
+        timeMap[tLabel][cat].cnt++;
+    });
+
+    let targetCats = [];
+    if (fieldName === 'TOTAL') targetCats = ['Общий УрК'];
+    else if (allowedCats && allowedCats.length > 0) targetCats = allowedCats.filter(c => categoriesTotal[c]); 
+    else targetCats = Object.keys(categoriesTotal).sort((a,b) => categoriesTotal[b] - categoriesTotal[a]).slice(0, 5);
+
+    const labels = Object.keys(timeMap);
+    const colors = ['#4f46e5', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#db2777', '#d97706', '#059669', '#2563eb'];
+
+    const datasets = targetCats.map((cat, i) => {
+        const dataPoints = labels.map(l => (timeMap[l][cat] ? Math.round(timeMap[l][cat].sum / timeMap[l][cat].cnt) : null));
+        return {
+            label: cat.length > 20 ? cat.substring(0, 20) + '...' : cat,
+            data: dataPoints,
+            borderColor: fieldName === 'TOTAL' ? '#4f46e5' : colors[i % colors.length],
+            backgroundColor: fieldName === 'TOTAL' ? 'rgba(79, 70, 229, 0.1)' : colors[i % colors.length],
+            fill: fieldName === 'TOTAL',
+            tension: 0.4, borderWidth: 3, pointRadius: 4, spanGaps: true
+        };
+    });
+
+    return { labels, datasets };
+}
+
+// Плавное обновление графика без перерисовки экрана
+function updateTrendCharts(type, period) {
+    if (period) trendGroupings[type] = period;
+    const data = getFilteredAnalyticsData();
+
+    if (currentActiveAnalyticsTab === 'sub-engineering') {
+        if (type === 'contrs' && chartInstances['chart_eng_trend_contrs']) {
+            chartInstances['chart_eng_trend_contrs'].data = buildTrendChartData(data, 'contractorName', selectedChartFilters.contrs, trendGroupings.contrs);
+            chartInstances['chart_eng_trend_contrs'].update();
+        }
+        if (type === 'works' && chartInstances['chart_eng_trend_works']) {
+            chartInstances['chart_eng_trend_works'].data = buildTrendChartData(data, 'templateTitle', selectedChartFilters.works, trendGroupings.works);
+            chartInstances['chart_eng_trend_works'].update();
+        }
+    } else if (currentActiveAnalyticsTab === 'sub-onepager') {
+        if (type === 'global' && chartInstances['chart_onepager_trend']) {
+            chartInstances['chart_onepager_trend'].data = buildTrendChartData(data, 'TOTAL', [], trendGroupings.global);
+            chartInstances['chart_onepager_trend'].update();
+        }
+        if (type === 'contrs' && chartInstances['chart_op_trend_contrs']) {
+            chartInstances['chart_op_trend_contrs'].data = buildTrendChartData(data, 'contractorName', selectedChartFilters.contrs, trendGroupings.contrs);
+            chartInstances['chart_op_trend_contrs'].update();
+        }
+        if (type === 'works' && chartInstances['chart_op_trend_works']) {
+            chartInstances['chart_op_trend_works'].data = buildTrendChartData(data, 'templateTitle', selectedChartFilters.works, trendGroupings.works);
+            chartInstances['chart_op_trend_works'].update();
+        }
+    }
+}
+
+function openChartFilterModal(type) {
+    const data = getFilteredAnalyticsData();
+    const field = type === 'contrs' ? 'contractorName' : 'templateTitle';
+    const title = type === 'contrs' ? 'Выбор подрядчиков для графика' : 'Выбор видов работ для графика';
+    
+    const counts = {};
+    data.forEach(i => { if(i[field]) counts[i[field]] = (counts[i[field]]||0)+1; });
+    const uniqueItems = Object.keys(counts).sort((a,b) => counts[b] - counts[a]);
+
+    const isAuto = selectedChartFilters[type].length === 0;
+
+    let html = `<div class="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar mb-4 pr-1">`;
+    html += `<label class="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl mb-3 font-bold cursor-pointer text-indigo-800">
+        <input type="checkbox" id="chart-filter-auto" class="w-5 h-5 accent-indigo-600" onchange="if(this.checked) document.querySelectorAll('.chart-filter-cb').forEach(cb => cb.checked = false)" ${isAuto ? 'checked' : ''}>
+        🤖 Авто (Показывать ТОП-5)
+    </label>`;
+
+    uniqueItems.forEach(item => {
+        const isChecked = !isAuto && selectedChartFilters[type].includes(item);
+        html += `<label class="flex items-center gap-3 p-3 bg-[var(--card-bg)] hover:bg-[var(--hover-bg)] rounded-xl cursor-pointer border border-[var(--card-border)] transition-colors">
+            <input type="checkbox" value="${item}" class="chart-filter-cb w-5 h-5 accent-indigo-600" ${isChecked ? 'checked' : ''} onchange="document.getElementById('chart-filter-auto').checked = false">
+            <span class="text-[12px] truncate flex-1">${item}</span>
+            <span class="text-[10px] text-slate-500 bg-slate-100 px-2 py-1 rounded-md font-bold">${counts[item]} шт</span>
+        </label>`;
+    });
+    html += `</div>
+    <div class="flex gap-2">
+        <button onclick="closeModal()" class="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold uppercase active:scale-95">Отмена</button>
+        <button onclick="saveChartFilters('${type}')" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold uppercase shadow-md active:scale-95">Применить</button>
+    </div>`;
+
+    const modal = document.getElementById('modal-overlay');
+    document.getElementById('modal-icon').innerHTML = ''; 
+    document.getElementById('modal-title').innerText = title;
+    document.getElementById('modal-body').innerHTML = html;
+    document.body.classList.add('modal-open');
+    modal.style.display = 'flex';
+}
+
+function saveChartFilters(type) {
+    const isAuto = document.getElementById('chart-filter-auto').checked;
+    if (isAuto) {
+        selectedChartFilters[type] = [];
+    } else {
+        const checked = Array.from(document.querySelectorAll('.chart-filter-cb:checked')).map(cb => cb.value);
+        if(checked.length === 0) return showToast('Выберите линии или включите Авто');
+        selectedChartFilters[type] = checked;
+    }
+    closeModal();
+    // Обновляем только измененный график плавно
+    updateTrendCharts(type);
+}
+
+
+// === ПОДВКЛАДКА 2: ИНСТРУМЕНТ ИНЖЕНЕРА (УМНЫЙ ПОМОЩНИК И АНАЛИЗ) ===
 function renderEngineeringSubTab(data) {
     const container = document.getElementById('engineering-content-container');
     if(data.length === 0) { container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">Нет данных по выбранным фильтрам</div>`; return; }
 
-    const causesCount = {}; let totalB2B3 = 0;
+    const causesCount = {}; 
+    let tB1 = 0, tB2 = 0, tB3 = 0, tOk = 0;
     const stageData = {}; 
+    const criticalPhotos = []; 
+    const systemicPhotos = [];
     const critList = [];
-    const allPhotos = [];
 
     data.forEach(unit => {
         const sKey = `${unit.templateTitle} | ${unit.stageName}`;
         if(!stageData[sKey]) stageData[sKey] = { checks: 0, sumUrk: 0, b3Count: 0 };
         stageData[sKey].checks++;
+        
         if(unit.metrics) {
-            stageData[sKey].sumUrk += unit.metrics.final;
-            stageData[sKey].b3Count += unit.metrics.n_B3_fail;
+            stageData[sKey].sumUrk += unit.metrics.final; stageData[sKey].b3Count += unit.metrics.n_B3_fail;
+            tB1 += unit.metrics.n_B1_fail; tB2 += unit.metrics.n_B2_fail; tB3 += unit.metrics.n_B3_fail;
         }
 
         if(unit.state && unit.details) {
             Object.keys(unit.state).forEach(itemId => {
                 const state = unit.state[itemId];
+                if(state === 'ok') tOk++;
                 if(state === 'fail' || state === 'fail_escalated') {
-                    totalB2B3++;
                     let causeCode = unit.details[itemId]?.causeCode || 'C00';
+                    let commentText = unit.details[itemId]?.comment || 'Без комментария';
                     causesCount[causeCode] = (causesCount[causeCode] || 0) + 1;
                     
-                    if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state==='fail')) {
-                        critList.push({ loc: unit.location, stage: unit.stageName, date: unit.date, text: unit.details[itemId]?.comment });
+                    if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state === 'fail')) critList.push({ loc: unit.location, contr: unit.contractorName, text: commentText });
+                    if(unit.photos && unit.photos[itemId]) {
+                        const photoObj = { src: unit.photos[itemId], loc: unit.location, contr: unit.contractorName, text: commentText, date: new Date(unit.date).getTime() };
+                        if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state === 'fail')) criticalPhotos.push(photoObj);
+                        else systemicPhotos.push(photoObj);
                     }
-                }
-                if(unit.photos && unit.photos[itemId]) {
-                    allPhotos.push({ src: unit.photos[itemId], loc: unit.location, stage: unit.stageName, date: unit.date });
                 }
             });
         }
     });
 
-    let stagesHtml = Object.keys(stageData).map(k => {
-        const avg = Math.round(stageData[k].sumUrk / stageData[k].checks);
-        return `<tr class="border-b border-[var(--card-border)] last:border-0"><td class="p-2 text-[10px] font-bold whitespace-normal">${k}</td><td class="p-2 text-center text-[11px]">${stageData[k].checks}</td><td class="p-2 text-center text-[11px] font-black ${avg<70?'text-red-500':(avg<85?'text-orange-500':'text-green-600')}">${avg}%</td><td class="p-2 text-center">${stageData[k].b3Count>0?'Да':'-'}</td></tr>`;
-    }).join('');
+    const topCriticalPhotos = criticalPhotos.sort((a,b) => b.date - a.date).slice(0, 5);
+    const topSystemicPhotos = systemicPhotos.sort((a,b) => b.date - a.date).slice(0, 5);
+    const smartKey = 'global_engineering_advice';
+    let rawSmartText = customExpertConclusions[smartKey] || "";
+
+    if (!customExpertConclusions[smartKey]) {
+        let totalDefects = tB1 + tB2 + tB3;
+        let avgTotalUrk = Math.round((stageData[Object.keys(stageData)[0]]?.sumUrk || 0) / (stageData[Object.keys(stageData)[0]]?.checks || 1));
+        if (tB3 > 0) rawSmartText += `[БЛОКИРОВКА ПРИЕМКИ]\nВыявлен критический брак (B3). Финишная сдача невозможна. Необходима остановка СМР на данных участках.\n\n`;
+        let opStatus = tB3 > 0 ? "ПРОЦЕСС ЗАБЛОКИРОВАН (Наличие B3)" : (avgTotalUrk < 70 ? "РАБОТЫ ОСТАНОВЛЕНЫ (УрК < 70%)" : (avgTotalUrk < 85 ? "УСЛОВНЫЙ ДОПУСК СМР (УрК 70-84%)" : "ЦЕЛЕВОЙ ПОКАЗАТЕЛЬ (Готово к сдаче с 1-го раза)"));
+        rawSmartText += `[ОПЕРАЦИОННЫЙ СТАТУС]\n${opStatus}\n\n`;
+        if (totalDefects > 0) {
+            let sortedCauses = Object.keys(causesCount).sort((a,b) => causesCount[b] - causesCount[a]);
+            let topCauseCode = sortedCauses[0];
+            let topCausePercent = Math.round((causesCount[topCauseCode] / totalDefects) * 100);
+            let actText = topCauseCode === 'C01' ? "Остановить работы, пересмотреть ППР." : topCauseCode === 'C04' ? "Срочная замена или переаттестация бригады." : "Усилить операционный контроль на местах.";
+            rawSmartText += `[ГЛАВНАЯ ПРИЧИНА БРАКА]\n${topCausePercent}% дефектов вызвано причиной "${DEFECT_CAUSES.find(c => c.code === topCauseCode)?.name || 'Иное'}".\nРешение: ${actText}`;
+        } else {
+            rawSmartText += `[АНАЛИЗ]\nПроцесс стабилен. Отклонений не выявлено.`;
+        }
+    }
+
+    let uiSmartText = rawSmartText.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/^\[(.*?)\]/gm, '<div class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase mt-3 mb-1">$1</div>');
+
+    const renderPhotoGallery = (photos, title, colorClass, bgClass) => {
+        if(photos.length === 0) return '';
+        return `
+        <div class="${bgClass} border border-[var(--card-border)] rounded-xl p-3 shadow-sm mb-4">
+            <div class="text-[10px] font-black ${colorClass} uppercase mb-3 flex items-center gap-1">📸 ${title}</div>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                ${photos.map(p => `
+                <div class="relative group cursor-pointer active:scale-95 transition-transform" onclick="openPhotoViewer('${p.src}')">
+                    <img src="${p.src}" class="w-full h-24 object-cover rounded-lg border border-slate-200 shadow-sm">
+                    <div class="absolute inset-x-0 bottom-0 bg-black/70 text-white text-[8px] p-1.5 rounded-b-lg backdrop-blur-sm truncate"><b>${p.loc}</b><br>${p.text.replace(/^\[.*?\]\s*/, '').substring(0, 30)}</div>
+                </div>`).join('')}
+            </div>
+        </div>`;
+    };
 
     let causesChartLabels = []; let causesChartData = [];
-    let causesHtml = Object.keys(causesCount).map(code => {
+    Object.keys(causesCount).sort((a,b) => causesCount[b] - causesCount[a]).forEach(code => {
         const name = DEFECT_CAUSES.find(c => c.code === code)?.name || 'Иное';
-        const perc = ((causesCount[code] / totalB2B3) * 100).toFixed(1);
-        causesChartLabels.push(name.substring(0,10)+'.'); causesChartData.push(causesCount[code]);
-        return `<div class="flex justify-between items-center text-[10px] mb-1 font-bold"><span class="truncate pr-2">${name}</span><span>${perc}% (${causesCount[code]})</span></div>`;
+        causesChartLabels.push(name.substring(0,15)); causesChartData.push(causesCount[code]);
+    });
+
+    let stagesHtml = Object.keys(stageData).map(k => {
+        const avg = Math.round(stageData[k].sumUrk / stageData[k].checks);
+        return `<tr class="border-b border-[var(--card-border)] hover:bg-[var(--hover-bg)]"><td class="p-2 text-[10px] font-bold whitespace-normal">${k}</td><td class="p-2 text-center text-[11px]">${stageData[k].checks}</td><td class="p-2 text-center text-[11px] font-black ${avg<70?'text-red-500':(avg<85?'text-orange-500':'text-green-600')}">${avg}%</td></tr>`;
     }).join('');
 
-    // --- УМНЫЕ КОММЕНТАРИИ (СТРОГИЙ СТИЛЬ) ---
-    let smartComments = [];
-    const b3Rate = critList.length;
-    
-    if(b3Rate > 0) {
-        smartComments.push({
-            type: 'critical',
-            text: `Выявлено ${b3Rate} инцидентов с дефектами B3. Требуется приостановка работ на зафиксированных участках и вызов комиссии.`
-        });
-    } else {
-        smartComments.push({
-            type: 'success',
-            text: `Критических нарушений (категории B3) в текущей выборке не зафиксировано.`
-        });
-    }
-
-    if(causesChartData.length > 0) {
-        const maxCauseIdx = causesChartData.indexOf(Math.max(...causesChartData));
-        const dominantCause = causesChartLabels[maxCauseIdx];
-        const domPerc = ((causesChartData[maxCauseIdx] / totalB2B3) * 100).toFixed(0);
-        smartComments.push({
-            type: 'warning',
-            text: `Доминирующая причина брака — «${dominantCause}» (${domPerc}% от всех дефектов). Рекомендуется направить предписание для корректировки процесса.`
-        });
-    }
-
-    let galleryHtml = allPhotos.length > 0 ? `<div class="grid grid-cols-2 md:grid-cols-4 gap-2">${allPhotos.slice(-8).reverse().map(p => `<div class="border border-[var(--card-border)] rounded-lg overflow-hidden relative" onclick="openPhotoViewer('${p.src}')"><img src="${p.src}" class="w-full h-24 object-cover" /><div class="absolute bottom-0 w-full bg-black/80 text-white text-[8px] p-1.5 font-bold leading-tight">${p.loc}<br><span class="text-slate-300 font-normal">${p.stage}</span></div></div>`).join('')}</div>` : `<p class="text-xs text-[var(--text-muted)] text-center py-4">Нет фотографий.</p>`;
+    // Генератор селекторов
+    const getSelectHtml = (type) => `
+        <select onchange="updateTrendCharts('${type}', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400 rounded px-1 py-1 outline-none cursor-pointer shadow-sm">
+            <option value="WEEK" ${trendGroupings[type]==='WEEK'?'selected':''}>Недели</option>
+            <option value="MONTH" ${trendGroupings[type]==='MONTH'?'selected':''}>Месяцы</option>
+            <option value="QUARTER" ${trendGroupings[type]==='QUARTER'?'selected':''}>Кварталы</option>
+            <option value="YEAR" ${trendGroupings[type]==='YEAR'?'selected':''}>Годы</option>
+        </select>
+    `;
 
     let html = `
         <div class="mx-1 space-y-4">
-            
-            <!-- Смарт-комментарии -->
-            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-4 shadow-sm">
-                <div class="text-[10px] font-black text-slate-400 uppercase mb-3 flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    Аналитический срез
+            <div class="bg-[var(--card-bg)] border border-indigo-200 rounded-xl shadow-sm relative overflow-hidden">
+                <div class="bg-indigo-50 border-b border-indigo-100 p-2 flex justify-between items-center">
+                    <div class="text-[10px] font-black text-indigo-600 uppercase flex items-center gap-1">🤖 AI-Анализ (Методика 70/85)</div>
+                    <button onclick="editExpertText('${smartKey}', 'hidden_eng_text')" class="text-[10px] font-bold bg-white text-indigo-600 border border-indigo-200 px-3 py-1 rounded shadow-sm">✏️ Редак.</button>
+                    <textarea id="hidden_eng_text" class="hidden">${rawSmartText}</textarea>
                 </div>
-                <div class="space-y-2">
-                    ${smartComments.map(c => {
-                        let borderCls = c.type === 'critical' ? 'border-red-500 bg-red-50 text-red-800' : (c.type === 'warning' ? 'border-orange-500 bg-orange-50 text-orange-800' : 'border-green-500 bg-green-50 text-green-800');
-                        let darkBorderCls = c.type === 'critical' ? 'dark:bg-red-900/20 dark:text-red-300' : (c.type === 'warning' ? 'dark:bg-orange-900/20 dark:text-orange-300' : 'dark:bg-green-900/20 dark:text-green-300');
-                        return `
-                        <div class="border-l-4 ${borderCls} ${darkBorderCls} p-2.5 rounded-r text-[11px] font-bold leading-snug flex justify-between gap-2 items-start">
-                            <span>${c.text}</span>
-                            <button onclick="navigator.clipboard.writeText('${c.text}'); showToast('Текст скопирован');" class="text-[var(--text-muted)] hover:text-indigo-600 shrink-0 active:scale-90 transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                            </button>
-                        </div>`;
-                    }).join('')}
-                </div>
+                <div class="p-3 text-[11px] leading-snug space-y-2 whitespace-pre-wrap">${uiSmartText}</div>
             </div>
 
-            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
-                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Сводка по этапам</div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left whitespace-nowrap"><thead class="bg-[var(--hover-bg)] text-[10px] text-[var(--text-muted)] border-b border-[var(--card-border)]"><tr><th class="p-2">Этап</th><th class="p-2 text-center">Пров.</th><th class="p-2 text-center">УрК</th><th class="p-2 text-center">B3</th></tr></thead><tbody class="divide-y divide-[var(--card-border)]">${stagesHtml}</tbody></table>
+            ${renderPhotoGallery(topCriticalPhotos, "Критические дефекты (B3)", "text-red-600", "bg-red-50")}
+            ${renderPhotoGallery(topSystemicPhotos, "Системные отклонения (B2)", "text-orange-600", "bg-orange-50")}
+
+            <!-- ГРАФИКИ ТРЕНДОВ С НЕЗАВИСИМЫМИ ФИЛЬТРАМИ -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Динамика: Подрядчики</div>
+                        <div class="flex gap-1">
+                            <button onclick="openChartFilterModal('contrs')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
+                            ${getSelectHtml('contrs')}
+                        </div>
+                    </div>
+                    <div style="height: 180px; position: relative;"><canvas id="chart_eng_trend_contrs"></canvas></div>
+                </div>
+                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Динамика: Виды работ</div>
+                        <div class="flex gap-1">
+                            <button onclick="openChartFilterModal('works')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
+                            ${getSelectHtml('works')}
+                        </div>
+                    </div>
+                    <div style="height: 180px; position: relative;"><canvas id="chart_eng_trend_works"></canvas></div>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
-                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Причины дефектов</div>
-                    <div style="height: 150px; position: relative; margin-bottom: 10px;"><canvas id="chart_eng_causes"></canvas></div>
-                    ${causesHtml || '<div class="text-xs text-center text-slate-500">Нет дефектов</div>'}
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Причины брака (Парето)</div>
+                    <div style="height: 180px; position: relative;"><canvas id="chart_eng_causes"></canvas></div>
                 </div>
-                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
-                    <div class="text-[10px] font-black text-red-500 uppercase mb-2 flex items-center gap-1">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                        Журнал B3
-                    </div>
-                    <div class="max-h-[200px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                        ${critList.length>0 ? critList.map(c => `<div class="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/50 p-2 rounded text-[10px]"><span class="font-black text-red-700 block">${c.loc}</span><span class="text-red-500 block mb-1">${c.stage}</span><span class="italic font-bold text-red-800 dark:text-red-300">Комментарий: ${c.text}</span></div>`).join('') : '<div class="text-[11px] text-green-600 font-bold text-center py-4">Критических отклонений нет.</div>'}
-                    </div>
+                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm flex flex-col justify-center">
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Доля брака: ${Math.round((tB1+tB2+tB3)/(tOk+tB1+tB2+tB3)*100 || 0)}%</div>
+                    <div style="height: 160px; position: relative; display: flex; justify-content: center;"><canvas id="chart_eng_doughnut"></canvas></div>
                 </div>
             </div>
 
+            ${critList.length > 0 ? `
+            <div class="bg-red-50 border border-red-200 rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] font-black text-red-600 uppercase mb-3">🚨 Реестр критических инцидентов (B3)</div>
+                <div class="max-h-[250px] overflow-y-auto space-y-2 custom-scrollbar">
+                    ${critList.map(c => `<div class="bg-white border border-red-100 p-2.5 rounded-lg shadow-sm"><div class="flex justify-between items-start mb-1"><span class="font-black text-[11px] text-red-700">${c.loc}</span><span class="text-[9px] font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded truncate max-w-[100px]">${c.contr}</span></div><div class="text-[10px] text-slate-700 italic">"${c.text}"</div></div>`).join('')}
+                </div>
+            </div>` : ''}
+
             <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
-                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Фотоотчет</div>
-                ${galleryHtml}
+                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Детализация по этапам</div>
+                <div class="overflow-x-auto"><table class="w-full text-left whitespace-nowrap"><thead class="bg-[var(--hover-bg)] text-[10px] text-[var(--text-muted)] border-b border-[var(--card-border)]"><tr><th class="p-2">Этап контроля</th><th class="p-2 text-center">Проверок</th><th class="p-2 text-center">УрК</th></tr></thead><tbody class="divide-y divide-[var(--card-border)]">${stagesHtml}</tbody></table></div>
             </div>
         </div>`;
 
     container.innerHTML = html;
 
+    const trendContrsData = buildTrendChartData(data, 'contractorName', selectedChartFilters.contrs, trendGroupings.contrs);
+    const trendWorksData = buildTrendChartData(data, 'templateTitle', selectedChartFilters.works, trendGroupings.works);
+
+    const ctxTrendC = document.getElementById('chart_eng_trend_contrs').getContext('2d');
+    chartInstances['chart_eng_trend_contrs'] = new Chart(ctxTrendC, { type: 'line', data: trendContrsData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 9} } } } } });
+
+    const ctxTrendW = document.getElementById('chart_eng_trend_works').getContext('2d');
+    chartInstances['chart_eng_trend_works'] = new Chart(ctxTrendW, { type: 'line', data: trendWorksData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 9} } } } } });
+
     if(causesChartData.length > 0) {
-        const ctx = document.getElementById('chart_eng_causes').getContext('2d');
-        chartInstances['chart_eng_causes'] = new Chart(ctx, {
-            type: 'bar', indexAxis: 'y',
-            data: { labels: causesChartLabels, datasets: [{ data: causesChartData, backgroundColor: '#6366f1', borderRadius: 4 }] },
-            options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
+        const ctxBar = document.getElementById('chart_eng_causes').getContext('2d');
+        chartInstances['chart_eng_causes'] = new Chart(ctxBar, { type: 'bar', indexAxis: 'y', data: { labels: causesChartLabels, datasets: [{ data: causesChartData, backgroundColor: '#6366f1', borderRadius: 4 }] }, options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
+    }
+    if(tB1 > 0 || tB2 > 0 || tB3 > 0) {
+        const ctxPie = document.getElementById('chart_eng_doughnut').getContext('2d');
+        chartInstances['chart_eng_doughnut'] = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['B1', 'B2', 'B3'], datasets: [{ data: [tB1, tB2, tB3], backgroundColor: ['#3b82f6', '#f97316', '#ef4444'], borderWidth: 0 }] }, options: { animation: false, responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } } } } });
     }
 }
 
-// === ПОДВКЛАДКА 3: ONE-PAGER ДЛЯ РУКОВОДСТВА ===
+// === ПОДВКЛАДКА 3: ДАШБОРД РУКОВОДИТЕЛЯ (PDCA: CHECK & ACT) ===
 function renderOnePagerSubTab(data) {
     const container = document.getElementById('onepager-content-container');
-    if(data.length === 0) { container.innerHTML = `<div class="text-center text-slate-500 text-sm">Нет данных</div>`; return; }
+    if(data.length === 0) { container.innerHTML = `<div class="text-center text-slate-500 text-sm py-10">Нет данных для анализа</div>`; return; }
 
     const uniqueLocs = [...new Set(data.map(i => i.location))];
-    const uniqueContrs = [...new Set(data.map(i => i.contractorName))];
+    const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
+    const midPoint = Math.floor(sortedData.length / 2);
+    const firstHalf = sortedData.slice(0, midPoint);
+    const secondHalf = sortedData.slice(midPoint);
+
+    const calcAvgUrk = (arr) => arr.length ? Math.round(arr.reduce((sum, i) => sum + (i.metrics?.final || 0), 0) / arr.length) : 0;
+    const globalUrk = calcAvgUrk(data);
+    const delta = (secondHalf.length > 0 && firstHalf.length > 0) ? (calcAvgUrk(secondHalf) - calcAvgUrk(firstHalf)) : 0;
     
-    let sumUrk = 0; let sumB3 = 0;
-    data.forEach(i => { if(i.metrics) { sumUrk += i.metrics.final; sumB3 += i.metrics.n_B3_fail; } });
-    const globalUrk = Math.round(sumUrk / data.length);
+    let sumB3 = 0; const criticalPhotos = [];
     
+    data.forEach(i => { 
+        if(i.metrics) sumB3 += i.metrics.n_B3_fail; 
+        if(i.state && i.photos) {
+            Object.keys(i.state).forEach(id => {
+                if((i.state[id] === 'fail_escalated' || (i.metrics && i.metrics.n_B3_fail > 0 && i.state[id] === 'fail')) && i.photos[id]) {
+                    criticalPhotos.push({ src: i.photos[id], loc: i.location, text: i.details[id]?.comment || 'Без описания', date: new Date(i.date).getTime() });
+                }
+            });
+        }
+    });
+
+    const topPhotos = criticalPhotos.sort((a,b) => b.date - a.date).slice(0, 4);
     const urkColor = globalUrk < 70 ? 'text-red-600' : (globalUrk < 85 ? 'text-orange-500' : 'text-green-600');
     
-    // Динамика (группировка по дням)
-    const trendMap = {};
-    data.forEach(i => {
-        const d = new Date(i.date).toLocaleDateString();
-        if(!trendMap[d]) trendMap[d] = { sum: 0, count: 0 };
-        trendMap[d].sum += i.metrics.final; trendMap[d].count++;
-    });
-    const trendLabels = Object.keys(trendMap).slice(-7); // Последние 7 дней активности
-    const trendData = trendLabels.map(k => Math.round(trendMap[k].sum / trendMap[k].count));
+    const grouped = {};
+    data.forEach(item => { if(!grouped[item.contractorName]) grouped[item.contractorName] = []; grouped[item.contractorName].push(item); });
+    let best = null, worst = null;
+    for(let cName in grouped) {
+        if (grouped[cName].length >= 3) {
+            const m = getContractorMetrics(grouped[cName], userTemplates);
+            if(m) {
+                if(!best || m.finalC > best.val) best = {name: cName, val: m.finalC};
+                if(!worst || m.finalC < worst.val) worst = {name: cName, val: m.finalC};
+            }
+        }
+    }
+
+    let photoHtml = '';
+    if(topPhotos.length > 0) {
+        photoHtml = `
+        <div class="mb-4 bg-slate-900 rounded-xl p-3 shadow-sm border border-slate-700">
+            <div class="text-[10px] font-black text-white uppercase mb-2 flex items-center gap-1">📸 Внимание Руководителя</div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                ${topPhotos.map(p => `
+                <div class="relative group cursor-pointer active:scale-95 transition-transform" onclick="openPhotoViewer('${p.src}')">
+                    <img src="${p.src}" class="w-full h-24 object-cover rounded-lg shadow-md border border-slate-600">
+                    <div class="absolute inset-x-0 bottom-0 bg-black/80 text-white text-[8px] p-1.5 rounded-b-lg backdrop-blur-sm truncate">${p.loc}: ${p.text.replace(/^\[.*?\]\s*/, '')}</div>
+                </div>`).join('')}
+            </div>
+        </div>`;
+    }
+
+    const getSelectHtml = (type) => `
+        <select onchange="updateTrendCharts('${type}', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white rounded px-1 py-1 outline-none cursor-pointer shadow-sm">
+            <option value="WEEK" ${trendGroupings[type]==='WEEK'?'selected':''}>Недели</option>
+            <option value="MONTH" ${trendGroupings[type]==='MONTH'?'selected':''}>Месяцы</option>
+            <option value="QUARTER" ${trendGroupings[type]==='QUARTER'?'selected':''}>Кварталы</option>
+            <option value="YEAR" ${trendGroupings[type]==='YEAR'?'selected':''}>Годы</option>
+        </select>
+    `;
 
     let html = `
-        <div class="text-center border-b border-[var(--card-border)] pb-4 mb-4">
-            <h2 class="text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white">Сводный статус качества</h2>
-            <div class="text-[10px] font-bold text-[var(--text-muted)]">${new Date().toLocaleDateString('ru-RU')} | Выборка: ${data.length} проверок</div>
+        <div class="text-center border-b border-[var(--card-border)] pb-3 mb-4">
+            <h2 class="text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white">Сводный статус объекта</h2>
+            <div class="text-[10px] font-bold text-[var(--text-muted)] mt-1">Охват: ${data.length} проверок | ${uniqueLocs.length} изделий</div>
         </div>
         
-        <div class="grid grid-cols-2 gap-3 mb-6">
-            <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-inner">
-                <div class="text-[9px] uppercase font-bold text-[var(--text-muted)] mb-1">Глобальный УрК</div>
-                <div class="text-3xl font-black ${urkColor}">${globalUrk}%</div>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            <div class="bg-[var(--card-bg)] rounded-xl p-4 border border-[var(--card-border)] text-center shadow-sm relative overflow-hidden">
+                <div class="text-[10px] uppercase font-black text-[var(--text-muted)] mb-1">Глобальный УрК</div>
+                <div class="text-4xl font-black ${urkColor}">${globalUrk}%</div>
+                ${delta !== 0 ? `<div class="absolute top-2 right-2 text-[10px] font-black px-1.5 py-0.5 rounded ${delta > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}%</div>` : ''}
             </div>
-            <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-inner">
-                <div class="text-[9px] uppercase font-bold text-[var(--text-muted)] mb-1">Критические дефекты</div>
-                <div class="text-3xl font-black ${sumB3>0?'text-red-600':'text-green-600'}">${sumB3}</div>
-            </div>
-            <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-inner">
-                <div class="text-[9px] uppercase font-bold text-[var(--text-muted)] mb-1">Осмотрено изделий</div>
-                <div class="text-xl font-black text-slate-700 dark:text-slate-200 mt-1">${uniqueLocs.length}</div>
-            </div>
-            <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-inner">
-                <div class="text-[9px] uppercase font-bold text-[var(--text-muted)] mb-1">Подрядчиков</div>
-                <div class="text-xl font-black text-slate-700 dark:text-slate-200 mt-1">${uniqueContrs.length}</div>
+            <div class="bg-red-50 rounded-xl p-4 border border-red-100 text-center shadow-sm">
+                <div class="text-[10px] uppercase font-black text-red-800 mb-1">Критические B3</div>
+                <div class="text-4xl font-black ${sumB3>0?'text-red-600':'text-green-600'}">${sumB3}</div>
             </div>
         </div>
 
-        <div class="mb-6">
-            <div class="text-[11px] font-black text-[var(--text-muted)] uppercase mb-2 pl-1">Тренд качества (последние осмотры)</div>
-            <div style="height: 140px; position: relative;"><canvas id="chart_onepager_trend"></canvas></div>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center">
+                <div class="text-[9px] uppercase font-bold text-green-600 mb-1">🏆 Лидер качества</div>
+                <div class="text-xs font-black truncate">${best ? best.name : 'Нет данных'}</div>
+            </div>
+            <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center">
+                <div class="text-[9px] uppercase font-bold text-red-500 mb-1">⚠️ Зона риска</div>
+                <div class="text-xs font-black truncate">${worst ? worst.name : 'Нет данных'}</div>
+            </div>
         </div>
 
-        <div class="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900 rounded-xl p-3">
-            <div class="text-[11px] font-black text-red-600 uppercase mb-2 flex items-center gap-1"><span>🚨</span> Зоны риска</div>
-            <ul class="text-[11px] font-bold text-red-800 dark:text-red-300 space-y-1 ml-4 list-disc marker:text-red-400">
-                ${globalUrk < 85 ? `<li>Глобальный рейтинг объекта ниже нормы (Цель: >85%)</li>` : `<li>Глобальный рейтинг в норме</li>`}
-                ${sumB3 > 0 ? `<li>Зафиксировано ${sumB3} инцидентов с дефектами категории B3.</li>` : `<li>Критических дефектов на объекте не зафиксировано.</li>`}
-            </ul>
+        ${photoHtml}
+
+        <div class="mb-4 bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] shadow-sm">
+            <div class="flex justify-between items-center mb-2">
+                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Глобальный Тренд Объекта</div>
+                ${getSelectHtml('global')}
+            </div>
+            <div style="height: 160px; position: relative;"><canvas id="chart_onepager_trend"></canvas></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] shadow-sm">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Тренд: Подрядчики</div>
+                    <div class="flex gap-1">
+                        <button onclick="openChartFilterModal('contrs')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
+                        ${getSelectHtml('contrs')}
+                    </div>
+                </div>
+                <div style="height: 160px; position: relative;"><canvas id="chart_op_trend_contrs"></canvas></div>
+            </div>
+            <div class="bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] shadow-sm">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Тренд: Виды Работ</div>
+                    <div class="flex gap-1">
+                        <button onclick="openChartFilterModal('works')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
+                        ${getSelectHtml('works')}
+                    </div>
+                </div>
+                <div style="height: 160px; position: relative;"><canvas id="chart_op_trend_works"></canvas></div>
+            </div>
+        </div>
+
+        <div class="${globalUrk < 85 || sumB3 > 0 || delta < 0 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'} border rounded-xl p-4 shadow-sm mb-4">
+            <div class="text-[11px] font-black uppercase mb-3 ${globalUrk < 85 || sumB3 > 0 || delta < 0 ? 'text-orange-800' : 'text-green-800'} flex items-center gap-1.5">🎯 Управленческое решение (ACT)</div>
+            <div class="text-[11px] font-bold space-y-2 text-slate-800">
+                ${sumB3 > 0 ? `<div class="bg-red-100 text-red-800 p-2 rounded">🚨 <b>ОСТАНОВКА РАБОТ:</b> Обнаружено ${sumB3} инцидентов B3. Финишная сдача невозможна. Выдать предписания на демонтаж.</div>` : ''}
+                ${globalUrk < 70 ? `<div>❌ <b>ВНЕ КОНТРОЛЯ:</b> Глобальный УрК ниже 70%. Идет накопление опасных дефектов. Применить штрафы.</div>` : (globalUrk < 85 ? `<div>🟡 <b>УСЛОВНЫЙ ДОПУСК:</b> УрК в диапазоне СМР (70-84%). Риск "дефектного хвоста". Запрет на финальную приемку до устранения B2.</div>` : `<div>✅ <b>ЦЕЛЕВАЯ ЗОНА:</b> УрК ${globalUrk}% (Норма >= 85%). Отсутствуют критические дефекты. Готовность к сдаче с 1-го раза.</div>`)}
+            </div>
         </div>
     `;
 
     container.innerHTML = html;
 
-    const ctx = document.getElementById('chart_onepager_trend').getContext('2d');
-    chartInstances['chart_onepager_trend'] = new Chart(ctx, {
-        type: 'line', 
-        data: { labels: trendLabels, datasets: [{ data: trendData, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: true, tension: 0.3, borderWidth: 2, pointRadius: 4 }] },
-        options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { display: false } } }
-    });
+    const trendGlobalData = buildTrendChartData(data, 'TOTAL', [], trendGroupings.global);
+    const trendContrsData = buildTrendChartData(data, 'contractorName', selectedChartFilters.contrs, trendGroupings.contrs);
+    const trendWorksData = buildTrendChartData(data, 'templateTitle', selectedChartFilters.works, trendGroupings.works);
+
+    const ctxTrend = document.getElementById('chart_onepager_trend').getContext('2d');
+    chartInstances['chart_onepager_trend'] = new Chart(ctxTrend, { type: 'line', data: trendGlobalData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { display: false } } } });
+
+    const ctxTC = document.getElementById('chart_op_trend_contrs').getContext('2d');
+    chartInstances['chart_op_trend_contrs'] = new Chart(ctxTC, { type: 'line', data: trendContrsData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 9} } } } } });
+
+    const ctxTW = document.getElementById('chart_op_trend_works').getContext('2d');
+    chartInstances['chart_op_trend_works'] = new Chart(ctxTW, { type: 'line', data: trendWorksData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 9} } } } } });
 }
 
 // === ПОДВКЛАДКА 4: СЫРЫЕ ДАННЫЕ (ТАБЛИЦА) ===
@@ -2309,7 +2787,8 @@ function resetExpertEdit() {
     if(confirm('Сбросить текст до оригинального заключения ИИ? Ваша редакция будет удалена.')) {
         delete customExpertConclusions[currentEditingExpertKey];
         cancelExpertEdit();
-        renderAnalyticsTab(); // Перерисовываем аналитику
+        scheduleSessionSave(); // Сохраняем в память
+        if (typeof renderCurrentAnalyticsTab === 'function') renderCurrentAnalyticsTab();
         showToast('Текст сброшен к исходному');
     }
 }
@@ -2328,7 +2807,9 @@ function saveExpertEdit() {
     customExpertConclusions[currentEditingExpertKey] = newText;
     
     cancelExpertEdit();
-    renderAnalyticsTab(); // Перерисовываем с новым текстом
+    scheduleSessionSave(); // Сохраняем в базу, чтобы не пропало после перезагрузки
+    
+    if (typeof renderCurrentAnalyticsTab === 'function') renderCurrentAnalyticsTab(); // Перерисовываем текущую вкладку
     showToast('Изменения сохранены!');
 }
 
@@ -2373,28 +2854,33 @@ function generateSmartComment(scenario) {
 }
 
 function buildSmartText(scenario, c, cName, tTitle, count) {
-    const isRed = c.finalC < 70 || c.rateB3 >= 30 || c.isRedZone;
-    const isYellow = c.finalC >= 70 && c.finalC < 85 && !isRed;
-    const b3Str = c.n_изделий_с_B3 > 0 ? `ЗАФИКСИРОВАН КРИТИЧЕСКИЙ БРАК (B3): на ${c.n_изделий_с_B3} ед.` : `Критический брак (B3) отсутствует.`;
+    // ВНЕДРЕНИЕ БИЗНЕС-ЛОГИКИ УРк (70% и 85%)
+    const hasB3 = c.n_изделий_с_B3 > 0;
+    // Наличие B3 безусловно переводит в красную зону
+    const isRed = c.finalC < 70 || hasB3; 
+    const isYellow = c.finalC >= 70 && c.finalC < 85 && !hasB3;
+    const isGreen = c.finalC >= 85 && !hasB3;
+
+    const b3Str = hasB3 ? `🚨 КРИТИЧЕСКИЙ БРАК (B3): выявлено на ${c.n_изделий_с_B3} ед. Это блокирует дальнейшие операции!` : `Критический брак (B3) отсутствует.`;
     
     switch(scenario) {
         case 'strict':
-            return `ОФИЦИАЛЬНАЯ ПРЕТЕНЗИЯ (ПРЕДПИСАНИЕ)\n\nКому: Руководителю проекта от организации "${cName}".\nКасательно: Неудовлетворительное качество работ по виду "${tTitle}".\n\nПо результатам строительного аудита (выборка: ${count} ед.) зафиксирован Уровень Качества (УрК) = ${c.finalC}%. Данный показатель ${isRed ? 'является КРИТИЧЕСКИ НИЗКИМ и свидетельствует о грубом нарушении технологии производства работ' : (isYellow ? 'находится НИЖЕ НОРМЫ, зафиксировано несоблюдение ППР' : 'находится в пределах допуска, однако выявлены системные отклонения')}.\n\nФакты нарушений:\n- ${b3Str}\n- Системное повторение одного и того же дефекта: ${c.maxFailRate.toFixed(1)}%\n- Индекс стабильности бригад: ${c.stabilityIndex}/100\n\nТРЕБОВАНИЯ СТРОИТЕЛЬНОГО КОНТРОЛЯ:\n1. В срок до __.__.202__ предоставить план корректирующих мероприятий.\n2. ${isRed ? 'НЕМЕДЛЕННО ОСТАНОВИТЬ производство работ. Вызвать комиссию для составления дефектной ведомости.' : 'Провести внеплановый инструктаж линейного ИТР и исполнителей.'}\n3. Предъявить исправленные объемы по акту.\n\nВ случае невыполнения требований, объемы к приемке (КС-2) не допускаются, будут применены штрафные санкции.`;
+            return `ОФИЦИАЛЬНАЯ ПРЕТЕНЗИЯ (ПРЕДПИСАНИЕ)\n\nКому: Руководителю проекта от организации "${cName}".\nКасательно: Неудовлетворительное качество работ по виду "${tTitle}".\n\nПо результатам строительного контроля (выборка: ${count} ед.) Уровень Качества (УрК) составил ${c.finalC}%.\n\n${isRed ? '❌ ПОКАЗАТЕЛЬ НИЖЕ 70% ИЛИ ВЫЯВЛЕН B3. ПРОДОЛЖЕНИЕ РАБОТ ЗАПРЕЩЕНО.\nКачество находится в неуправляемом диапазоне. Требуется немедленная остановка СМР.' : (isYellow ? '⚠️ ПОКАЗАТЕЛЬ 70-84%. СТАТУС: "УСЛОВНО ВЫПОЛНЕНО".\nКачество в допустимом диапазоне для этапа СМР, однако финишная приемка невозможна до полного устранения дефектов.' : '✅ ПОКАЗАТЕЛЬ > 85%. РАБОТЫ ПРИНИМАЮТСЯ.')}\n\nФакты нарушений:\n- ${b3Str}\n- Системный повтор дефектов: ${c.maxFailRate.toFixed(1)}%\n\nТРЕБОВАНИЯ:\n1. Устранить все критические (B3) и значимые (B2) замечания.\n2. Предъявить исправленные объемы повторно.\nВ случае неустранения, данные дефекты напрямую повлияют на показатель "сдача клиенту с первого раза". Применить компенсационные удержания.`;
             
         case 'tech':
-            return `ТЕХНИЧЕСКИЙ АУДИТ КАЧЕСТВА\n\nПодрядчик: ${cName}\nРаздел: ${tTitle}\nОбъем выборки: ${count} независимых проверок\n\n[МЕТРИКИ ИНЖИНИРИНГА]\n• Итоговый УрК: ${c.finalC}%\n• Базовый балл соответствия (до штрафов): ${c.baseUrkContrPerc}%\n• Коэф. системного брака (Ks): ${c.ks.toFixed(2)} (макс. частота дефекта ${c.maxFailRate.toFixed(1)}%)\n• Коэф. критичности (Kcrit): ${c.kcritC.toFixed(2)} (доля брака B3: ${c.rateB3.toFixed(1)}%)\n• Волатильность качества (СКО): ${c.volatility.toFixed(1)}\n\n[СТАТУС И ВЫВОДЫ]\nРиск-профиль: ${c.riskStatus.toUpperCase()}\nДостоверность данных: ${c.confStatus}\n\nРезюме инженера: ${c.reason}. ${isRed ? 'Технологический процесс не соблюдается. Требуется 100% входной и операционный контроль.' : (isYellow ? 'Технология соблюдается частично, требуется фокус на узлах с дефектами B2.' : 'Техпроцесс в норме. Стандартный летучий контроль.')}`;
+            return `ТЕХНИЧЕСКИЙ АУДИТ КАЧЕСТВА (МЕТОДИКА 70/85)\n\nПодрядчик: ${cName}\nРаздел: ${tTitle}\nВыборка: ${count} независимых проверок\n\n[МЕТРИКИ ИНЖИНИРИНГА]\n• Итоговый УрК: ${c.finalC}%\n• Коэф. системного брака (Ks): ${c.ks.toFixed(2)} (макс. частота дефекта ${c.maxFailRate.toFixed(1)}%)\n• Коэф. критичности (Kcrit): ${c.kcritC.toFixed(2)} (доля брака B3: ${c.rateB3.toFixed(1)}%)\n\n[СТАТУС И ВЫВОДЫ]\n${isRed ? '🔴 ПРОЦЕСС ЗАБЛОКИРОВАН (УрК < 70% или есть B3). Опасные и неуправляемые дефекты. Строительство данного участка необходимо остановить.' : (isYellow ? '🟡 ОПЕРАЦИОННЫЙ КОМПРОМИСС (УрК 70-84%). Технология соблюдается, но есть значимые отклонения. Допускается продолжение СМР (условный допуск), но финишная сдача невозможна.' : '🟢 ЦЕЛЕВОЙ ПОКАЗАТЕЛЬ (УрК >= 85%). Плотность дефектов минимальна. Остаточные дефекты носят косметический характер и не повлияют на сдачу с первого раза.')}`;
             
         case 'boss':
-            return `ИНФОРМАЦИОННАЯ СПРАВКА ДЛЯ РУКОВОДСТВА\n\n🏗 Подрядчик: ${cName}\n📊 Зона качества: ${isRed ? '🔴 КРАСНАЯ (Высокий риск срыва сроков)' : (isYellow ? '🟡 ЖЕЛТАЯ (Требует внимания)' : '🟢 ЗЕЛЕНАЯ (В норме)')}\n📉 Рейтинг (УрК): ${c.finalC}%\n\nКлючевые тезисы:\n1. Проверено: ${count} единиц продукции.\n2. ${b3Str}\n3. Стабильность: ${c.stabilityIndex < 70 ? 'Качество скачет. Бригады работают нестабильно, нет единого стандарта.' : 'Подрядчик выдает предсказуемый результат.'}\n\nРезюме:\n${isRed ? 'Рекомендуется вызвать руководство подрядчика на штаб. Высока вероятность переделок и смещения графика.' : (isYellow ? 'Подрядчик справляется, но есть тенденция к системному браку. Взят на контроль.' : 'Проблем не выявлено. Можно доверять дополнительные объемы.')}`;
+            return `ИНФОРМАЦИОННАЯ СПРАВКА ДЛЯ РУКОВОДСТВА\n\n🏗 Подрядчик: ${cName}\n📊 Бизнес-прогноз: ${isRed ? '🔴 ВЫСОКИЙ РИСК СРЫВА ПЕРЕДАЧИ КЛИЕНТУ' : (isYellow ? '🟡 ТРЕБУЮТСЯ ДОРАБОТКИ ПЕРЕД ФИНИШЕМ' : '🟢 ВЫСОКАЯ ВЕРОЯТНОСТЬ СДАЧИ С 1-ГО РАЗА')}\n📉 Рейтинг (УрК): ${c.finalC}%\n\nКлючевые тезисы:\n1. ${b3Str}\n2. ${isRed ? 'Работы остановлены. Идет развитие опасных дефектов.' : (isYellow ? 'Этап СМР продолжается, но на финише возможен "дефектный хвост". Нужен контроль устранения.' : 'Отличный результат. Достигнута точка оптимума, ресурсы на избыточный "перфекционизм" не тратятся.')}\n\nРезюме:\n${isRed ? 'Рекомендуется применить штрафы/удержания. Подрядчик не справляется.' : (isYellow ? 'Подрядчик работает удовлетворительно. Необходим контроль закрытия предписаний.' : 'Надежный партнер. Опережающий индикатор УрК гарантирует успешную передачу объекта.')}`;
             
         case 'action_plan':
-            return `ПЛАН КОРРЕКТИРУЮЩИХ МЕРОПРИЯТИЙ (CAPA)\n\nПодрядчик: ${cName}\nАнализируемый вид работ: ${tTitle}\nТекущий УрК: ${c.finalC}% (Целевой: >85%)\n\nШАГ 1. ЛОКАЛИЗАЦИЯ (${b3Str})\n- Выявить все конструкции с аналогичными дефектами.\n- Обозначить их в натуре (сигнальная лента, краска).\n\nШАГ 2. АНАЛИЗ ПРИЧИН (Системность: ${c.maxFailRate.toFixed(1)}%)\n- Проверить наличие утвержденных ТК у прорабов.\n- Оценить квалификацию звена, допускающего брак.\n\nШАГ 3. ИСПРАВЛЕНИЕ\n- Демонтаж/исправление дефектных участков за счет подрядчика.\n- Повторный вызов инспектора СК.\n\nШАГ 4. ПРЕВЕНТИВНЫЕ МЕРЫ\n- ${isRed ? 'Заменить бригадира/звено.' : 'Ежедневный фотоотчет скрытых работ в чат.'}\n- Ужесточить допуски на входной контроль материалов.`;
+            return `ПЛАН КОРРЕКТИРУЮЩИХ МЕРОПРИЯТИЙ (PDCA)\n\nПодрядчик: ${cName} | УрК: ${c.finalC}% (Цель: >85%)\n\nШАГ 1. БЛОКИРОВКА (${b3Str})\n- ${hasB3 ? 'Остановить работы на участках с B3 до устранения.' : 'Ограничений по B3 нет.'}\n\nШАГ 2. ПЕРЕХОД ИЗ СМР В ФИНИШ (Текущий статус: ${isYellow ? 'Условно выполнено' : (isRed ? 'Не принято' : 'Принято')})\n- Устранить все дефекты B2. Наличие не устраненного B2 блокирует подписание финального акта.\n\nШАГ 3. ПРОФИЛАКТИКА СИСТЕМНОГО БРАКА (Частота: ${c.maxFailRate.toFixed(1)}%)\n- Провести аудит квалификации исполнителей.\n- Оценить наличие и соблюдение ТК на рабочих местах.`;
             
         case 'finance':
-            return `СЛУЖЕБНАЯ ЗАПИСКА (В ДОГОВОРНОЙ ОТДЕЛ)\n\nТема: Блокировка/согласование объемов к оплате.\nПодрядчик: ${cName}\nВид работ: ${tTitle}\n\nНа основании проведенного строительного аудита (проверено ${count} ед.), Уровень Качества составил ${c.finalC}%. ${b3Str}\n\nЗАКЛЮЧЕНИЕ ТЕХНАДЗОРА:\n${isRed ? 'СТРОГО ЗАПРЕЩАЕТСЯ подписание актов КС-2 по данному виду работ. Инициировать удержание обеспечения по договору до полного устранения дефектов B3.' : (isYellow ? 'Акты КС-2 подписывать с удержанием стоимости некачественно выполненных узлов. Применить штраф за систематическое нарушение технологии.' : 'Ограничений по качеству для подписания актов КС-2 нет. Работы выполнены в соответствии с нормативной документацией.')}\n\nОбоснование: Индекс стабильности ${c.stabilityIndex}/100, Системный брак ${c.maxFailRate.toFixed(1)}%.`;
+            return `СЛУЖЕБНАЯ ЗАПИСКА (ОПЛАТА И КС-2)\n\nПодрядчик: ${cName}\nВид работ: ${tTitle} | Итоговый УрК: ${c.finalC}%\n\nЗАКЛЮЧЕНИЕ СТРОИТЕЛЬНОГО КОНТРОЛЯ:\n${isRed ? '🔴 ЗАПРЕТ НА ПОДПИСАНИЕ КС-2. УрК ниже 70% или выявлен критический дефект. Применить компенсационные удержания.' : (isYellow ? '🟡 УСЛОВНЫЙ ДОПУСК К КС-2 (Этап СМР). Разрешается частичная оплата, но финальный расчет (финишная сдача) заблокирован до доведения УрК до 85%.' : '🟢 ОПЛАТА БЕЗ ОГРАНИЧЕНИЙ. УрК >= 85%. Работы выполнены экономически и технически рационально, остаточные дефекты косметические.')}\n\n${b3Str}`;
             
         default:
-            return `ЭКСПЕРТНОЕ ЗАКЛЮЧЕНИЕ\n\nКачество работ подрядчика "${cName}" по виду "${tTitle}" оценивается как ${isRed ? 'НИЗКОЕ' : (isYellow ? 'ПРИЕМЛЕМОЕ' : 'ВЫСОКОЕ')} (${c.finalC}%).\n\n[Выявленные проблемы]\n• ${c.maxFailRate >= 20 ? `Системный брак: дефект повторяется в ${c.maxFailRate.toFixed(1)}% случаев.` : 'Значимых системных отклонений не выявлено.'}\n• ${b3Str}\n\n[Рекомендации]\n• ${isRed ? 'ОСТАНОВКА РАБОТ. Требуется полная переделка.' : (isYellow ? 'Усилить операционный контроль.' : 'Продолжить производство работ.')}`;
+            return `ЭКСПЕРТНОЕ ЗАКЛЮЧЕНИЕ\n\nКачество работ подрядчика "${cName}" оценивается на ${c.finalC}%.\n\n[Бизнес-метрика]\n${isRed ? 'Остановка работ (<70%).' : (isYellow ? 'Условный допуск СМР (70-84%). Финишная сдача невозможна.' : 'Готовность к сдаче клиенту с 1-го раза (>=85%).')}\n\n[Проблемы]\n• ${c.maxFailRate >= 20 ? `Системный брак: ${c.maxFailRate.toFixed(1)}%.` : 'Системных отклонений не выявлено.'}\n• ${b3Str}\n\n[Вывод]\n${isRed ? 'Требуется полная переделка.' : (isYellow ? 'Устранить B2 перед финишем.' : 'Работы приняты.')}`;
     }
 }
 
@@ -2515,150 +3001,251 @@ function exportPdfRating(data) {
 
 // 2. PDF: Инженерный Анализ
 function exportPdfEngineering(data) {
-    const stageData = {}; let critList = []; let allPhotos = [];
+    const stageData = {}; const criticalPhotos = []; const systemicPhotos = []; const critList = [];
+    let tB1 = 0, tB2 = 0, tB3 = 0, tOk = 0;
+
     data.forEach(unit => {
         const sKey = `${unit.templateTitle} | ${unit.stageName}`;
         if(!stageData[sKey]) stageData[sKey] = { checks: 0, sumUrk: 0, b3Count: 0 };
         stageData[sKey].checks++;
-        if(unit.metrics) { stageData[sKey].sumUrk += unit.metrics.final; stageData[sKey].b3Count += unit.metrics.n_B3_fail; }
+        if(unit.metrics) { stageData[sKey].sumUrk += unit.metrics.final; stageData[sKey].b3Count += unit.metrics.n_B3_fail; tB1 += unit.metrics.n_B1_fail; tB2 += unit.metrics.n_B2_fail; tB3 += unit.metrics.n_B3_fail; }
 
         if(unit.state && unit.details) {
             Object.keys(unit.state).forEach(itemId => {
                 const state = unit.state[itemId];
+                if(state === 'ok') tOk++;
                 if(state === 'fail' || state === 'fail_escalated') {
-                    if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state==='fail')) {
-                        critList.push({ loc: unit.location, stage: unit.stageName, text: unit.details[itemId]?.comment || 'Без комментария' });
+                    const txt = unit.details[itemId]?.comment || 'Без описания';
+                    if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state==='fail')) critList.push({ loc: unit.location, contr: unit.contractorName, text: txt });
+                    if(unit.photos && unit.photos[itemId]) {
+                        const pData = { src: unit.photos[itemId], loc: unit.location, text: txt, date: new Date(unit.date).getTime() };
+                        if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state==='fail')) criticalPhotos.push(pData);
+                        else systemicPhotos.push(pData);
                     }
-                }
-                if(unit.photos && unit.photos[itemId]) {
-                    allPhotos.push({ src: unit.photos[itemId], loc: unit.location, stage: unit.stageName, cause: unit.details[itemId]?.causeCode || '' });
                 }
             });
         }
     });
+
+    const topB3 = criticalPhotos.sort((a,b) => b.date - a.date).slice(0, 5);
+    const topB2 = systemicPhotos.sort((a,b) => b.date - a.date).slice(0, 5);
+
+    const cBar = document.getElementById('chart_eng_causes');
+    const cPie = document.getElementById('chart_eng_doughnut');
+    const cTrendC = document.getElementById('chart_eng_trend_contrs');
+    const cTrendW = document.getElementById('chart_eng_trend_works');
+    
+    const imgBar = cBar ? `<img style="width:100%; max-height:200px; object-fit:contain;" src="${cBar.toDataURL('image/png')}">` : '';
+    const imgPie = cPie ? `<img style="width:100%; max-height:200px; object-fit:contain;" src="${cPie.toDataURL('image/png')}">` : '';
+    const imgTrendC = cTrendC ? `<img style="width:100%; max-height:200px; object-fit:contain;" src="${cTrendC.toDataURL('image/png')}">` : '';
+    const imgTrendW = cTrendW ? `<img style="width:100%; max-height:200px; object-fit:contain;" src="${cTrendW.toDataURL('image/png')}">` : '';
+
+    let rawSmartText = customExpertConclusions['global_engineering_advice'] || "Смарт-анализ не сгенерирован.";
+    let formattedSmartText = rawSmartText.replace(/\n/g, "<br>").replace(/^\[(.*?)\]/gm, '<div style="color:#4f46e5; font-size:12px; font-weight:900; margin-top:10px; margin-bottom:2px;">$1</div>');
 
     let stagesHtml = Object.keys(stageData).map(k => {
         const avg = Math.round(stageData[k].sumUrk / stageData[k].checks);
         return `<tr><td>${k}</td><td class="text-center">${stageData[k].checks}</td><td class="text-center font-bold" style="color:${avg<70?'#dc2626':(avg<85?'#f59e0b':'#16a34a')}">${avg}%</td><td class="text-center">${stageData[k].b3Count>0?'🚨 Да':'Нет'}</td></tr>`;
     }).join('');
 
-    let critHtml = critList.length > 0 ? critList.map(c => `<div class="crit-box"><b>${c.loc} (${c.stage}):</b> ${c.text}</div>`).join('') : '<div class="badge badge-green">Критических дефектов не обнаружено</div>';
-    
-    let photoHtml = allPhotos.slice(-12).map(p => `
-        <div class="photo-card avoid-break">
-            <img src="${p.src}">
-            <div class="photo-label"><b>${p.loc}</b><br>${p.stage}</div>
-        </div>
-    `).join('');
-
-    const canvasCauses = document.getElementById('chart_eng_causes');
-    const chartImg = canvasCauses ? `<div class="chart-box avoid-break mt-20"><h3 style="text-align:center; margin-bottom:10px;">Распределение причин дефектов</h3><img style="max-height: 250px;" src="${canvasCauses.toDataURL('image/png')}"></div>` : '';
+    const renderPdfGallery = (photos, title, borderColor, bgColor) => {
+        if(photos.length === 0) return '';
+        return `
+        <div class="avoid-break mt-20" style="background:${bgColor}; border:1px solid ${borderColor}; padding:15px; border-radius:10px;">
+            <h3 style="margin-top:0; border-bottom:2px solid ${borderColor}; padding-bottom:5px; color:#1e293b; font-size:14px;">📸 ${title}</h3>
+            <div class="grid-5">
+                ${photos.map(p => `<div class="photo-card" style="border-color:${borderColor};"><img src="${p.src}"><div class="photo-label"><b>${p.loc}</b><br><span style="color:#475569;">${p.text.replace(/^\[.*?\]\s*/, '')}</span></div></div>`).join('')}
+            </div>
+        </div>`;
+    };
 
     const content = `
-        <h2 class="section-title">Инженерный Анализ</h2>
-        <table class="data-table mb-20">
-            <thead><tr><th>Этап работ</th><th>Проверок</th><th>Средний УрК</th><th>Крит. дефекты (B3)</th></tr></thead>
+        <h2 class="section-title">Инженерный Анализ (Отчет)</h2>
+        <div class="avoid-break" style="background:#f8fafc; border:2px solid #cbd5e1; padding:15px; border-radius:10px; margin-bottom:20px;">
+            <h3 style="margin:0 0 10px 0; color:#0f172a; font-size:14px;">🤖 Заключение и План действий</h3>
+            <div style="font-size:12px; line-height:1.5;">${formattedSmartText}</div>
+        </div>
+        ${renderPdfGallery(topB3, "Критические дефекты (B3)", "#fecaca", "#fef2f2")}
+        ${renderPdfGallery(topB2, "Системные отклонения (B2)", "#fed7aa", "#fff7ed")}
+
+        <div class="grid-3 mt-20 mb-20 avoid-break">
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:bold;">Доля брака</div><div style="font-size:24px; font-weight:900;">${Math.round((tB1+tB2+tB3)/(tOk+tB1+tB2+tB3)*100 || 0)}%</div></div>
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:bold;">Плотность B2</div><div style="font-size:24px; font-weight:900; color:#f59e0b;">${(tB2/data.length || 0).toFixed(1)}</div></div>
+            <div style="background:#fef2f2; border:1px solid #fecaca; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:10px; color:#991b1b; text-transform:uppercase; font-weight:bold;">Индекс B3</div><div style="font-size:24px; font-weight:900; color:#dc2626;">${(tB3/data.length*100 || 0).toFixed(0)}%</div></div>
+        </div>
+
+        <div class="grid-2 mt-20 mb-20 avoid-break">
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:11px; font-weight:bold; margin-bottom:10px; text-transform:uppercase;">Тренд Подрядчиков</div>${imgTrendC}</div>
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:11px; font-weight:bold; margin-bottom:10px; text-transform:uppercase;">Тренд Видов Работ</div>${imgTrendW}</div>
+        </div>
+
+        <div class="grid-2 mt-20 mb-20 avoid-break">
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:11px; font-weight:bold; margin-bottom:10px; text-transform:uppercase;">Корневые причины</div>${imgBar}</div>
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:11px; font-weight:bold; margin-bottom:10px; text-transform:uppercase;">Структура нарушений</div>${imgPie}</div>
+        </div>
+
+        ${critList.length > 0 ? `
+        <div class="avoid-break mt-20 mb-20" style="background:#fef2f2; border:1px solid #fecaca; padding:15px; border-radius:8px;">
+            <h3 style="margin:0 0 10px 0; color:#dc2626; font-size:14px;">🚨 Реестр критических инцидентов (B3)</h3>
+            ${critList.map(c => `<div style="background:white; border:1px solid #fecaca; padding:8px; border-radius:6px; margin-bottom:5px; font-size:11px;"><b>${c.loc}</b> (${c.contr}): ${c.text}</div>`).join('')}
+        </div>` : ''}
+
+        <table class="data-table mt-20 avoid-break">
+            <thead><tr><th>Этап контроля</th><th>Проверок</th><th>Средний УрК</th><th>Крит. дефекты (B3)</th></tr></thead>
             <tbody>${stagesHtml}</tbody>
         </table>
-        ${chartImg}
-        <div class="avoid-break mt-20">
-            <h3 style="border-bottom: 2px solid #ef4444; color: #991b1b; padding-bottom: 5px;">Критические Нарушения (Журнал B3)</h3>
-            ${critHtml}
-        </div>
-        ${photoHtml ? `<div class="mt-20"><h3 style="border-bottom: 2px solid #cbd5e1; padding-bottom: 5px; margin-bottom: 15px;">Фотоотчет (последние фиксации)</h3><div class="photo-grid">${photoHtml}</div></div>` : ''}
     `;
     printPdfShell("Инженерный Отчет", content);
 }
 
+
 // 3. PDF: One-Pager для Руководства
 function exportPdfOnePager(data) {
     const uniqueLocs = [...new Set(data.map(i => i.location))];
-    const uniqueContrs = [...new Set(data.map(i => i.contractorName))];
+    const calcAvgUrk = (arr) => arr.length ? Math.round(arr.reduce((sum, i) => sum + (i.metrics?.final || 0), 0) / arr.length) : 0;
+    const globalUrk = calcAvgUrk(data);
     
-    let sumUrk = 0; let sumB3 = 0;
-    data.forEach(i => { if(i.metrics) { sumUrk += i.metrics.final; sumB3 += i.metrics.n_B3_fail; } });
-    const globalUrk = Math.round(sumUrk / data.length);
-    
-    const canvasTrend = document.getElementById('chart_onepager_trend');
-    const chartImg = canvasTrend ? `<div class="chart-box"><img style="max-height: 200px;" src="${canvasTrend.toDataURL('image/png')}"></div>` : '';
+    let sumB3 = 0; const criticalPhotos = [];
+    data.forEach(i => { 
+        if(i.metrics) sumB3 += i.metrics.n_B3_fail; 
+        if(i.state && i.photos) {
+            Object.keys(i.state).forEach(id => {
+                if((i.state[id] === 'fail_escalated' || (i.metrics && i.metrics.n_B3_fail > 0 && i.state[id] === 'fail')) && i.photos[id]) {
+                    criticalPhotos.push({ src: i.photos[id], loc: i.location, text: i.details[id]?.comment || 'Без описания', date: new Date(i.date).getTime() });
+                }
+            });
+        }
+    });
+
+    const topPhotos = criticalPhotos.sort((a,b) => b.date - a.date).slice(0, 4);
+
+    const grouped = {};
+    data.forEach(item => { if(!grouped[item.contractorName]) grouped[item.contractorName] = []; grouped[item.contractorName].push(item); });
+    let best = null, worst = null;
+    for(let cName in grouped) {
+        if (grouped[cName].length >= 3) {
+            const m = getContractorMetrics(grouped[cName], userTemplates);
+            if(m) {
+                if(!best || m.finalC > best.val) best = {name: cName, val: m.finalC};
+                if(!worst || m.finalC < worst.val) worst = {name: cName, val: m.finalC};
+            }
+        }
+    }
+
+    const cTC = document.getElementById('chart_op_trend_contrs');
+    const cTW = document.getElementById('chart_op_trend_works');
+    const imgTC = cTC ? `<img style="width:100%; max-height:200px; object-fit:contain;" src="${cTC.toDataURL('image/png')}">` : '';
+    const imgTW = cTW ? `<img style="width:100%; max-height:200px; object-fit:contain;" src="${cTW.toDataURL('image/png')}">` : '';
+
+    const photoHtml = topPhotos.length > 0 ? `
+        <div class="avoid-break mt-20 mb-20" style="background:#1e293b; padding:15px; border-radius:10px;">
+            <h3 style="margin:0 0 10px 0; color:#f8fafc; font-size:14px; border-bottom:1px solid #475569; padding-bottom:5px;">📸 Внимание Руководителя</h3>
+            <div class="grid-4">
+                ${topPhotos.map(p => `
+                <div class="photo-card" style="border:none;">
+                    <img src="${p.src}">
+                    <div style="background:#0f172a; color:white; padding:8px; font-size:10px;"><b>${p.loc}</b><br><span style="color:#94a3b8;">${p.text.replace(/^\[.*?\]\s*/, '')}</span></div>
+                </div>`).join('')}
+            </div>
+        </div>` : '';
+
+    const pdcaText = sumB3 > 0 ? `<div style="background:#fef2f2; border:2px solid #ef4444; color:#991b1b; padding:15px; border-radius:8px;"><b>🚨 ОСТАНОВКА РАБОТ:</b> Обнаружено ${sumB3} инцидентов B3. Финишная сдача невозможна. Остановить СМР.</div>` :
+                     (globalUrk < 70 ? `<div style="background:#fef2f2; border:2px solid #ef4444; color:#991b1b; padding:15px; border-radius:8px;"><b>❌ ПРОЦЕСС ВНЕ КОНТРОЛЯ:</b> Глобальный УрК ниже 70%. Идет накопление дефектов.</div>` : 
+                     (globalUrk < 85 ? `<div style="background:#fffbeb; border:2px solid #f59e0b; color:#92400e; padding:15px; border-radius:8px;"><b>🟡 УСЛОВНЫЙ ДОПУСК:</b> Глобальный УрК в диапазоне СМР (70-84%). Запрет на финальную приемку до устранения B2.</div>` : 
+                     `<div style="background:#f0fdf4; border:2px solid #22c55e; color:#166534; padding:15px; border-radius:8px;"><b>✅ ЦЕЛЕВАЯ ЗОНА:</b> УрК ${globalUrk}% (Норма >= 85%). Готовность к сдаче с 1-го раза.</div>`));
 
     const content = `
-        <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="font-size: 28px; margin: 0; color: #0f172a;">СВОДНЫЙ СТАТУС КАЧЕСТВА</h1>
-            <p style="color: #64748b; font-size: 14px; margin-top: 5px;">Руководителю проекта | Данные на ${new Date().toLocaleDateString('ru-RU')}</p>
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="font-size: 24px; margin: 0; color: #0f172a; text-transform:uppercase;">Сводный статус объекта</h1>
+            <p style="color: #64748b; font-size: 12px; margin-top: 5px;">Отчет Руководителю | Охват: ${data.length} проверок / ${uniqueLocs.length} изделий</p>
         </div>
         
-        <table style="width: 100%; table-layout: fixed; margin-bottom: 30px; border-collapse: separate; border-spacing: 10px;">
-            <tr>
-                <td style="background: #f1f5f9; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #cbd5e1;">
-                    <div style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: bold;">Глобальный УрК</div>
-                    <div style="font-size: 42px; font-weight: 900; color: ${globalUrk < 70 ? '#dc2626' : (globalUrk < 85 ? '#f59e0b' : '#16a34a')};">${globalUrk}%</div>
-                </td>
-                <td style="background: #fef2f2; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #fecaca;">
-                    <div style="font-size: 12px; color: #991b1b; text-transform: uppercase; font-weight: bold;">Критические дефекты</div>
-                    <div style="font-size: 42px; font-weight: 900; color: #dc2626;">${sumB3}</div>
-                </td>
-            </tr>
-            <tr>
-                <td style="background: #f8fafc; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #cbd5e1;">
-                    <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: bold;">Осмотрено изделий</div>
-                    <div style="font-size: 24px; font-weight: 900; color: #1e293b;">${uniqueLocs.length}</div>
-                </td>
-                <td style="background: #f8fafc; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #cbd5e1;">
-                    <div style="font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: bold;">Активных подрядчиков</div>
-                    <div style="font-size: 24px; font-weight: 900; color: #1e293b;">${uniqueContrs.length}</div>
-                </td>
-            </tr>
-        </table>
-
-        <div style="margin-bottom: 30px;">
-            <h3 style="text-align: center; color: #475569; text-transform: uppercase; font-size: 12px;">Тренд качества (последние осмотры)</h3>
-            ${chartImg}
+        <div class="grid-2 mb-20 avoid-break">
+            <div style="background: #f8fafc; padding: 20px; border-radius: 12px; text-align: center; border: 2px solid #cbd5e1;">
+                <div style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 900;">Глобальный УрК</div>
+                <div style="font-size: 48px; font-weight: 900; color: ${globalUrk < 70 ? '#dc2626' : (globalUrk < 85 ? '#f59e0b' : '#16a34a')};">${globalUrk}%</div>
+            </div>
+            <div style="background: ${sumB3>0?'#fef2f2':'#f8fafc'}; padding: 20px; border-radius: 12px; text-align: center; border: 2px solid ${sumB3>0?'#fecaca':'#cbd5e1'};">
+                <div style="font-size: 12px; color: ${sumB3>0?'#991b1b':'#64748b'}; text-transform: uppercase; font-weight: 900;">Критические Дефекты B3</div>
+                <div style="font-size: 48px; font-weight: 900; color: ${sumB3>0?'#dc2626':'#16a34a'};">${sumB3}</div>
+            </div>
         </div>
 
-        <div style="background: #fef2f2; border: 2px solid #fca5a5; border-radius: 12px; padding: 20px;">
-            <h3 style="margin-top: 0; color: #b91c1c; text-transform: uppercase; font-size: 16px;">🚨 Зоны риска и Внимание</h3>
-            <ul style="color: #991b1b; font-weight: bold; font-size: 14px; padding-left: 20px; margin-bottom: 0;">
-                ${globalUrk < 85 ? `<li style="margin-bottom: 10px;">Глобальный рейтинг объекта находится в зоне риска (<85%).</li>` : `<li style="margin-bottom: 10px;">Глобальный рейтинг объекта в пределах нормы.</li>`}
-                ${sumB3 > 0 ? `<li>Необходимо срочное вмешательство: обнаружено ${sumB3} критических нарушений технологии.</li>` : `<li>Критических дефектов на текущий момент нет.</li>`}
-            </ul>
+        <div class="grid-2 mb-20 avoid-break">
+            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #cbd5e1;"><div style="font-size: 10px; color: #16a34a; text-transform: uppercase; font-weight: bold;">🏆 Лидер качества</div><div style="font-size: 14px; font-weight: 900;">${best ? best.name : 'Нет данных'}</div></div>
+            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #cbd5e1;"><div style="font-size: 10px; color: #dc2626; text-transform: uppercase; font-weight: bold;">⚠️ Зона риска</div><div style="font-size: 14px; font-weight: 900;">${worst ? worst.name : 'Нет данных'}</div></div>
         </div>
+
+        ${photoHtml}
+
+        <div class="grid-2 mt-20 mb-20 avoid-break">
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:10px; text-align:center;"><h3 style="margin:0 0 10px 0; font-size:12px; text-transform:uppercase;">Тренд Подрядчиков</h3>${imgTC}</div>
+            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:10px; text-align:center;"><h3 style="margin:0 0 10px 0; font-size:12px; text-transform:uppercase;">Тренд Видов Работ</h3>${imgTW}</div>
+        </div>
+
+        <div class="avoid-break"><h3 style="font-size:14px; text-transform:uppercase; color:#0f172a; border-bottom:2px solid #cbd5e1; padding-bottom:5px;">🎯 Управленческое Решение (PDCA)</h3>${pdcaText}</div>
     `;
     printPdfShell("Сводка для Руководства (One-Pager)", content);
 }
 
 // 4. PDF: Таблица Данных
-function exportPdfData(data) {
-    const sortedData = [...data].sort((a,b) => new Date(b.date) - new Date(a.date));
-    const limit = Math.min(sortedData.length, 100); // Ограничим 100 строками для PDF
+function exportPdfRating(data) {
+    const grouped = {};
+    data.forEach(item => { const cName = item.contractorName || 'Не указан'; if(!grouped[cName]) grouped[cName] = []; grouped[cName].push(item); });
     
-    let rowsHtml = '';
-    for(let i=0; i<limit; i++) {
-        const r = sortedData[i];
-        const d = new Date(r.date).toLocaleDateString('ru-RU');
+    const ratingData = [];
+    for(let cName in grouped) { const metrics = getContractorMetrics(grouped[cName], userTemplates); if (metrics) ratingData.push({ name: cName, metrics: metrics }); }
+    ratingData.sort((a,b) => b.metrics.finalC - a.metrics.finalC);
+
+    const canvas = document.getElementById('chart_rating_compare');
+    const chartImg = canvas ? `<div class="chart-box"><img src="${canvas.toDataURL('image/png')}"></div>` : '';
+
+    let rowsHtml = ratingData.map((r, i) => {
         const m = r.metrics;
-        const color = m ? (m.final < 70 ? '#dc2626' : (m.final < 85 ? '#f59e0b' : '#16a34a')) : '#000';
-        rowsHtml += `
-            <tr class="avoid-break">
-                <td>${d}</td>
-                <td>${r.contractorName}</td>
-                <td><b>${r.location}</b></td>
-                <td>${r.stageName}</td>
-                <td class="text-center font-bold" style="color:${color}">${m ? m.final+'%' : '-'}</td>
-                <td class="text-center"><span style="color:#f59e0b">${m ? m.n_B2_fail : 0}</span> / <span style="color:#dc2626">${m ? m.n_B3_fail : 0}</span></td>
-            </tr>
-        `;
-    }
+        const color = m.finalC < 70 ? '#ef4444' : (m.finalC < 85 ? '#f59e0b' : '#22c55e');
+        const isLeader = i === 0 && m.finalC >= 85;
+
+        return `
+        <div class="avoid-break" style="border: 1px solid #cbd5e1; border-radius: 10px; padding: 15px; margin-bottom: 15px; background: #f8fafc; position: relative;">
+            ${isLeader ? `<div style="position: absolute; top: 0; right: 0; background: #fde047; color: #854d0e; padding: 4px 10px; font-size: 10px; font-weight: bold; border-bottom-left-radius: 10px; text-transform: uppercase;">🏆 Лидер</div>` : ''}
+            
+            <table style="width: 100%; border: none; margin-bottom: 10px;">
+                <tr>
+                    <td style="width: 40px; text-align: center;"><div style="width:30px; height:30px; background:#e2e8f0; border-radius:8px; line-height:30px; font-weight:900; font-size:16px;">${i + 1}</div></td>
+                    <td><div style="font-size: 16px; font-weight: 900; color: #0f172a;">${r.name}</div><div style="font-size: 10px; color: #64748b; text-transform: uppercase;">${m.confStatus} (Выборка: ${m.count})</div></td>
+                    <td style="text-align: right;"><div style="font-size: 28px; font-weight: 900; color: ${color}; line-height: 1;">${m.finalC}%</div><div style="font-size: 10px; font-weight: bold; text-transform: uppercase; color: ${m.riskStatus==='Высокий риск'?'#ef4444':'#475569'};">${m.riskStatus}</div></td>
+                </tr>
+            </table>
+
+            <div style="margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; font-size: 9px; font-weight: bold; color: #94a3b8; margin-bottom: 4px;">
+                    <span>0%</span><span style="color: #ef4444;">СТОП (70%)</span><span style="color: #22c55e;">НОРМА (85%)</span><span>100%</span>
+                </div>
+                <div style="height: 10px; background: #e2e8f0; border-radius: 5px; position: relative; overflow: hidden; border: 1px solid #cbd5e1;">
+                    <div style="position: absolute; left: 70%; top: 0; bottom: 0; width: 1px; background: #fca5a5; z-index: 2;"></div>
+                    <div style="position: absolute; left: 85%; top: 0; bottom: 0; width: 1px; background: #86efac; z-index: 2;"></div>
+                    <div style="height: 100%; width: ${m.finalC}%; background: ${color}; border-radius: 5px;"></div>
+                </div>
+            </div>
+
+            <table style="width: 100%; border: none;">
+                <tr>
+                    <td style="width: 50%; padding-right: 5px;"><div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; font-size: 11px;"><span style="color: #64748b;">Системность (Ks):</span> <b style="font-size: 14px; color: ${m.ks<1?'#ef4444':'#16a34a'};">${m.ks.toFixed(2)}</b> <span style="color: #475569;">(${m.maxFailRate.toFixed(1)}%)</span></div></td>
+                    <td style="width: 50%; padding-left: 5px;"><div style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; font-size: 11px;"><span style="color: #64748b;">Критичность (Kcrit):</span> <b style="font-size: 14px; color: ${m.kcritC<1?'#ef4444':'#16a34a'};">${m.kcritC.toFixed(2)}</b> <span style="color: #ef4444;">(B3: ${m.n_изделий_с_B3} шт)</span></div></td>
+                </tr>
+            </table>
+            <div style="margin-top: 10px; background: ${m.finalC<70?'#fef2f2':'#f0fdf4'}; border: 1px solid ${m.finalC<70?'#fecaca':'#bbf7d0'}; padding: 10px; border-radius: 6px; font-size: 11px; font-weight: bold; color: ${m.finalC<70?'#991b1b':'#166534'};">
+                Вывод системы: ${m.reason}
+            </div>
+        </div>`;
+    }).join('');
 
     const content = `
-        <h2 class="section-title">Журнал инспекций (Сырые данные)</h2>
-        <p style="font-size: 12px; color: #64748b;">Выгружено записей: ${limit} шт.</p>
-        <table class="data-table mt-10">
-            <thead><tr><th>Дата</th><th>Подрядчик</th><th>Локация</th><th>Этап</th><th>УрК</th><th>B2 / B3</th></tr></thead>
-            <tbody>${rowsHtml}</tbody>
-        </table>
+        <h2 class="section-title">Рейтинг Подрядчиков (WYSIWYG)</h2>
+        ${chartImg}
+        <div class="mt-20">${rowsHtml}</div>
     `;
-    printPdfShell("Журнал Данных", content);
+    printPdfShell("Рейтинг Подрядчиков", content);
 }
 
 // === МАСТЕР-ШАБЛОН ДЛЯ ПЕЧАТИ (A3 LANDSCAPE) ===
@@ -2678,14 +3265,9 @@ function printPdfShell(title, content) {
         
         body { font-family: 'Inter', sans-serif; color: #0f172a; margin: 0; padding: 0; background: #e2e8f0; font-size: 13px; line-height: 1.5; }
         
-        /* Имитация листа A3 для предпросмотра в браузере */
         .preview-container {
-            max-width: 400mm; /* Ограничиваем ширину на больших экранах */
-            margin: 20px auto; 
-            background: white; 
-            padding: 20px 25mm; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            min-height: 280mm;
+            max-width: 400mm; margin: 20px auto; background: white; padding: 20px 25mm; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15); min-height: 280mm;
         }
         
         .print-controls { position: fixed; bottom: 30px; right: 20px; display: flex; flex-direction: column; gap: 12px; z-index: 1000; }
@@ -2703,29 +3285,28 @@ function printPdfShell(title, content) {
         .header { border-bottom: 3px solid #1e293b; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
         .header-title { font-size: 24px; font-weight: 900; text-transform: uppercase; margin: 0; }
         .header-meta { font-size: 11px; color: #64748b; text-align: right; }
-        
         .section-title { font-size: 18px; background: #1e293b; color: white; padding: 10px 15px; border-radius: 6px; text-transform: uppercase; margin-bottom: 20px; }
         
+        /* Таблицы */
         .data-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 25px; }
         .data-table th { background: #f1f5f9; padding: 12px; border: 1px solid #cbd5e1; color: #475569; text-transform: uppercase; }
         .data-table td { padding: 12px; border: 1px solid #cbd5e1; }
         .data-table tr:nth-child(even) { background-color: #f8fafc; }
         
-        .chart-box { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; background: #f8fafc; margin-bottom: 25px; }
-        .chart-box img { max-width: 100%; max-height: 250px; object-fit: contain; }
+        /* Сетки для графиков и KPI */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
         
-        .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
-        .badge-green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-        .badge-red { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-        
-        .crit-box { background: #fef2f2; border-left: 5px solid #ef4444; padding: 12px; margin-bottom: 10px; font-size: 12px; color: #7f1d1d; font-weight: 500;}
-        
-        .photo-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+        /* Фото-галерея */
         .photo-card { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; }
-        .photo-card img { width: 100%; height: 160px; object-fit: cover; display: block; border-bottom: 1px solid #cbd5e1; }
+        .photo-card img { width: 100%; height: 180px; object-fit: cover; display: block; border-bottom: 1px solid #cbd5e1; }
         .photo-label { padding: 8px; font-size: 10px; line-height: 1.3; color: #334155; }
         
-        .text-center { text-align: center; } .font-bold { font-weight: bold; } .text-xl { font-size: 20px; } .mt-20 { margin-top: 25px; } .mb-20 { margin-bottom: 25px; }
+        /* Утилиты */
+        .text-center { text-align: center; } .font-bold { font-weight: bold; } .text-xl { font-size: 20px; } 
+        .mt-20 { margin-top: 20px; } .mb-20 { margin-bottom: 20px; }
     </style></head><body>
     
     <div class="print-controls">
@@ -2734,24 +3315,21 @@ function printPdfShell(title, content) {
     </div>
     
     <div class="preview-container">
-        <div class="header">
+        <div class="header avoid-break">
             <div>
                 <h1 class="header-title">${title}</h1>
                 <div style="font-size: 13px; margin-top: 6px; font-weight: bold; color: #475569;">Объект: ${projName} | Инспектор: ${inspName}</div>
             </div>
-            <div class="header-meta">Сформировано:<br>${new Date().toLocaleString('ru-RU')}<br>RBI Quality Pro 4.0</div>
+            <div class="header-meta">Сформировано:<br>${new Date().toLocaleString('ru-RU')}<br>RBI Quality Pro</div>
         </div>
-        
         ${content}
     </div>
-    
     </body></html>`;
     
     printWindow.document.open(); printWindow.document.write(html); printWindow.document.close();
 }
 
-// === СВОРАЧИВАЕМЫЕ ПАНЕЛИ (История / Справочник) ===
-// === СВОРАЧИВАЕМЫЕ ПАНЕЛИ (История / Справочник) ===
+// === СВОРАЧИВАЕМЫЕ ПАНЕЛИ (УМНАЯ ЛОГИКА БЕЗ ПРЫЖКОВ) ===
 function initCollapsiblePanel(panelId, bodyId, headerId, iconId) {
     const panel  = document.getElementById(panelId);
     const body   = document.getElementById(bodyId);
@@ -2762,15 +3340,20 @@ function initCollapsiblePanel(panelId, bodyId, headerId, iconId) {
     panel.dataset.inited = '1';
 
     let collapsed = false;
-    let lastY = 0;
+    let isAnimating = false; // Блокировка от дребезга
 
     function setCollapsed(val) {
+        if (collapsed === val || isAnimating) return;
         collapsed = val;
+        isAnimating = true;
+        
         body.style.maxHeight  = collapsed ? '0px'   : '400px';
         body.style.opacity    = collapsed ? '0'     : '1';
-        // ВАЖНО: когда панель открыта, overflow должен быть visible, чтобы списки (select) не обрезались!
         body.style.overflow   = collapsed ? 'hidden': 'visible';
+        body.style.marginTop  = collapsed ? '0px'   : '8px';
         if (icon) icon.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+        
+        setTimeout(() => { isAnimating = false; }, 400); // Ждем конца CSS анимации
     }
 
     if (header) {
@@ -2778,10 +3361,18 @@ function initCollapsiblePanel(panelId, bodyId, headerId, iconId) {
     }
 
     window.addEventListener('scroll', () => {
-        const y = window.scrollY;
+        // Если панель не на активной вкладке - игнорируем
         if (!panel.closest('.view-section.active') && !panel.closest('.active')) return;
-        if (y > lastY + 8 && y > 40 && !collapsed) setCollapsed(true);
-        if (y < lastY - 8 && collapsed)             setCollapsed(false);
-        lastY = y;
+        
+        // ЗАЩИТА ОТ ПРЫЖКОВ: Если страница короткая, не сворачиваем вообще!
+        if (document.body.scrollHeight <= window.innerHeight + 250) {
+            setCollapsed(false);
+            return;
+        }
+
+        const y = window.scrollY;
+        // Используем абсолютные пороги с "мертвой зоной", чтобы исключить цикличность
+        if (y > 100 && !collapsed) setCollapsed(true);
+        else if (y < 40 && collapsed) setCollapsed(false);
     }, { passive: true });
 }

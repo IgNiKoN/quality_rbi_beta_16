@@ -82,9 +82,9 @@ body.nav-pos-bottom { padding-bottom: 90px; }
     body.nav-pos-auto { padding-bottom: 20px; }
 }
 
-/* === ПЛАВНОЕ СВОРАЧИВАНИЕ ШАПКИ === */
+/* === ПЛАВНОЕ СВОРАЧИВАНИЕ ШАПКИ (iOS STYLE) === */
 .header-collapsible {
-    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin 0.3s ease, padding 0.3s ease;
+    transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease, margin 0.3s ease, padding 0.3s ease;
     max-height: 400px; opacity: 1; overflow: hidden;
 }
 .header-collapsed .header-collapsible {
@@ -166,14 +166,32 @@ body.modal-open { overflow: hidden; height: 100vh; touch-action: none; }
     .bottom-nav.nav-auto ~ .header-fixed { top: 60px; }
 }
 
-/* === КАРТОЧКИ v15 С ПОДДЕРЖКОЙ ТЕМ И СВАЙПОВ === */
-.card-audit { 
-    background: var(--card-bg); border: 1px solid var(--card-border); 
-    border-radius: 12px; margin-bottom: 8px; transition: all 0.2s; 
-    position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.02); 
+/* === СВАЙПЫ (ИСПРАВЛЕНО ДЛЯ ТЕМНОЙ ТЕМЫ И ПЛАВНОСТИ) === */
+.swipe-container { 
+    position: relative; overflow: hidden; border-radius: 12px; margin-bottom: 8px; 
+    background: var(--card-bg); /* Защита от просвечивания второго слоя */
 }
-.card-checked { border-color: var(--card-border); background: var(--hover-bg); }
-.card-audit:active { transform: scale(0.98); }
+
+/* Подложки свайпов (Изначально невидимы, проявляются в JS) */
+.swipe-actions-bg { 
+    position: absolute; inset: 0; display: flex; justify-content: space-between; align-items: center; 
+    padding: 0 24px; font-weight: 900; color: white; border-radius: 12px; z-index: 1;
+    opacity: 0; 
+}
+
+.swipe-bg-ok { background: var(--color-green); justify-content: flex-start; }
+.swipe-bg-fail { background: var(--color-red); justify-content: flex-end; }
+
+/* Сама карточка */
+.swipe-content { 
+    position: relative; z-index: 2; 
+    background: var(--card-bg); /* Обязательно плотный фон карточки */
+    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); /* Пружинистый возврат */
+    will-change: transform;
+    border-radius: inherit;
+} 
+/* Отключаем CSS-анимацию во время пальцевого перетаскивания (чтобы не дергалось) */
+.swiping .swipe-content { transition: none !important; }
 
 /* Индикаторы */
 .indicator-3 { border-left: 5px solid var(--color-red); } 
@@ -290,18 +308,19 @@ body.modal-open { overflow: hidden; height: 100vh; touch-action: none; }
 input:checked + .toggle-slider { background-color: var(--primary); }
 input:checked + .toggle-slider:before { transform: translateX(16px); }
 
-/* === ДЕМО РЕЖИМ === */
-body.demo-mode { background-color: rgba(56, 189, 248, 0.1); }
-body.demo-mode #demo-banner { display: flex; background: var(--color-red); color: white; text-align: center; font-size: 11px; font-weight: 900; padding: 6px 10px; text-transform: uppercase; justify-content: space-between; align-items: center; z-index: 100;}
-body.demo-mode .demo-hint { 
-    display: inline-flex !important; 
-    align-items: center; justify-content: center; 
-    background: #fde047 !important; color: #854d0e !important; 
-    border: 1px solid #eab308 !important; border-radius: 12px; 
-    padding: 2px 6px !important; font-size: 9px !important; font-weight: 900 !important; 
-    margin-left: 4px; cursor: pointer;
-    box-shadow: 0 2px 4px rgba(234, 179, 8, 0.4);
-    animation: pulseHint 1.5s infinite;
+/* === ДЕМО РЕЖИМ (АДАПТИРОВАНО ДЛЯ ТЕМНОЙ ТЕМЫ) === */
+body.demo-mode::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    border: 3px solid rgba(239, 68, 68, 0.3); /* Аккуратная красная рамка вместо заливки */
+    z-index: 9999;
+}
+body.demo-mode #demo-banner { 
+    display: flex; background: var(--color-red); color: white; text-align: center; 
+    font-size: 11px; font-weight: 900; padding: 6px 10px; text-transform: uppercase; 
+    justify-content: space-between; align-items: center; z-index: 100;
 }
 @keyframes pulseHint {
     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
@@ -489,9 +508,14 @@ body.nav-pos-auto #fab-download-btn {
 /* 1. ГЛОБАЛЬНЫЕ ФИЛЬТРЫ (История, Справочник, Аналитика) */
 .sticky-top-panel {
     position: sticky !important;
-    top: 5px !important; /* Прилипает почти вплотную к потолку (если меню снизу) */
+    top: 5px !important; 
     z-index: 40;
     transition: top 0.3s ease;
+    
+    /* ПРИНУДИТЕЛЬНЫЙ ЭФФЕКТ СТЕКЛА ДЛЯ ВСЕХ ПАНЕЛЕЙ */
+    background-color: var(--header-bg) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
 }
 
 /* Когда меню СВЕРХУ (добавляется высота меню 60px + 5px зазор) */
@@ -513,7 +537,6 @@ body.nav-pos-top .sticky-top-panel {
     transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease, margin 0.3s ease;
 }
 
-
 /* 2. ПОДВКЛАДКИ АНАЛИТИКИ (Рейтинг, Инженерия и т.д.) */
 
 /* Меню СНИЗУ (телефоны) */
@@ -528,7 +551,7 @@ body.nav-pos-auto #tab-analytics,
 body.nav-pos-bottom #tab-analytics { padding-bottom: 70px; }
 body.nav-pos-auto #fab-download-btn,
 body.nav-pos-bottom #fab-download-btn {
-    bottom: calc(130px + env(safe-area-inset-bottom));
+    bottom: calc(150px + env(safe-area-inset-bottom));
     right: 16px;
 }
 
