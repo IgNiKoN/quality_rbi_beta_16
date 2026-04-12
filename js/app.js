@@ -22,20 +22,21 @@ let isDemoMode = false;
 let realState = {}, realDetails = {}, realPhotos = {}, realContractorArray = [], realTemplateKey = '';
 
 // Настройки приложения (v16.0)
+// Настройки приложения (v16.0)
 let appSettings = {
     theme: 'auto',
     fontSize: 'medium',
     navPosition: 'auto',
-    swipeEnabled: true,
-    autoCollapseOk: false,
-    fastMode: false,
-    sortFailTop: false,
+    swipeEnabled: false,      // Выключено по умолчанию
+    autoCollapseOk: false,    // Выключено по умолчанию
+    defaultGroupsCollapsed: false, // Развернуты по умолчанию
+    fastMode: false,          // Выключено по умолчанию
     soundEnabled: true,
     autoSave: true,
     aiEnabled: false,   
     aiAuto: false,      
     apiKey: '',
-    dashboardMode: 'compact' // НОВОЕ
+    dashboardMode: 'compact' 
 };
 
 // Звуковые эффекты (base64 для офлайна)
@@ -216,6 +217,7 @@ function updateBodyPadding() {
     document.body.style.paddingTop = totalTop > 0 ? `${totalTop + 15}px` : '20px';
 }
 
+// === НАВИГАЦИЯ И ВКЛАДКИ ===
 function switchTab(tabId, navElement = null) {
     document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -241,20 +243,52 @@ function switchTab(tabId, navElement = null) {
         updateAnalyticsFilters(); 
         if (typeof renderCurrentAnalyticsTab === 'function') renderCurrentAnalyticsTab();
         else renderAnalyticsTab();
-        // Включаем плавное iOS-сворачивание для фильтров аналитики
         initCollapsiblePanel('analytics-filters-block', 'analytics-panel-body', 'analytics-panel-header', 'analytics-panel-toggle-icon');
     } else if (tabId === 'tab-reference') {
-        renderReferenceTab();
-        initCollapsiblePanel('ref-sticky-panel', 'ref-panel-body', 'ref-panel-header', 'ref-panel-toggle-icon');
+        // Обновляем текущую открытую подвкладку справочника
+        const activeSub = document.querySelector('.ref-sub-section:not(.hidden)');
+        if (activeSub && activeSub.id === 'ref-sub-checklists' && typeof renderReferenceTab === 'function') renderReferenceTab();
+        else if (activeSub && activeSub.id === 'ref-sub-docs' && typeof renderDocsList === 'function') renderDocsList();
     } else if (tabId === 'tab-settings') {
-        renderSettingsTab();
+        if (typeof renderSettingsTab === 'function') renderSettingsTab();
+        if (typeof updateStorageInfo === 'function') updateStorageInfo();
     }
 
-    // FAB-кнопка: показываем только на аналитике
     if (typeof updateFabButton === 'function') updateFabButton(tabId);
 
     setTimeout(updateBodyPadding, 50);
     window.scrollTo(0, 0);
+}
+
+// === ПЕРЕКЛЮЧАТЕЛЬ ПОДВКЛАДОК СПРАВОЧНИКА ===
+function switchReferenceSubTab(tabId, btnElement) {
+    document.querySelectorAll('.ref-sub-section').forEach(el => el.classList.add('hidden'));
+    
+    const btnContainer = document.getElementById('reference-subtabs-block');
+    if (btnContainer) {
+        btnContainer.querySelectorAll('.sub-tab-btn').forEach(el => {
+            el.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600', 'dark:bg-slate-700', 'dark:text-indigo-400', 'active');
+            el.classList.add('text-[var(--text-muted)]');
+        });
+    }
+    
+    const targetTab = document.getElementById(tabId);
+    if (targetTab) targetTab.classList.remove('hidden');
+    
+    if (btnElement) {
+        btnElement.classList.add('bg-white', 'shadow-sm', 'text-indigo-600', 'dark:bg-slate-700', 'dark:text-indigo-400', 'active');
+        btnElement.classList.remove('text-[var(--text-muted)]');
+    }
+
+    // Инициализация контента при переключении
+    if (tabId === 'ref-sub-checklists') {
+        if (typeof renderReferenceTab === 'function') renderReferenceTab();
+    } else if (tabId === 'ref-sub-docs') {
+        if (typeof renderDocsList === 'function') renderDocsList();
+    } else if (tabId === 'ref-sub-nodes') {
+        // Запускаем рендер сетки узлов!
+        if (typeof renderNodesList === 'function') renderNodesList();
+    }
 }
 // === FAB-КНОПКА СКАЧАТЬ (умная, знает контекст) ===
 function updateFabButton(tabId) {
@@ -309,6 +343,47 @@ async function saveSettings(key, value) {
     catch (e) { console.error("Ошибка сохранения настроек", e); }
 }
 
+function renderSettingsTab() {
+    if(document.getElementById('set-theme')) document.getElementById('set-theme').value = appSettings.theme || 'auto';
+    if(document.getElementById('set-fontsize')) document.getElementById('set-fontsize').value = appSettings.fontSize || 'medium';
+    if(document.getElementById('set-navpos')) document.getElementById('set-navpos').value = appSettings.navPosition || 'auto';
+    if(document.getElementById('set-dashmode')) document.getElementById('set-dashmode').value = appSettings.dashboardMode || 'compact';
+    
+    if(document.getElementById('set-swipe')) document.getElementById('set-swipe').checked = appSettings.swipeEnabled;
+    if(document.getElementById('set-collapse')) document.getElementById('set-collapse').checked = appSettings.autoCollapseOk;
+    if(document.getElementById('set-groups-col')) document.getElementById('set-groups-col').checked = appSettings.defaultGroupsCollapsed;
+    if(document.getElementById('set-fast')) document.getElementById('set-fast').checked = appSettings.fastMode;
+}
+
+function resetSettingsToDefault() {
+    if(!confirm("Сбросить все настройки к значениям по умолчанию?")) return;
+    
+    // 1. Сбрасываем объект
+    appSettings = {
+        theme: 'auto', fontSize: 'medium', navPosition: 'auto', swipeEnabled: false,
+        autoCollapseOk: false, defaultGroupsCollapsed: false, fastMode: false,
+        soundEnabled: true, autoSave: true, aiEnabled: false, aiAuto: false, apiKey: '', dashboardMode: 'compact'
+    };
+    
+    // 2. Сохраняем в базу
+    saveSettings('dummy', 'dummy'); 
+    
+    // 3. Обновляем селекторы на экране
+    renderSettingsTab();
+    
+    // 4. ПРИМЕНЯЕМ настройки к интерфейсу (Этого не хватало!)
+    applySettingsToUI(); 
+    
+    // 5. Пересчитываем отступы шапки с небольшой задержкой и плавно скроллим наверх
+    setTimeout(() => {
+        updateBodyPadding(); 
+        window.scrollTo({top: 0, behavior: 'smooth'});
+        document.body.classList.remove('modal-open'); // На всякий случай снимаем блокировку скролла
+    }, 100);
+    
+    showToast("Настройки сброшены!");
+}
+
 function applySettingsToUI() {
     let isDark = false;
     if (appSettings.theme === 'dark') isDark = true;
@@ -329,8 +404,9 @@ function applySettingsToUI() {
     if (appSettings.fastMode) document.body.classList.add('fast-mode');
     else document.body.classList.remove('fast-mode');
 
-    document.body.classList.remove('font-small', 'font-medium', 'font-large', 'font-xlarge');
-    if(appSettings.fontSize !== 'medium') document.body.classList.add(`font-${appSettings.fontSize}`);
+    // Масштабирование интерфейса применяем к корневому тегу HTML
+    document.documentElement.classList.remove('font-small', 'font-medium', 'font-large', 'font-xlarge');
+    document.documentElement.classList.add(`font-${appSettings.fontSize || 'medium'}`);
     
     document.body.classList.remove('nav-pos-auto', 'nav-pos-top', 'nav-pos-bottom');
     document.body.classList.add(`nav-pos-${appSettings.navPosition || 'auto'}`);
@@ -395,7 +471,7 @@ function clearPdfCache() {
     }
 }
 
-// === ВКЛАДКА: СПРАВОЧНИК ===
+// === ВКЛАДКА: СПРАВОЧНИК (ПОДВКЛАДКА 1 - ЧЕК-ЛИСТЫ И СВЯЗИ) ===
 function renderReferenceTab() {
     const root = document.getElementById('reference-items');
     const refSelect = document.getElementById('ref-checklist-selector');
@@ -411,6 +487,17 @@ function renderReferenceTab() {
     else if (type === 'user' && userTemplates[key]) checklist = userTemplates[key].groups;
 
     const searchTerm = document.getElementById('ref-search')?.value.toLowerCase() || "";
+    
+    // Ищем, есть ли TWI-карты, привязанные к этому чек-листу
+    const linkedTwiCards = customTwiCards.filter(c => c.checklistKey === selectedKey);
+    const twiBtnClass = linkedTwiCards.length > 0 
+        ? "bg-indigo-600 text-white shadow-md border-indigo-700" 
+        : "bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700 opacity-70";
+    const twiBtnAction = linkedTwiCards.length > 0 
+        ? `openTwiViewer('${linkedTwiCards[0].id}')` 
+        : `showToast('Для этого этапа еще не создана TWI-карта')`;
+    const twiIcon = linkedTwiCards.length > 0 ? "🗺️" : "🚫";
+
     let html = '';
 
     checklist.forEach(g => {
@@ -422,29 +509,332 @@ function renderReferenceTab() {
         if (filteredItems.length === 0) return;
 
         html += `
-        <div class="mb-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
-            <div class="bg-slate-50 dark:bg-slate-900 p-3 text-xs font-black text-slate-600 dark:text-slate-300 uppercase border-b border-slate-200 dark:border-slate-700">${g.group || g.title}</div>
+        <div class="mb-4 bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)] overflow-hidden shadow-sm">
+            <div class="bg-[var(--hover-bg)] p-3 text-[11px] font-black text-[var(--text-muted)] uppercase border-b border-[var(--card-border)] tracking-tight">
+                ${g.group || g.title}
+            </div>
             <div class="p-2 space-y-2">`;
         
         filteredItems.forEach(i => {
+            // Кнопка поиска норматива передает сырой текст (i.t) для поиска в базе
+            const safeNormText = (i.t || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            
             html += `
-                <div class="p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-lg">
+                <div class="p-3 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-sm">
                     <div class="text-[13px] font-bold text-slate-800 dark:text-white mb-2 leading-snug">
                         <span class="weight-tag wt-${i.w}">B${i.w}</span> ${i.n}
                     </div>
-                    <div class="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-2 rounded border border-slate-100 dark:border-slate-800 leading-relaxed mb-2">
+                    <div class="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 leading-relaxed mb-3">
                         ${i.t || 'Норматив не указан'}
                     </div>
-                    <div class="flex gap-2">
-                        <button class="bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-3 py-1.5 rounded text-[10px] font-bold uppercase flex items-center gap-1 active:scale-95 transition-colors" onclick="showToast('📄 Загрузка PDF норматива...')">📄 Норматив</button>
-                        <button class="bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 px-3 py-1.5 rounded text-[10px] font-bold uppercase flex items-center gap-1 active:scale-95 transition-colors" onclick="showToast('🗺️ Техкарта недоступна')">🗺️ ТК/Карта</button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800 py-2 rounded-lg text-[10px] font-bold uppercase active:scale-95 transition-all flex items-center justify-center gap-1.5" onclick="findAndOpenND('${safeNormText}')">
+                            <span class="text-sm">📚</span> Норматив
+                        </button>
+                        <button class="${twiBtnClass} py-2 rounded-lg text-[10px] font-bold uppercase active:scale-95 transition-all flex items-center justify-center gap-1.5" onclick="${twiBtnAction}">
+                            <span class="text-sm">${twiIcon}</span> TWI Карта
+                        </button>
                     </div>
                 </div>`;
         });
         html += `</div></div>`;
     });
 
-    root.innerHTML = html || `<div class="text-center py-8 text-slate-500 text-sm font-bold bg-slate-50 dark:bg-slate-800 rounded-xl">Ничего не найдено по запросу "${searchTerm}"</div>`;
+    root.innerHTML = html || `<div class="text-center py-8 text-slate-500 text-sm font-bold bg-[var(--hover-bg)] rounded-xl border border-[var(--card-border)]">Ничего не найдено по запросу "${searchTerm}"</div>`;
+}
+
+// === ЛОГИКА ОТКРЫТИЯ СВЯЗАННЫХ ДОКУМЕНТОВ ===
+
+// 1. Умный поиск Норматива
+function findAndOpenND(normText) {
+    if (!normText) return showToast('Норматив не указан');
+    
+    // Пытаемся вытащить ГОСТ или СП из текста (Например: "СП 70.13330.2012")
+    const match = normText.match(/(СП\s?\d+(\.\d+)*|ГОСТ\s?(Р\s)?\d+(-\d+)?)/i);
+    const searchString = match ? match[0] : normText.substring(0, 15); // Ищем по шифру или началу строки
+
+    // Переключаемся на вкладку "Нормативы"
+    switchReferenceSubTab('ref-sub-docs', document.querySelectorAll('.sub-tab-btn')[1]);
+    
+    // Вбиваем в поиск и фильтруем
+    const searchInput = document.getElementById('doc-search-input');
+    if (searchInput) {
+        searchInput.value = searchString;
+        currentDocFilter = 'ALL';
+        renderDocsList();
+        showToast(`🔍 Ищем: ${searchString}`);
+    }
+}
+
+// === 2. ОТКРЫТИЕ УНИВЕРСАЛЬНОЙ ЧИТАЛКИ ИНСТРУКЦИЙ ===
+function openTwiViewer(twiId) {
+    const card = customTwiCards.find(c => c.id === twiId);
+    if (!card) return showToast('Ошибка: Инструкция не найдена');
+
+    // Настраиваем шапку
+    document.getElementById('viewer-twi-checklist').innerText = card.checklistName;
+    document.getElementById('viewer-twi-title').innerText = card.title;
+    
+    const badgeEl = document.getElementById('viewer-twi-badge');
+    const infoPanel = document.getElementById('viewer-twi-info-panel');
+    const footer = document.getElementById('viewer-twi-footer');
+    const content = document.getElementById('viewer-twi-content');
+    
+    // Очищаем старый контент (особенно важно для iframe)
+    content.innerHTML = '';
+    content.classList.remove('p-0'); // Сброс паддингов
+
+    // === ЛОГИКА РЕНДЕРА ПО ТИПАМ ===
+    
+    // ТИП 1: КАРТА ИНСПЕКТОРА (Правильно / Неправильно)
+    if (card.type === 'INSPECTOR') {
+        badgeEl.innerText = 'Технадзор';
+        badgeEl.className = 'bg-blue-500 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest shadow-sm';
+        infoPanel.classList.add('hidden');
+        footer.classList.remove('hidden');
+        content.classList.remove('p-0');
+
+        let photoGoodHtml = card.photoGood ? `
+            <div class="relative rounded-xl overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer active:scale-95 transition-transform" onclick="openPhotoViewer('${card.photoGood}')">
+                <div class="absolute top-0 left-0 w-full bg-gradient-to-b from-green-600/80 to-transparent p-2 text-white font-black text-[10px] uppercase tracking-widest drop-shadow-md">✅ Правильно</div>
+                <img src="${card.photoGood}" class="w-full h-48 object-cover">
+            </div>` : `<div class="h-48 rounded-xl border-2 border-dashed border-green-300 flex items-center justify-center bg-green-50"><span class="text-green-600 font-bold text-[10px] uppercase">Нет эталонного фото</span></div>`;
+
+        let photoBadHtml = card.photoBad ? `
+            <div class="relative rounded-xl overflow-hidden shadow-sm border-2 border-red-500 cursor-pointer active:scale-95 transition-transform" onclick="openPhotoViewer('${card.photoBad}')">
+                <div class="absolute top-0 left-0 w-full bg-gradient-to-b from-red-600/80 to-transparent p-2 text-white font-black text-[10px] uppercase tracking-widest drop-shadow-md">❌ Брак</div>
+                <img src="${card.photoBad}" class="w-full h-48 object-cover">
+            </div>` : `<div class="h-48 rounded-xl border-2 border-dashed border-red-300 flex items-center justify-center bg-red-50"><span class="text-red-600 font-bold text-[10px] uppercase">Нет фото брака</span></div>`;
+
+        // Ищем текст норматива, чтобы вывести его для справки
+        let normText = 'Норматив не указан';
+        const flatList = getFlatList(currentChecklist.length > 0 ? currentChecklist : []); // Защита, если смотрим из Справочника
+        const itemInfo = flatList.find(i => i.id === card.itemId);
+        if (itemInfo) normText = itemInfo.t || normText;
+
+        content.innerHTML = `
+            <div class="p-4 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    ${photoGoodHtml}
+                    ${photoBadHtml}
+                </div>
+                
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div class="flex items-center gap-2 mb-2 border-b border-slate-100 dark:border-slate-700 pb-2">
+                        <span class="w-6 h-6 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded flex items-center justify-center text-sm font-black">!</span>
+                        <h4 class="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Почему это важно (Риски)</h4>
+                    </div>
+                    <div class="text-[12px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">${card.whyImportant || 'Обоснование не заполнено'}</div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+                    <div class="flex items-center gap-2 mb-2 border-b border-slate-100 dark:border-slate-700 pb-2">
+                        <span class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded flex items-center justify-center text-sm font-black">🔧</span>
+                        <h4 class="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Как проверять (Методика)</h4>
+                    </div>
+                    <div class="text-[12px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">${card.howToCheck || 'Методика не заполнена'}</div>
+                    <div class="mt-3 pt-3 border-t border-dashed border-slate-200 dark:border-slate-700">
+                        <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Справочно (Допуск из СНиП):</div>
+                        <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-slate-900 p-2 rounded border border-slate-100 dark:border-slate-800">${normText}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } 
+    
+    // ТИП 2: ПОШАГОВЫЙ TWI РАБОЧЕГО
+    else if (card.type === 'WORKER') {
+        badgeEl.innerText = 'Инструкция';
+        badgeEl.className = 'bg-orange-500 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest shadow-sm';
+        
+        infoPanel.classList.remove('hidden');
+        footer.classList.remove('hidden');
+        content.classList.remove('p-0');
+
+        document.getElementById('viewer-twi-time').innerText = `~${card.totalTime || 0} мин`;
+        document.getElementById('viewer-twi-steps-count').innerText = `${card.steps ? card.steps.length : 0} шагов`;
+
+        let stepsHtml = '<div class="p-4 space-y-4">';
+        if (card.steps && card.steps.length > 0) {
+            card.steps.forEach(step => {
+                const photoHtml = step.photo ? `
+                    <div class="mt-3 w-full rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm" onclick="openPhotoViewer('${step.photo}')">
+                        <img src="${step.photo}" class="w-full h-40 object-cover active:scale-95 transition-transform origin-center">
+                        <div class="bg-slate-100 dark:bg-slate-800 text-[9px] text-slate-500 text-center py-1 font-bold uppercase tracking-wider">Нажмите, чтобы увеличить</div>
+                    </div>
+                ` : '';
+
+                stepsHtml += `
+                    <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700 relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="font-black text-orange-600 dark:text-orange-400 text-[11px] uppercase tracking-wider bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded">Шаг ${step.order}</div>
+                            ${step.time ? `<div class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">⏱️ ${step.time} мин</div>` : ''}
+                        </div>
+                        <div class="text-[13px] font-bold text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">${step.text}</div>
+                        ${photoHtml}
+                    </div>
+                `;
+            });
+        } else {
+            stepsHtml += `<div class="text-center text-slate-500 text-sm font-bold py-10">Шаги не заполнены</div>`;
+        }
+        stepsHtml += '</div>';
+        content.innerHTML = stepsHtml;
+    } 
+    
+    // ТИП 3: ВНЕШНИЙ PDF-ДОКУМЕНТ
+    else if (card.type === 'PDF') {
+        badgeEl.innerText = 'PDF-Файл';
+        badgeEl.className = 'bg-red-500 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest shadow-sm';
+        infoPanel.classList.add('hidden');
+        footer.classList.add('hidden'); // Кнопка "Понятно" не нужна, так как PDF растягивается на 100%
+        content.classList.add('p-0'); // Убираем отступы, чтобы PDF встал впритык
+
+        if (card.pdfData) {
+            // Конвертируем Base64 обратно в Blob для создания URL
+            // Это нужно, чтобы Chrome/Safari корректно отобразил PDF во встроенном просмотрщике
+            try {
+                const byteCharacters = atob(card.pdfData.split(',')[1]);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], {type: 'application/pdf'});
+                const blobUrl = URL.createObjectURL(blob);
+
+                content.innerHTML = `
+                    <iframe src="${blobUrl}#toolbar=0" class="w-full h-full border-none" style="min-height: 100%;">
+                        <p class="text-center p-4">Ваш браузер не поддерживает встроенный просмотр PDF. 
+                        <a href="${blobUrl}" download="${card.pdfName}" class="text-indigo-600 underline">Скачайте файл</a></p>
+                    </iframe>
+                `;
+                
+                // Освобождаем память при закрытии модалки (сделаем это в closeTwiViewer)
+                content.dataset.blobUrl = blobUrl;
+
+            } catch (err) {
+                console.error(err);
+                content.innerHTML = `<div class="flex flex-col items-center justify-center h-full p-6 text-center"><div class="text-4xl mb-4">⚠️</div><div class="text-sm font-bold text-slate-500">Не удалось открыть PDF.<br>Возможно, файл поврежден.</div></div>`;
+            }
+        } else {
+            content.innerHTML = `<div class="flex flex-col items-center justify-center h-full p-6 text-center"><div class="text-4xl mb-4">📄</div><div class="text-sm font-bold text-slate-500">PDF файл отсутствует или не был загружен.</div></div>`;
+        }
+    }
+
+    // === АНИМАЦИЯ ОТКРЫТИЯ ===
+    const overlay = document.getElementById('twi-viewer-overlay');
+    overlay.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    
+    // Плавное появление (Fade In)
+    setTimeout(() => {
+        overlay.classList.remove('opacity-0');
+    }, 10);
+}
+
+function closeTwiViewer() {
+    const overlay = document.getElementById('twi-viewer-overlay');
+    const content = document.getElementById('viewer-twi-content');
+    
+    // Очищаем память, если открывали PDF (предотвращает утечки ОЗУ)
+    if (content.dataset.blobUrl) {
+        URL.revokeObjectURL(content.dataset.blobUrl);
+        content.dataset.blobUrl = '';
+    }
+
+    overlay.classList.add('opacity-0');
+    
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        document.body.classList.remove('modal-open');
+        content.innerHTML = ''; // Полная очистка DOM-узла
+    }, 300);
+}
+
+// === МЕНЮ СПРАВКИ В КАРТОЧКЕ ДЕФЕКТА ===
+function openItemHelpMenu(id, event) {
+    if (event) event.stopPropagation();
+
+    const flat = getFlatList(currentChecklist);
+    const itemData = flat.find(x => x.id === id);
+    if (!itemData) return;
+
+    document.getElementById('help-modal-title').innerText = itemData.n;
+
+    // Ищем инструкции
+    const inspectorCard = customTwiCards.find(c => c.type === 'INSPECTOR' && String(c.itemId) === String(id));
+    const generalCards = customTwiCards.filter(c => (c.type === 'WORKER' || c.type === 'PDF') && c.checklistKey === currentTemplateKey);
+
+    const listContainer = document.getElementById('help-modal-list');
+    let html = '';
+
+    // 1. Выводим Карту Технадзора (если есть)
+    if (inspectorCard) {
+        html += `
+            <div class="bg-white dark:bg-slate-800 border-2 border-blue-500 rounded-xl p-3 shadow-md flex items-center justify-between cursor-pointer active:scale-95 transition-transform mb-4" 
+                 onclick="closeItemHelpMenu(); setTimeout(() => openTwiViewer('${inspectorCard.id}'), 300)">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center text-2xl font-black shrink-0">🕵️‍♂️</div>
+                    <div>
+                        <div class="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-0.5">Карта Технадзора</div>
+                        <div class="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Эталон и примеры брака</div>
+                    </div>
+                </div>
+                <div class="text-blue-500 font-black">➔</div>
+            </div>
+        `;
+    }
+
+    // 2. Выводим общие инструкции для всего чек-листа
+    if (generalCards.length > 0) {
+        html += `<div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 pl-1 border-b border-slate-200 dark:border-slate-700 pb-2">Инструкции к виду работ</div>`;
+        
+        generalCards.forEach(c => {
+            const icon = c.type === 'PDF' ? '📄' : '🛠';
+            const color = c.type === 'PDF' ? 'text-red-500 bg-red-50 dark:bg-red-900/30' : 'text-orange-500 bg-orange-50 dark:bg-orange-900/30';
+            const typeName = c.type === 'PDF' ? 'Внешний PDF-Регламент' : 'Пошаговое руководство (TWI)';
+            
+            html += `
+                <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm flex items-center justify-between cursor-pointer active:scale-95 transition-transform" 
+                     onclick="closeItemHelpMenu(); setTimeout(() => openTwiViewer('${c.id}'), 300)">
+                    <div class="flex items-center gap-3 min-w-0 pr-2">
+                        <div class="w-10 h-10 ${color} rounded-lg flex items-center justify-center text-xl font-black shrink-0">${icon}</div>
+                        <div class="min-w-0">
+                            <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">${typeName}</div>
+                            <div class="text-[12px] font-bold text-slate-800 dark:text-white leading-tight truncate">${c.title}</div>
+                        </div>
+                    </div>
+                    <div class="text-slate-400 font-black shrink-0">➔</div>
+                </div>
+            `;
+        });
+    }
+
+    listContainer.innerHTML = html;
+
+    const overlay = document.getElementById('item-help-modal-overlay');
+    const content = document.getElementById('item-help-modal-content');
+    
+    overlay.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    
+    // Плавное выезжание снизу
+    setTimeout(() => {
+        content.classList.remove('translate-y-full');
+    }, 10);
+}
+
+function closeItemHelpMenu() {
+    const overlay = document.getElementById('item-help-modal-overlay');
+    const content = document.getElementById('item-help-modal-content');
+    
+    content.classList.add('translate-y-full');
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }, 300);
 }
 
 // === ВКЛАДКА: ИСТОРИЯ (С ФИЛЬТРАМИ v16.0) ===
@@ -834,20 +1224,18 @@ function render() {
     currentChecklist.forEach((g, gIndex) => {
         navHtml += `<button id="nav-btn-${gIndex}" onclick="scrollToGroup(${gIndex})" class="inline-block px-3 py-1.5 min-w-fit text-[10px] font-bold uppercase rounded-xl bg-[var(--hover-bg)] text-[var(--text-muted)] border border-[var(--card-border)] transition-colors active:scale-95 shrink-0">${g.group || g.title}</button>`;
 
+        // Проверяем настройку свернутости по умолчанию
+        const isCollapsed = appSettings.defaultGroupsCollapsed;
+        const arrow = isCollapsed ? '▶' : '▼';
+        const displayStyle = isCollapsed ? 'display: none;' : 'display: block;';
+
         html += `<div class="block-title flex justify-between items-center cursor-pointer select-none rounded-lg px-2 mt-4" onclick="toggleGroup(${gIndex})">
-            <span id="group-title-${gIndex}">▼ ${g.group || g.title}</span>
+            <span id="group-title-${gIndex}">${arrow} ${g.group || g.title}</span>
             <span id="group-counter-${gIndex}" class="text-[10px] bg-[var(--card-border)] px-2 py-0.5 rounded text-[var(--text-muted)]">0/${g.items.length}</span>
-        </div><div id="group_content_${gIndex}" class="transition-all origin-top">`;
+        </div><div id="group_content_${gIndex}" class="transition-all origin-top" style="${displayStyle}">`;
         
-        // Безопасная сортировка FAIL наверх
+        // Рендерим пункты как есть (сортировку ошибок наверх убрали)
         let itemsToRender = [...g.items];
-        if (appSettings.sortFailTop) {
-            itemsToRender.sort((a, b) => {
-                const sA = (state[a.id] === 'fail' || state[a.id] === 'fail_escalated') ? 1 : 0;
-                const sB = (state[b.id] === 'fail' || state[b.id] === 'fail_escalated') ? 1 : 0;
-                return sB - sA;
-            });
-        }
         
         itemsToRender.forEach((i) => { html += `<div id="card_wrapper_${i.id}"></div>`; });
         html += `</div>`;
@@ -939,7 +1327,6 @@ function updateCardDOM(id, itemData = null) {
     const wrapper = document.getElementById(`card_wrapper_${id}`);
     if(!wrapper) return;
 
-    // Если данные не переданы (вызов при клике), ищем их в справочнике
     if (!itemData) {
         const flat = getFlatList(currentChecklist);
         itemData = flat.find(x => x.id === id);
@@ -956,64 +1343,126 @@ function updateCardDOM(id, itemData = null) {
     let cardBgClass = failActive ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800' : (okActive ? 'bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800' : '');
     let indicatorClass = `indicator-${s ? (okActive ? 'ok' : (isEscalated ? 3 : i.w)) : i.w}`;
     
-    // Схлопывание ОК
     let collapseClass = '';
     if (okActive && appSettings.autoCollapseOk) {
         collapseClass = 'card-collapsed';
-        cardBgClass = ''; // Убираем зеленый фон карточки, он задается в CSS
+        cardBgClass = ''; 
     }
 
-    // Звуки
     if (appSettings.soundEnabled && state[id] && !itemData._justRendered) {
         if (state[id] === 'ok') audioOk.play().catch(()=>{});
         else audioFail.play().catch(()=>{});
     }
-    itemData._justRendered = true; // Защита от проигрывания при загрузке
+    itemData._justRendered = true; 
 
-    let extraBtnsHtml = ''; let commentBlockHtml = ''; let visualIndicatorHtml = '';
-
-    if (failActive) {
-        let hasComment = details[id]?.comment && details[id].comment.trim() !== "";
-        let commBtn = hasComment ? 
-            `<div class="relative inline-block"><button onclick="toggleCommentField(${id})" class="btn-status text-indigo-600 bg-indigo-100 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-300 !w-10 !h-10 !rounded-md"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button><div onclick="deleteComment(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white">✕</div></div>` : 
-            `<button onclick="toggleCommentField(${id})" class="btn-status !w-10 !h-10 !rounded-md"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button>`;
+    // === ИЩЕМ ПРИВЯЗАННЫЕ ИНСТРУКЦИИ (КНОПКА СПРАВКИ) ===
+    const inspectorCard = customTwiCards.find(c => c.type === 'INSPECTOR' && String(c.itemId) === String(id));
+    const generalCards = customTwiCards.filter(c => (c.type === 'WORKER' || c.type === 'PDF') && c.checklistKey === currentTemplateKey);
+    const hasAnyHelp = inspectorCard || generalCards.length > 0;
+    
+    let helpBtnHtml = '';
+    if (hasAnyHelp) {
+        const btnClass = inspectorCard 
+            ? 'text-blue-600 bg-blue-100 border-blue-300 dark:bg-blue-900/50 dark:text-blue-400 dark:border-blue-800' 
+            : 'text-slate-600 bg-slate-100 border-slate-300 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600';
         
-        let photoBtn = photos[id] ? 
-            `<div class="relative inline-block"><img src="${photos[id]}" class="photo-thumb !w-10 !h-10 !rounded-md border-2 border-indigo-200" onclick="openPhotoViewer('${photos[id]}')"><div onclick="removePhoto(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white">✕</div></div>` : 
-            `<button onclick="triggerPhotoInput(${id})" class="btn-status !w-10 !h-10 !rounded-md"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></circle></svg></button>`;
-
-        let escBtn = (i.w === 2) ? `<button onclick="toggleEscalation(${id})" class="btn-status ${isEscalated ? 'bg-red-600 text-white border-red-600 shadow-md' : 'text-orange-500 bg-orange-50 border-orange-200'} !w-10 !h-10 !rounded-md transition-all"><span class="text-[12px] font-black">>1.5</span></button>` : '';
-
-        extraBtnsHtml = `<div class="flex gap-1.5 shrink-0 ml-2 items-center justify-end">${commBtn}${photoBtn}${escBtn}</div>`;
-        if (hasComment) commentBlockHtml = `<div class="mt-2 text-[12px] font-semibold text-slate-700 dark:text-slate-300 italic bg-white dark:bg-slate-800 p-2 rounded-md border border-red-100 dark:border-red-800">💬 ${details[id].comment}</div>`;
-        if (isEscalated) visualIndicatorHtml = `<div class="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded inline-block mt-1">Дефект учтен как B3</div>`;
+        helpBtnHtml = `
+            <div class="pt-1.5 pr-1.5 shrink-0">
+                <button onclick="openItemHelpMenu(${id}, event)" class="btn-status ${btnClass} !w-10 !h-10 !rounded-md relative shadow-sm" title="Инструкции и Справка">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    ${inspectorCard ? '<span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span></span>' : ''}
+                </button>
+            </div>
+        `;
+    } else {
+        helpBtnHtml = `
+            <div class="pt-1.5 pr-1.5 shrink-0">
+                <button onclick="showToast('К этому пункту пока не привязаны инструкции')" class="btn-status text-slate-300 bg-transparent border-dashed border-slate-200 dark:text-slate-600 dark:border-slate-700 !w-10 !h-10 !rounded-md shadow-sm" title="Нет инструкций">
+                    <svg class="w-5 h-5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </button>
+            </div>
+        `;
     }
 
+    // === ОСНОВНЫЕ КНОПКИ (OK / FAIL) ===
     let mainBtnsHtml = `
-    <div class="flex gap-1.5 shrink-0 ml-2">
-        <button onclick="toggleOk(${id})" class="btn-status ${okActive ? 'bg-green-500 text-white border-green-500' : ''} !w-12 !h-12">
-            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="flex gap-1.5 shrink-0 pt-1.5">
+        <button onclick="toggleOk(${id})" class="btn-status ${okActive ? 'bg-green-500 text-white border-green-500' : ''} !w-11 !h-11 shrink-0 shadow-sm transition-transform active:scale-90">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <button onclick="toggleFail(${id})" class="btn-status ${failActive ? 'bg-red-500 text-white border-red-500' : ''} !w-12 !h-12">
-            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <button onclick="toggleFail(${id})" class="btn-status ${failActive ? 'bg-red-500 text-white border-red-500' : ''} !w-11 !h-11 shrink-0 shadow-sm transition-transform active:scale-90">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
     </div>`;
+
+    let contentHtml = '';
+
+    // === МАКЕТ ПРИ FAIL ===
+    if (failActive) {
+        let hasComment = details[id]?.comment && details[id].comment.trim() !== "";
+        
+        let commBtn = hasComment ? 
+            `<div class="relative shrink-0 pt-1.5 pr-1.5"><button onclick="toggleCommentField(${id})" class="btn-status text-indigo-600 bg-indigo-100 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-300 !w-10 !h-10 !rounded-md shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button><div onclick="deleteComment(${id}, event)" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white z-10">✕</div></div>` : 
+            `<div class="pt-1.5 pr-1.5 shrink-0"><button onclick="toggleCommentField(${id})" class="btn-status !w-10 !h-10 !rounded-md shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button></div>`;
+        
+        let photoBtn = photos[id] ? 
+            `<div class="relative shrink-0 pt-1.5 pr-1.5"><img src="${photos[id]}" class="photo-thumb !w-10 !h-10 !rounded-md border-2 border-indigo-200 shadow-sm object-cover" onclick="openPhotoViewer('${photos[id]}')"><div onclick="removePhoto(${id}, event)" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white z-10">✕</div></div>` : 
+            `<div class="pt-1.5 pr-1.5 shrink-0"><button onclick="triggerPhotoInput(${id})" class="btn-status !w-10 !h-10 !rounded-md shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></circle></svg></button></div>`;
+
+        let escBtn = (i.w === 2) ? `<div class="pt-1.5 pr-1.5 shrink-0"><button onclick="toggleEscalation(${id})" class="btn-status ${isEscalated ? 'bg-red-600 text-white border-red-600' : 'text-orange-500 bg-orange-50 border-orange-200'} !w-10 !h-10 !rounded-md transition-all shadow-sm"><span class="text-[12px] font-black">>1.5</span></button></div>` : '';
+
+        let visualIndicatorHtml = isEscalated ? `<div class="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded w-fit mt-1 shadow-sm">Дефект учтен как B3</div>` : '';
+        let commentBlockHtml = hasComment ? `<div class="mt-2 text-[12px] font-semibold text-slate-700 dark:text-slate-300 italic bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-red-100 dark:border-red-800 shadow-sm leading-snug break-words w-full">💬 ${details[id].comment}</div>` : '';
+
+        contentHtml = `
+            <div class="flex justify-between items-start w-full gap-2">
+                <div class="flex-1 min-w-0 pr-1 flex flex-col min-h-[44px]">
+                    <div class="text-[13px] font-bold leading-snug card-title-text text-slate-800 dark:text-white pointer-events-none mt-1">
+                        <span class="weight-tag wt-${i.w}">B${i.w}</span> ${i.n}
+                    </div>
+                    ${visualIndicatorHtml}
+                    ${commentBlockHtml}
+                </div>
+                
+                <div class="flex items-center shrink-0">
+                    <div class="flex items-center overflow-x-auto no-scrollbar max-w-[150px] min-[400px]:max-w-none">
+                        ${helpBtnHtml}
+                        ${commBtn}
+                        ${photoBtn}
+                        ${escBtn}
+                    </div>
+                    ${mainBtnsHtml}
+                </div>
+            </div>
+        `;
+    } 
+    // === ОБЫЧНЫЙ МАКЕТ (OK или Нейтрально) ===
+    else {
+        // ИЗМЕНЕНО: Скрываем норматив, если карточка в статусе OK
+        let normHtml = okActive ? '' : `<div class="text-[11px] text-[var(--text-muted)] leading-snug norm-desc-text mb-1">${i.t}</div>`;
+        
+        contentHtml = `
+            <div class="flex justify-between items-center w-full min-h-[44px]">
+                <div class="flex-1 mr-3 min-w-0 pointer-events-none">
+                    <div class="text-[13px] font-bold leading-snug mb-1 card-title-text text-slate-800 dark:text-white mt-1">
+                        <span class="weight-tag wt-${i.w}">B${i.w}</span> ${i.n}
+                    </div>
+                    ${normHtml}
+                </div>
+                <div class="flex items-center shrink-0">
+                    ${helpBtnHtml}
+                    ${mainBtnsHtml}
+                </div>
+            </div>
+        `;
+    }
 
     const cardHtml = `
     <div class="card-audit swipe-container ${indicatorClass} ${cardBgClass} ${collapseClass}" data-id="${id}" onclick="if(this.classList.contains('card-collapsed')) toggleOk(${id})">
         <div class="swipe-actions-bg swipe-bg-ok"><span class="ml-4">OK</span></div>
         <div class="swipe-actions-bg swipe-bg-fail"><span class="mr-4">FAIL</span></div>
-        <div class="swipe-content p-2.5 bg-inherit border-inherit rounded-inherit h-full w-full bg-[var(--card-bg)] dark:bg-slate-800 transition-colors">
-            <div class="flex justify-between items-center min-h-[48px] card-body-content">
-                <div class="flex-1 mr-2 min-w-0 pointer-events-none">
-                    <div class="text-[13px] font-bold leading-snug mb-1 card-title-text"><span class="weight-tag wt-${i.w}">B${i.w}</span> ${i.n}</div>
-                    <div class="text-[11px] text-[var(--text-muted)] leading-snug norm-desc-text">${i.t}</div>
-                    ${visualIndicatorHtml}
-                </div>
-                ${extraBtnsHtml}
-                ${mainBtnsHtml}
-            </div>
-            ${commentBlockHtml}
+        <div class="swipe-content p-2 bg-inherit border-inherit rounded-inherit h-full w-full bg-[var(--card-bg)] dark:bg-slate-800 transition-colors">
+            ${contentHtml}
         </div>
     </div>`;
     
@@ -1660,23 +2109,61 @@ function openPhotoViewer(src) {
 }
 /* Файл: js/app.js (БЛОК 3: Демо-режим, Справки, Модалки расчетов) */
 
-// === ДЕМО-РЕЖИМ (С ИСПРАВЛЕННЫМИ ШАБЛОНАМИ) ===
-function startDemoMode() {
+// === ДЕМО-РЕЖИМ (С ИСПРАВЛЕННЫМИ ШАБЛОНАМИ И TWI) ===
+let realTwiCards = []; // Переменная для бекапа реальных TWI карт пользователя
+
+function startDemoMode(silent = false) {
+    // 1. Бэкапим реальные данные пользователя
     realState = JSON.parse(JSON.stringify(state));
     realDetails = JSON.parse(JSON.stringify(details));
     realPhotos = JSON.parse(JSON.stringify(photos));
     realContractorArray = JSON.parse(JSON.stringify(contractorArray));
+    realTwiCards = JSON.parse(JSON.stringify(customTwiCards));
     realTemplateKey = currentTemplateKey;
 
     isDemoMode = true;
     document.body.classList.add('demo-mode');
     
-    // Показываем кнопку Выхода слева сверху
+    // Показываем кнопку Выхода слева сверху (если это не скрытый запуск для туториала)
     const fabExit = document.getElementById('fab-exit-demo');
-    if(fabExit) { fabExit.classList.remove('hidden'); fabExit.style.display = 'flex'; }
+    if(fabExit && !silent) { fabExit.classList.remove('hidden'); fabExit.style.display = 'flex'; }
     
+    // 2. Генерируем фейковую историю для Аналитики
     contractorArray = generateDemoHistory();
 
+    // 3. Генерируем фейковые TWI Карты для Справочника
+    const demoPhotoGood = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23dcfce7'/><path d='M150 150 L190 190 L270 100' stroke='%2316a34a' stroke-width='20' fill='none'/><text x='200' y='260' font-family='Arial' font-size='20' font-weight='bold' fill='%23166534' text-anchor='middle'>ЭТАЛОН (ПРАВИЛЬНО)</text></svg>";
+    const demoPhotoBad = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23fee2e2'/><path d='M130 100 L270 200 M130 200 L270 100' stroke='%23dc2626' stroke-width='20' fill='none'/><text x='200' y='260' font-family='Arial' font-size='20' font-weight='bold' fill='%23991b1b' text-anchor='middle'>БРАК (НЕПРАВИЛЬНО)</text></svg>";
+
+    customTwiCards = [
+        {
+            id: "demo_twi_1",
+            title: "Контроль шага арматуры",
+            checklistKey: "sys_armature",
+            checklistName: "Арматурные работы",
+            type: "INSPECTOR",
+            itemId: 204,
+            whyImportant: "Снижение несущей способности пилона. При заливке бетоном вибратор не пройдет между стержнями, образуются пустоты (раковины).",
+            howToCheck: "Приложить рулетку от оси до оси стержня. Допуск ±10 мм. Проверить надежность вязки проволокой.",
+            photoGood: demoPhotoGood,
+            photoBad: demoPhotoBad
+        },
+        {
+            id: "demo_twi_2",
+            title: "Монтаж стартового кронштейна",
+            checklistKey: "sys_nvf_facade",
+            checklistName: "Навесной вентилируемый фасад",
+            type: "WORKER",
+            totalTime: 15,
+            steps: [
+                {order: 1, text: "Разметить оси установки по нивелиру.", time: 5, photo: null},
+                {order: 2, text: "Установить терморазрывную прокладку под кронштейн.", time: 5, photo: demoPhotoGood},
+                {order: 3, text: "Затянуть анкер динамометрическим ключом.", time: 5, photo: null}
+            ]
+        }
+    ];
+
+    // 4. Заполняем интерфейс Осмотра
     document.getElementById('inp-project').value = 'ЖК "Демонстрационный"';
     document.getElementById('inp-inspector').value = 'Иванов И.И. (Демо)';
     document.getElementById('inp-contractor').value = 'ООО "Монолит-Строй"';
@@ -1686,6 +2173,7 @@ function startDemoMode() {
     if(document.getElementById('checklist-selector')) document.getElementById('checklist-selector').value = currentTemplateKey;
     currentChecklist = SYSTEM_TEMPLATES['armature'].groups;
     
+    // 5. Симулируем нажатые кнопки в карточках
     state = {}; details = {}; photos = {};
     state['201'] = 'ok';
     state['204'] = 'fail'; details['204'] = { causeCode: 'C04', comment: '[Персонал] Отклонение превышает допуск на 5мм' };
@@ -1697,17 +2185,26 @@ function startDemoMode() {
     document.getElementById('audit-actions').style.display = 'grid';
     
     render(); updateUI();
-    renderHistoryTab(); renderCurrentAnalyticsTab(); 
+    renderHistoryTab(); renderCurrentAnalyticsTab(); renderTwiList();
     
-    showToast('🎮 Демо-режим активирован!');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if(!silent) {
+        showToast('🎮 Демо-режим активирован!');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 }
 
 function exitDemoMode() {
+    // ЖЕСТКАЯ ОЧИСТКА ВСЕГО
+    state = {};
+    details = {};
+    photos = {};
+    
+    // Возвращаем реальные данные
     state = JSON.parse(JSON.stringify(realState));
     details = JSON.parse(JSON.stringify(realDetails));
     photos = JSON.parse(JSON.stringify(realPhotos));
     contractorArray = JSON.parse(JSON.stringify(realContractorArray));
+    customTwiCards = JSON.parse(JSON.stringify(realTwiCards));
     
     isDemoMode = false;
     document.body.classList.remove('demo-mode');
@@ -1726,6 +2223,8 @@ function exitDemoMode() {
 
     switchTab('tab-audit');
     updateDataSummary();
+    renderHistoryTab(); 
+    renderTwiList();
     showToast('Возврат к реальным данным');
 }
 
@@ -2011,7 +2510,30 @@ function switchAnalyticsSubTab(tabId, btnElement) {
         fab.dataset.context = (tabId === 'sub-rating') ? 'rating' : 'pdf';
     }
 }
-
+// === ПЕРЕКЛЮЧАТЕЛЬ ПОДВКЛАДОК СПРАВОЧНИКА ===
+function switchReferenceSubTab(tabId, btnElement) {
+    // Скрываем все подвкладки справочника
+    document.querySelectorAll('.ref-sub-section').forEach(el => el.classList.add('hidden'));
+    
+    // Сбрасываем стили всех кнопок
+    const btnContainer = document.getElementById('reference-subtabs-block');
+    if (btnContainer) {
+        btnContainer.querySelectorAll('.sub-tab-btn').forEach(el => {
+            el.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600', 'dark:bg-slate-700', 'dark:text-indigo-400', 'active');
+            el.classList.add('text-[var(--text-muted)]');
+        });
+    }
+    
+    // Показываем нужную вкладку
+    const targetTab = document.getElementById(tabId);
+    if (targetTab) targetTab.classList.remove('hidden');
+    
+    // Подкрашиваем активную кнопку
+    if (btnElement) {
+        btnElement.classList.add('bg-white', 'shadow-sm', 'text-indigo-600', 'dark:bg-slate-700', 'dark:text-indigo-400', 'active');
+        btnElement.classList.remove('text-[var(--text-muted)]');
+    }
+}
 // === АНАЛИТИКА И ОТЧЕТЫ (ПРО 4.0) ===
 
 let currentActiveAnalyticsTab = 'sub-rating';
@@ -2429,7 +2951,7 @@ function updateTrendCharts(type, period) {
 function openChartFilterModal(type) {
     const data = getFilteredAnalyticsData();
     const field = type === 'contrs' ? 'contractorName' : 'templateTitle';
-    const title = type === 'contrs' ? 'Выбор подрядчиков для графика' : 'Выбор видов работ для графика';
+    const title = type === 'contrs' ? 'Линии: Подрядчики' : 'Линии: Виды работ';
     
     const counts = {};
     data.forEach(i => { if(i[field]) counts[i[field]] = (counts[i[field]]||0)+1; });
@@ -2438,9 +2960,10 @@ function openChartFilterModal(type) {
     const isAuto = selectedChartFilters[type].length === 0;
 
     let html = `<div class="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar mb-4 pr-1">`;
-    html += `<label class="flex items-center gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl mb-3 font-bold cursor-pointer text-indigo-800">
+    html += `<label class="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-xl mb-3 font-bold cursor-pointer text-indigo-800 dark:text-indigo-300">
         <input type="checkbox" id="chart-filter-auto" class="w-5 h-5 accent-indigo-600" onchange="if(this.checked) document.querySelectorAll('.chart-filter-cb').forEach(cb => cb.checked = false)" ${isAuto ? 'checked' : ''}>
-        🤖 Авто (Показывать ТОП-5)
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Автовыбор (ТОП-5)
     </label>`;
 
     uniqueItems.forEach(item => {
@@ -2448,18 +2971,18 @@ function openChartFilterModal(type) {
         html += `<label class="flex items-center gap-3 p-3 bg-[var(--card-bg)] hover:bg-[var(--hover-bg)] rounded-xl cursor-pointer border border-[var(--card-border)] transition-colors">
             <input type="checkbox" value="${item}" class="chart-filter-cb w-5 h-5 accent-indigo-600" ${isChecked ? 'checked' : ''} onchange="document.getElementById('chart-filter-auto').checked = false">
             <span class="text-[12px] truncate flex-1">${item}</span>
-            <span class="text-[10px] text-slate-500 bg-slate-100 px-2 py-1 rounded-md font-bold">${counts[item]} шт</span>
+            <span class="text-[10px] text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md font-bold">${counts[item]} шт</span>
         </label>`;
     });
     html += `</div>
     <div class="flex gap-2">
-        <button onclick="closeModal()" class="flex-1 bg-slate-100 text-slate-700 py-3 rounded-xl font-bold uppercase active:scale-95">Отмена</button>
+        <button onclick="closeModal()" class="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3 rounded-xl font-bold uppercase active:scale-95 border border-slate-200 dark:border-slate-700">Отмена</button>
         <button onclick="saveChartFilters('${type}')" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold uppercase shadow-md active:scale-95">Применить</button>
     </div>`;
 
     const modal = document.getElementById('modal-overlay');
     document.getElementById('modal-icon').innerHTML = ''; 
-    document.getElementById('modal-title').innerText = title;
+    document.getElementById('modal-title').innerHTML = `<div class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg> ${title}</div>`;
     document.getElementById('modal-body').innerHTML = html;
     document.body.classList.add('modal-open');
     modal.style.display = 'flex';
@@ -3550,45 +4073,70 @@ function printPdfShell(title, content) {
 // === ОКНО "О ПРИЛОЖЕНИИ" ===
 function showAboutApp() {
     const modal = document.getElementById('modal-overlay');
-    document.getElementById('modal-icon').innerHTML = `<div class="text-4xl mb-2">ℹ️</div>`;
-    document.getElementById('modal-title').innerText = "О приложении RBI Quality";
+    document.getElementById('modal-icon').innerHTML = `<div class="text-4xl mb-2 flex justify-center">🏛️</div>`;
+    document.getElementById('modal-title').innerText = "RBI Quality Pro (v.16.2)";
     
-    // ВСТАВЛЯЙ СВОЙ ТЕКСТ ВМЕСТО РУССКИХ БУКВ ВНУТРИ ТЕГОВ <p> И <li>
     document.getElementById('modal-body').innerHTML = `
-        <div class="space-y-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+        <div class="space-y-4 text-[12px] leading-relaxed text-slate-700 dark:text-slate-300">
             
-            <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 p-4 rounded-xl">
-                <h4 class="font-black text-indigo-800 dark:text-indigo-300 mb-2 uppercase text-[11px]">Архитектура</h4>
-                <p class="text-[12px]">
-                    <!-- ЗДЕСЬ ОПИСАНИЕ АРХИТЕКТУРЫ -->
-                    Приложение построено на базе PWA (Progressive Web App) с оффлайн-хранилищем IndexedDB. 
-                    Оно позволяет проводить инспекции без интернета, синхронизировать данные через бэкапы и 
-                    автоматически рассчитывать математические модели качества (УрК).
+            <div class="text-center font-bold text-indigo-600 dark:text-indigo-400 mb-2">
+                Система управления качеством на основе данных (Data-Driven Quality)
+            </div>
+
+            <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 p-4 rounded-xl shadow-sm">
+                <h4 class="font-black text-indigo-800 dark:text-indigo-300 mb-2 uppercase tracking-wider flex items-center gap-1.5"><span class="text-lg">⚙️</span> Архитектура PWA</h4>
+                <p class="mb-2">Приложение построено по технологии <b>Progressive Web App</b>. Это значит, что оно работает в браузере, но ведет себя как нативное приложение.</p>
+                <ul class="list-disc pl-4 space-y-1 text-[11px] text-indigo-900 dark:text-indigo-200">
+                    <li><b>Офлайн ядро (Offline-First):</b> Все данные, PDF-файлы и фото сохраняются во встроенной БД браузера (IndexedDB). Подключение к интернету на стройке не требуется.</li>
+                    <li><b>Локальные вычисления:</b> Вся математика дашбордов и генерация PDF происходит процессором вашего телефона, обеспечивая мгновенный отклик.</li>
+                </ul>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-sm">
+                <h4 class="font-black text-slate-800 dark:text-white mb-3 uppercase tracking-wider flex items-center gap-1.5"><span class="text-lg">📊</span> Функциональные модули</h4>
+                
+                <div class="space-y-3">
+                    <div>
+                        <b class="text-slate-900 dark:text-white">1. Модуль Осмотра:</b> 
+                        Жестко алгоритмизированный процесс. Классификатор дефектов разделен на B1 (мелкий), B2 (значимый), B3 (критический). Внедрено правило <b>Эскалации >1.5х</b>, которое переводит B2 в B3 при сильном отклонении.
+                    </div>
+                    <div class="border-t border-slate-100 dark:border-slate-700 pt-2">
+                        <b class="text-slate-900 dark:text-white">2. Математика УрК (Уровень Качества):</b> 
+                        Оценка идет не "на глаз", а по формулам.<br>
+                        • <i>УрК Изделия</i>: Базовый балл умножается на штрафы за концентрацию (Kc) и критичность (Kcrit).<br>
+                        • <i>УрК Подрядчика</i>: Штрафует за повторяемость (системный брак) и волатильность (нестабильность от раза к разу).
+                    </div>
+                    <div class="border-t border-slate-100 dark:border-slate-700 pt-2">
+                        <b class="text-slate-900 dark:text-white">3. Аналитика и BI:</b> 
+                        Встроенный Business Intelligence. Строит тренды (динамику качества во времени), диаграммы Парето (корневые причины брака), сравнительные рейтинги подрядчиков и сводный One-Pager для Руководителя проекта.
+                    </div>
+                    <div class="border-t border-slate-100 dark:border-slate-700 pt-2">
+                        <b class="text-slate-900 dark:text-white">4. Интегрированная База Знаний:</b> 
+                        Модуль TWI (Training Within Industry). Прямо из карточки дефекта по кнопке "Справка" инженер переходит к эталону монтажа. Устраняется разрыв между СНиПами и реальной стройкой.
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 p-4 rounded-xl shadow-sm">
+                <h4 class="font-black text-emerald-800 dark:text-emerald-400 mb-2 uppercase tracking-wider flex items-center gap-1.5"><span class="text-lg">🎯</span> Управленческая ценность (PDCA)</h4>
+                <p class="text-[11px] text-emerald-900 dark:text-emerald-200">
+                    Система меняет парадигму с "поиска и исправления дефектов" на их <b>предотвращение</b>.<br>
+                    Жесткие пороги (<b>Стоп-работы при УрК < 70%</b> или наличии дефекта <b>B3</b>) не позволяют "дефектному хвосту" дойти до этапа сдачи объекта клиенту. Управленческие решения принимаются на основе сухих цифр, исключая человеческий фактор.
                 </p>
             </div>
 
-            <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
-                <h4 class="font-black text-slate-800 dark:text-white mb-2 uppercase text-[11px]">Функционал</h4>
-                <ul class="list-disc pl-4 text-[12px] space-y-1">
-                    <!-- ЗДЕСЬ СПИСОК ФУНКЦИЙ -->
-                    <li>Система умных чек-листов (B1, B2, B3).</li>
-                    <li>Автоматический расчет УрК изделия и Подрядчика.</li>
-                    <li>Аналитика: Рейтинги, Тренд-графики, Парето причин брака.</li>
-                    <li>Генерация заключений ИИ (с возможностью редактирования).</li>
-                    <li>Выгрузка управленческих отчетов в PDF.</li>
+            <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-4 rounded-xl shadow-sm">
+                <h4 class="font-black text-amber-800 dark:text-amber-400 mb-2 uppercase tracking-wider flex items-center gap-1.5"><span class="text-lg">🚀</span> Дальнейшее развитие (Roadmap)</h4>
+                <ul class="list-disc pl-4 text-[11px] text-amber-900 dark:text-amber-200 space-y-1.5">
+                    <li>Внедрение <b>AI DeepSeek</b> для автогенерации писем-предписаний подрядчикам на основе собранных данных.</li>
+                    <li>Live-синхронизация локальной базы с облачным сервером для совместной работы отдела контроля качества.</li>
+                    <li>Интеграция с графиком производства работ (ГПР) для корреляции качества и сроков.</li>
                 </ul>
             </div>
-
-            <div class="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 p-4 rounded-xl">
-                <h4 class="font-black text-green-800 dark:text-green-300 mb-2 uppercase text-[11px]">Ближайшие доработки (Roadmap)</h4>
-                <ul class="list-disc pl-4 text-[12px] space-y-1">
-                    <!-- ЗДЕСЬ ПЛАНЫ НА БУДУЩЕЕ -->
-                    <li>Интеграция облачной базы данных для live-синхронизации.</li>
-                    <li>Добавление фоторедактора (рисование стрелок на фото).</li>
-                    <li>Возможность создавать свои шаблоны прямо в приложении.</li>
-                </ul>
+            
+            <div class="text-center text-[9px] text-slate-400 uppercase tracking-widest font-black mt-6 border-t border-slate-200 dark:border-slate-700 pt-4">
+                Спроектировано и разработано для Строительного Контроля
             </div>
-
         </div>
     `;
     document.body.classList.add('modal-open'); 
@@ -3642,181 +4190,213 @@ function initCollapsiblePanel(panelId, bodyId, headerId, iconId) {
         else if (y < 40 && collapsed) setCollapsed(false);
     }, { passive: true });
 }
-// === ИНТЕРАКТИВНЫЙ ТУТОРИАЛ (АВТОПИЛОТ) ===
 let currentTutStep = 0;
-let tutOverlay, tutTooltip, tutText, tutArrow, tutStepNum, tutNextBtn;
-let highlightedElement = null;
+let tutOverlay, tutHighlightBox, tutTooltip, tutText, tutStepNum, tutNextBtn;
 
 const tutorialSteps = [
+    // --- 1. ВКЛАДКА ОСМОТР ---
     {
-        text: "Добро пожаловать в RBI Quality! 👋<br>Здесь мы выбираем вид работ для осмотра из загруженных шаблонов.",
-        targetId: "checklist-selector",
-        action: () => { window.scrollTo({top: 0, behavior: 'smooth'}); }
-    },
-    {
-        text: "В этом блоке вводим данные объекта. Они автоматически сохраняются и пойдут в шапку PDF-отчета.",
+        text: "Добро пожаловать в <b>RBI Quality!</b> 👋<br><br>Я загрузил для вас <b>Демо-данные</b>, чтобы показать приложение в действии.<br><br>Здесь в шапке мы выбираем вид работ и заполняем данные объекта.",
         targetId: "header-data-block",
-        action: () => {
-            document.getElementById('checklist-selector').value = 'sys_armature';
-            changeTemplate('sys_armature');
-            document.getElementById('inp-project').value = 'ЖК Обучающий';
-            document.getElementById('inp-contractor').value = 'ООО Демо-Строй';
-        }
+        action: () => { switchTab('tab-audit'); window.scrollTo({top: 0, behavior: 'smooth'}); }
     },
     {
-        text: "Это умный мини-дашборд. Он в реальном времени считает УрК (Уровень Качества). Кликните по нему, чтобы увидеть формулу расчета и штрафы.",
+        text: "Это <b>Умный Дашборд</b>. Он в реальном времени считает <b>УрК</b> (Уровень Качества). Если нажать на него, откроется формула с учетом всех штрафов (за критичность и системный брак).",
         targetId: "header-dashboard",
-        action: () => {}
+        action: () => { document.getElementById('dash-expand-icon').click(); }
     },
     {
-        text: "Свайпы по умолчанию выключены, поэтому жмем <b>Зеленую галочку</b> (Всё ОК). Карточка автоматически свернется, чтобы не мешать.",
+        text: "Так выглядит карточка контроля.<br>Свайп вправо или зеленая кнопка ставит <b>OK</b>. Карточка автоматически сжимается, убирая лишний текст СНиПа.",
         targetId: "card_wrapper_201",
         action: () => {
             const el = document.getElementById('card_wrapper_201');
             if(el) el.scrollIntoView({block: 'center', behavior: 'smooth'});
-            setTimeout(() => toggleOk(201), 600);
         }
     },
     {
-        text: "Если есть брак — жмем <b>Красный крестик</b>. Карточка подсветится красным и появятся дополнительные опции.",
+        text: "В Демо-режиме мы уже зафиксировали брак в этом пункте. Справа появилась панель управления дефектом. Здесь можно загрузить фото дефекта, оставить коментарий или выбрать причину дефекта из списка, а в случае если отклонение превышает норму более чем в 1,5 раза, можно эскалировать дефект до В3 и система учтет его как критический",
         targetId: "card_wrapper_204",
         action: () => {
             const el = document.getElementById('card_wrapper_204');
             if(el) el.scrollIntoView({block: 'center', behavior: 'smooth'});
-            setTimeout(() => toggleFail(204), 600);
         }
     },
     {
-        text: "Теперь к дефекту можно прикрепить 📸 <b>Фото</b>, написать 💬 <b>Комментарий</b> (с выбором причины), или нажать <b>>1.5</b>, чтобы сделать дефект критическим (B3).",
-        targetId: "card_wrapper_204",
-        action: () => {
-            setTimeout(() => toggleEscalation(204), 600); // Робот нажимает >1.5
-        }
+        text: "💡 <b>СВЯЗЬ СО СПРАВОЧНИКОМ:</b><br>Обратите внимание на <b>синюю кнопку</b>. Если кнопка синяя — значит к этому пункту привязана наглядная <b>TWI-карта</b>.<br><br>Нажав её, инспектор увидит эталонное фото, фото брака и методику проверки конкретно для этого дефекта.",
+        targetSelector: "#card_wrapper_204 .btn-status.text-blue-600",
+        action: () => { } 
     },
+    // --- 2. ВКЛАДКА ИСТОРИЯ ---
     {
-        text: "После осмотра сохраняем акт (кнопка внизу экрана). А мы перейдем во вкладку <b>История</b>.",
+        text: "После осмотра нажимаем <b>Сохранить</b>.<br>Акт улетает в базу, а мы переходим во вкладку <b>История</b>.",
         targetSelector: ".bottom-nav .nav-item[data-tab='tab-history']",
         action: () => { switchTab('tab-history'); }
     },
     {
-        text: "В Истории лежат все сохраненные инспекции. Здесь их можно фильтровать по подрядчикам, датам или массово удалять.",
+        text: "В Истории хранятся все инспекции. Умная липкая панель позволяет фильтровать акты по подрядчикам, датам и наличию дефектов B3.",
         targetId: "hist-sticky-panel",
         action: () => { window.scrollTo({top: 0, behavior: 'smooth'}); }
     },
+    // --- 3. ВКЛАДКА АНАЛИТИКА ---
     {
-        text: "Переходим в <b>Аналитику</b>. Это самый мощный раздел. Система сама строит графики и пишет смарт-заключения.",
+        text: "Переходим в <b>Аналитику</b>. Посмотрите, система уже проанализировала демо-данные, построила графики, рейтинги и написала смарт-заключения.",
         targetSelector: ".bottom-nav .nav-item[data-tab='tab-analytics']",
         action: () => { switchTab('tab-analytics'); }
     },
     {
-        text: "Здесь есть 4 подвкладки:<br><b>Рейтинг</b> (сравнение подрядчиков), <b>Инженерия</b> (глубокий анализ причин брака), <b>Сводка</b> (отчет для шефа) и <b>База</b>.",
-        targetId: "analytics-subtabs-block",
+        text: "<b>Глобальные фильтры</b> управляют всеми дашбордами. Выберите период или подрядчика, и все графики мгновенно перестроятся.",
+        targetId: "analytics-filters-block",
         action: () => { window.scrollTo({top: 0, behavior: 'smooth'}); }
     },
     {
-        text: "А вот и круглая кнопка <b>Скачать PDF</b>! Нажмите её, чтобы выгрузить готовую аналитику со всеми графиками и фото.",
+        text: "В Аналитике 4 уровня отчетов:<br><b>Рейтинг</b> (сравнение), <b>Инженерия</b> (глубокий анализ), <b>Сводка</b> (One-Pager для шефа) и сырая <b>База</b>.",
+        targetId: "analytics-subtabs-block",
+        action: () => {}
+    },
+    {
+        text: "Кнопка <b>Скачать PDF</b> выгружает готовый к печати управленческий отчет со всеми метриками, графиками и фото брака.",
         targetId: "fab-download-btn",
         action: () => {
             const fab = document.getElementById('fab-download-btn');
-            if(fab) { 
-                fab.classList.remove('hidden'); 
-                fab.style.display = 'flex'; 
-                // Немного прокрутим, чтобы кнопка была в центре внимания
-                window.scrollTo({top: 200, behavior: 'smooth'});
-            }
+            if(fab) { fab.style.display = 'flex'; window.scrollTo({top: 200, behavior: 'smooth'}); }
+        }
+    },
+    // --- 4. ВКЛАДКА СПРАВОЧНИК ---
+    {
+        text: "Заглянем в <b>Справочник</b>. Это единая база знаний инженера: от ГОСТов до инструкций.",
+        targetSelector: ".bottom-nav .nav-item[data-tab='tab-reference']",
+        action: () => { switchTab('tab-reference'); }
+    },
+    {
+        text: "В <b>Чек-листах</b> можно создавать свои шаблоны в Конструкторе, массово загружать их из <b>Excel</b> и выгружать обратно для коллег.",
+        targetId: "ref-filters-block",
+        action: () => { 
+            const btns = document.querySelectorAll('#reference-subtabs-block .sub-tab-btn');
+            if(btns[0]) switchReferenceSubTab('ref-sub-checklists', btns[0]); 
+            window.scrollTo({top: 0, behavior: 'smooth'});
+            const manageBody = document.getElementById('ref-manage-body');
+            if (manageBody && manageBody.style.maxHeight === '0px') toggleManagePanel();
         }
     },
     {
-        text: "В <b>Справочнике</b> лежат СНиП и ГОСТ, а в <b>Настройках</b> можно включить темную тему и сбросить кэш.<br><br><b>Обучение завершено!</b>",
+        text: "В <b>TWI Картах</b> создаются визуальные стандарты. Мы уже добавили пару демо-карт для примера.",
+        targetId: "twi-search-input", // ЮВЕЛИРНЫЙ ПРИЦЕЛ: выделяем только маленькую строку поиска!
+        action: () => { 
+            const btns = document.querySelectorAll('#reference-subtabs-block .sub-tab-btn');
+            if(btns[2]) switchReferenceSubTab('ref-sub-twi', btns[2]); 
+        }
+    },
+    {
+        text: "Давайте откроем <b>Конструктор TWI</b>. Здесь вы собираете инструкцию и жестко привязываете её к конкретному пункту чек-листа.",
+        targetSelector: "button[onclick='openTwiConstructor()']", // ЮВЕЛИРНЫЙ ПРИЦЕЛ: только на кнопку "Создать"
+        action: () => { openTwiConstructor(); window.scrollTo({top: 0, behavior: 'smooth'}); }
+    },
+    {
+        text: "Вы можете создать 3 типа карт:<br>🕵️‍♂️ <b>Технадзор</b> (Фото Правильно/Брак)<br>🛠 <b>TWI Рабочего</b> (Пошаговый алгоритм)<br>📄 <b>PDF</b> (Готовый регламент).",
+        targetId: "twi-type-btn-worker", // ЮВЕЛИРНЫЙ ПРИЦЕЛ: только на центральную вкладку типов
+        action: () => { }
+    },
+    {
+        text: "А если вы или ваш подрядчик забудете, как именно считаются проценты и штрафы — загляните в новую вкладку <b>FAQ / Логика</b>. Там всё разложено по полочкам.",
+        targetSelector: "#ref-sub-faq .text-center", // ЮВЕЛИРНЫЙ ПРИЦЕЛ: выделяем только заголовок с иконкой 📊, а не весь огромный текст
+        action: () => { 
+            closeTwiConstructor(); 
+            setTimeout(() => { 
+                const btns = document.querySelectorAll('#reference-subtabs-block .sub-tab-btn');
+                if(btns[4]) switchReferenceSubTab('ref-sub-faq', btns[4]); 
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            }, 300); 
+        }
+    },
+    // --- 5. ВКЛАДКА НАСТРОЙКИ ---
+    {
+        text: "И напоследок — <b>Настройки</b>. Здесь можно кастомизировать интерфейс под себя.",
         targetSelector: ".bottom-nav .nav-item[data-tab='tab-settings']",
-        action: () => { switchTab('tab-settings'); },
+        action: () => { 
+            switchTab('tab-settings'); 
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+    },
+    {
+        text: "Меняйте масштаб шрифтов, темную тему, свайпы, подключайте AI DeepSeek и управляйте памятью.<br><br>🚀 <b>Обучение завершено! Можете продолжить изучать демо-режим.</b>",
+        targetSelector: "#tab-settings .bg-\\[var\\(--card-bg\\)\\]", 
+        action: () => { window.scrollTo({top: 0, behavior: 'smooth'}); },
         isEnd: true
     }
 ];
 
 function startInteractiveTutorial() {
-    currentTutStep = 0;
-    tutOverlay = document.getElementById('tutorial-overlay');
-    tutTooltip = document.getElementById('tutorial-tooltip');
-    tutText = document.getElementById('tut-text');
-    tutArrow = document.getElementById('tut-arrow');
-    tutStepNum = document.getElementById('tut-step');
-    tutNextBtn = document.getElementById('tut-next-btn');
-    document.getElementById('tut-total').innerText = tutorialSteps.length;
+    // 1. Включаем демо-режим тихо (silent = true), если он еще не включен
+    if (!isDemoMode && typeof startDemoMode === 'function') {
+        startDemoMode(true); 
+    }
 
-    tutOverlay.classList.remove('hidden');
-    tutTooltip.classList.remove('hidden');
-    
-    setTimeout(() => { tutOverlay.classList.remove('opacity-0'); }, 10);
-    showTutorialStep();
+    // 2. Ждем полсекунды, чтобы демо-данные успели отрисоваться на экране
+    setTimeout(() => {
+        currentTutStep = 0;
+        tutOverlay = document.getElementById('tutorial-overlay');
+        tutHighlightBox = document.getElementById('tut-highlight-box');
+        tutTooltip = document.getElementById('tutorial-tooltip');
+        tutText = document.getElementById('tut-text');
+        tutStepNum = document.getElementById('tut-step');
+        tutNextBtn = document.getElementById('tut-next-btn');
+        
+        document.getElementById('tut-total').innerText = tutorialSteps.length;
+
+        tutOverlay.classList.remove('hidden');
+        tutTooltip.classList.remove('hidden');
+        
+        showTutorialStep();
+    }, 500);
 }
 
 function showTutorialStep() {
     const step = tutorialSteps[currentTutStep];
     if(!step) return stopTutorial();
 
-    // Снимаем старую подсветку
-    if (highlightedElement) {
-        highlightedElement.classList.remove('tut-highlight', 'tut-relative');
-        highlightedElement = null;
-    }
-
-    // Выполняем действие шага (робот нажимает кнопки)
+    // Выполняем действие для подготовки экрана (скролл, переключение вкладок)
     if(step.action) step.action();
 
-    // Ждем окончания скролла и анимаций
+    // Ждем 700мс, чтобы интерфейс переключился и плавно проскроллился
     setTimeout(() => {
         let target = step.targetId ? document.getElementById(step.targetId) : document.querySelector(step.targetSelector);
         
         if(target) {
-            highlightedElement = target;
-            
-            // Если у элемента не задано позиционирование, даем ему tut-relative, чтобы сработал z-index
-            const computedStyle = window.getComputedStyle(target);
-            if (computedStyle.position === 'static') {
-                target.classList.add('tut-relative');
-            }
-            
-            // Добавляем красивую подсветку поверх затемнения
-            target.classList.add('tut-highlight');
-            
-            // Умное позиционирование тултипа
             const rect = target.getBoundingClientRect();
+            tutHighlightBox.style.top = `${rect.top - 4}px`;
+            tutHighlightBox.style.left = `${rect.left - 4}px`;
+            tutHighlightBox.style.width = `${rect.width + 8}px`;
+            tutHighlightBox.style.height = `${rect.height + 8}px`;
             
             tutTooltip.style.left = '50%';
             tutTooltip.style.transform = 'translate(-50%, 0)';
             
-            // Вычисляем, куда поставить подсказку: сверху или снизу
-            if (rect.top > 250) {
-                tutTooltip.style.top = (rect.top - tutTooltip.offsetHeight - 20) + 'px';
-                tutArrow.style.top = 'auto';
-                tutArrow.style.bottom = '-6px';
+            // Защита: если элемент слишком высоко, тултип ставим под ним
+            if (rect.top > window.innerHeight / 2) {
+                tutTooltip.style.top = `${rect.top - tutTooltip.offsetHeight - 20}px`;
             } else {
-                tutTooltip.style.top = (rect.bottom + 20) + 'px';
-                tutArrow.style.bottom = 'auto';
-                tutArrow.style.top = '-6px';
+                tutTooltip.style.top = `${rect.bottom + 20}px`;
             }
-            tutArrow.style.left = '50%';
-            tutArrow.style.transform = 'translateX(-50%) rotate(45deg)';
         } else {
-            // Центруем, если таргета нет
-            tutTooltip.style.top = '50%';
+            // Страховка: если элемент почему-то не найден
+            tutHighlightBox.style.width = '0px';
+            tutHighlightBox.style.height = '0px';
+            tutTooltip.style.top = '40%';
             tutTooltip.style.left = '50%';
             tutTooltip.style.transform = 'translate(-50%, -50%)';
-            tutArrow.style.display = 'none';
         }
 
         tutStepNum.innerText = currentTutStep + 1;
         tutText.innerHTML = step.text;
         
         if(step.isEnd) {
-            tutNextBtn.innerText = "Запустить Демо ➔";
-            tutNextBtn.classList.remove('bg-indigo-600');
-            tutNextBtn.classList.add('bg-green-600');
+            tutNextBtn.innerText = "Завершить 🚀";
+            tutNextBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
+            tutNextBtn.classList.add('bg-green-600', 'hover:bg-green-500');
         } else {
-            tutNextBtn.innerText = "Понятно ➔";
-            tutNextBtn.classList.add('bg-indigo-600');
-            tutNextBtn.classList.remove('bg-green-600');
+            tutNextBtn.innerText = "Далее ➔";
+            tutNextBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+            tutNextBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
         }
 
         tutTooltip.classList.remove('scale-90', 'opacity-0');
@@ -3830,7 +4410,6 @@ function nextTutorialStep() {
     setTimeout(() => {
         if(step.isEnd) {
             stopTutorial();
-            startDemoMode(); // Запускаем демо
         } else {
             currentTutStep++;
             showTutorialStep();
@@ -3839,25 +4418,45 @@ function nextTutorialStep() {
 }
 
 function stopTutorial() {
-    tutOverlay.classList.add('opacity-0');
     tutTooltip.classList.add('scale-90', 'opacity-0');
+    tutOverlay.style.opacity = '0';
     
-    if (highlightedElement) {
-        highlightedElement.classList.remove('tut-highlight', 'tut-relative');
+    // Принудительно сворачиваем дашборд, если он был развернут
+    const expView = document.getElementById('dash-expanded-view');
+    if (expView && !expView.classList.contains('hidden')) {
+        expView.classList.add('hidden');
     }
+    const dashIcon = document.getElementById('dash-expand-icon');
+    if (dashIcon) dashIcon.innerText = '▼';
     
-    // Сбрасываем изменения робота
-    changeTemplate('HOME');
+    // Возвращаем на вкладку Осмотра
+    switchTab('tab-audit');
     
     setTimeout(() => { 
         tutOverlay.classList.add('hidden'); 
         tutTooltip.classList.add('hidden');
+        tutOverlay.style.opacity = '1'; 
         
-        // Прячем кнопку скачивания, чтобы она не висела на Главном экране
         const fab = document.getElementById('fab-download-btn');
-        if(fab) { fab.classList.add('hidden'); fab.style.display = 'none'; }
+        if(fab) fab.style.display = 'none';
+
+        // ИСПРАВЛЕНИЕ: ВОЗВРАЩАЕМ КНОПКУ ВЫХОДА ИЗ ДЕМО-РЕЖИМА
+        if (isDemoMode) {
+            const fabExit = document.getElementById('fab-exit-demo');
+            if (fabExit) {
+                fabExit.classList.remove('hidden');
+                fabExit.style.display = 'flex';
+            }
+        }
+        
+        const manageBody = document.getElementById('ref-manage-body');
+        if (manageBody && manageBody.style.maxHeight !== '0px') toggleManagePanel();
+        
+        if (typeof updateBodyPadding === 'function') updateBodyPadding();
+        window.scrollTo({top: 0, behavior: 'smooth'});
     }, 500);
 }
+
 // === КОНСТРУКТОР СВОИХ ЧЕК-ЛИСТОВ ===
 let builderGroupCount = 0;
 let builderItemCount = 0;
@@ -4264,4 +4863,763 @@ function exportAllTemplatesJson() {
     // Скачиваем файл (функция downloadFile уже есть в storage.js)
     downloadFile(dataStr, `RBI_Templates_Code_${new Date().toLocaleDateString('ru-RU')}.json`, 'application/json');
     showToast("✅ JSON-код скачан!");
+}
+// ==========================================
+// БЛОК: БАЗА НОРМАТИВНЫХ ДОКУМЕНТОВ (НД)
+// ==========================================
+
+// Системные предустановленные нормативы
+const SYSTEM_DOCS = [
+    { id: 'sys_doc_1', type: 'СП', code: 'СП 48.13330.2019', title: 'Организация строительства', link: '' },
+    { id: 'sys_doc_2', type: 'СП', code: 'СП 70.13330.2012', title: 'Несущие и ограждающие конструкции', link: '' },
+    { id: 'sys_doc_3', type: 'СП', code: 'СП 522.1325800.2023', title: 'Системы фасадные теплоизоляционные композиционные', link: '' },
+    { id: 'sys_doc_4', type: 'ГОСТ', code: 'ГОСТ 13015-2012', title: 'Изделия бетонные и железобетонные для строительства. Общие технические требования', link: '' },
+    { id: 'sys_doc_5', type: 'ГОСТ', code: 'ГОСТ 17079-2021', title: 'Блоки вентиляционные железобетонные. Технические условия', link: '' },
+    { id: 'sys_doc_6', type: 'ГОСТ', code: 'ГОСТ 9818-2015', title: 'Марши и площадки лестниц железобетонные', link: '' }
+];
+
+let customDocs = []; // Пользовательские документы
+let currentDocFilter = 'ALL';
+
+// Загрузка пользовательских документов при старте приложения
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const storedDocs = await dbGet(STORES.SETTINGS, 'custom_docs');
+        if (storedDocs && storedDocs.data) {
+            customDocs = storedDocs.data;
+        }
+    } catch (e) {
+        console.error("Ошибка загрузки пользовательских НД", e);
+    }
+});
+
+// Рендер списка документов
+function renderDocsList() {
+    const container = document.getElementById('docs-list-container');
+    const searchInput = document.getElementById('doc-search-input')?.value.toLowerCase() || '';
+    if (!container) return;
+
+    // Объединяем системные и пользовательские
+    const allDocs = [...SYSTEM_DOCS, ...customDocs];
+    
+    // Фильтрация
+    let filtered = allDocs.filter(doc => {
+        const matchSearch = doc.code.toLowerCase().includes(searchInput) || doc.title.toLowerCase().includes(searchInput);
+        const matchFilter = currentDocFilter === 'ALL' || doc.type === currentDocFilter;
+        return matchSearch && matchFilter;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-slate-500 text-sm font-bold bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">По вашему запросу документы не найдены</div>`;
+        return;
+    }
+
+    let html = '';
+    filtered.forEach(doc => {
+        const isSystem = String(doc.id).startsWith('sys_');
+        const tagColor = doc.type === 'СП' ? 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300' : 
+                        (doc.type === 'ГОСТ' ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300' : 
+                        'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-700 dark:text-slate-300');
+
+        html += `
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm relative overflow-hidden flex flex-col gap-2">
+            ${isSystem ? '<div class="absolute top-0 right-0 bg-indigo-500 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-wider">Системный</div>' : ''}
+            
+            <div class="flex items-start justify-between pr-16">
+                <div>
+                    <span class="text-[9px] font-black px-1.5 py-0.5 rounded border ${tagColor} uppercase tracking-wider">${doc.type}</span>
+                    <div class="text-[13px] font-black text-slate-800 dark:text-white mt-1.5 leading-tight">${doc.code}</div>
+                </div>
+            </div>
+            
+            <div class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">${doc.title}</div>
+            
+            <div class="flex gap-2 mt-1 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <button onclick="openDocLink('${doc.link}')" class="flex-1 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-3 py-2 rounded-lg text-[10px] font-bold uppercase flex items-center justify-center gap-1 active:scale-95 transition-colors">
+                    📄 Читать текст
+                </button>
+                ${!isSystem ? `<button onclick="deleteCustomDoc('${doc.id}')" class="w-10 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 rounded-lg flex items-center justify-center font-bold text-sm active:scale-95 border border-red-100 dark:border-red-800">🗑️</button>` : ''}
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+// Заглушка для открытия ссылки
+function openDocLink(link) {
+    if (link && link.trim() !== '') {
+        window.open(link, '_blank');
+    } else {
+        showToast('📄 Полный текст норматива сейчас недоступен (Демо-режим)');
+    }
+}
+
+// Переключение кнопок-фильтров
+function filterDocs(type, btnElement) {
+    currentDocFilter = type;
+    
+    // Сбрасываем цвета всех кнопок
+    const container = document.getElementById('doc-filters-container');
+    container.querySelectorAll('.doc-filter-btn').forEach(btn => {
+        btn.className = "doc-filter-btn px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 active:scale-95 whitespace-nowrap border border-slate-200 dark:border-slate-700";
+    });
+
+    // Подкрашиваем активную
+    btnElement.className = "doc-filter-btn px-3 py-1.5 rounded-lg text-[10px] font-bold bg-indigo-600 text-white shadow-sm active:scale-95 whitespace-nowrap border border-indigo-600";
+    
+    renderDocsList();
+}
+
+// Модалка: Открыть
+function openAddDocModal() {
+    document.getElementById('add-doc-modal-overlay').style.display = 'flex';
+    document.body.classList.add('modal-open');
+    // Сброс полей
+    document.getElementById('new-doc-code').value = '';
+    document.getElementById('new-doc-title').value = '';
+    document.getElementById('new-doc-link').value = '';
+}
+
+// Модалка: Закрыть
+function closeAddDocModal() {
+    document.getElementById('add-doc-modal-overlay').style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+// Модалка: Сохранить
+async function saveCustomDoc() {
+    const type = document.getElementById('new-doc-type').value;
+    const code = document.getElementById('new-doc-code').value.trim();
+    const title = document.getElementById('new-doc-title').value.trim();
+    const link = document.getElementById('new-doc-link').value.trim();
+
+    if (!code || !title) {
+        return showToast('⚠️ Заполните шифр и название документа');
+    }
+
+    const newDoc = {
+        id: 'usr_doc_' + Date.now().toString(36),
+        type: type,
+        code: code,
+        title: title,
+        link: link,
+        isSystem: false
+    };
+
+    customDocs.push(newDoc);
+    
+    try {
+        await dbPut(STORES.SETTINGS, { key: 'custom_docs', data: customDocs });
+        showToast('✅ Норматив успешно добавлен!');
+        closeAddDocModal();
+        renderDocsList();
+    } catch (e) {
+        console.error(e);
+        showToast('❌ Ошибка сохранения');
+    }
+}
+
+// Удаление своего норматива
+async function deleteCustomDoc(id) {
+    if (!confirm('Удалить этот документ из базы?')) return;
+    
+    customDocs = customDocs.filter(d => d.id !== id);
+    try {
+        await dbPut(STORES.SETTINGS, { key: 'custom_docs', data: customDocs });
+        showToast('🗑️ Документ удален');
+        renderDocsList();
+    } catch (e) {
+        console.error(e);
+        showToast('❌ Ошибка удаления');
+    }
+}
+
+// ==========================================
+// БЛОК: TWI КАРТЫ И КОНСТРУКТОР (ЭТАП 1: БД и UI)
+// ==========================================
+
+let customTwiCards = [];
+let twiStepCount = 0;
+let currentEditingTwiId = null;
+let currentTwiStepUploadId = null; // Для пошагового TWI
+let currentTwiType = 'INSPECTOR'; // Глобальный стейт (INSPECTOR, WORKER, PDF)
+
+// Загрузка TWI карт при старте
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const storedTwi = await dbGet(STORES.SETTINGS, 'custom_twi_cards');
+        if (storedTwi && storedTwi.data) {
+            // Адаптация старых карт (у которых нет type)
+            customTwiCards = storedTwi.data.map(card => {
+                if (!card.type) card.type = 'WORKER'; // Старые считаем пошаговыми
+                return card;
+            });
+        }
+    } catch (e) { console.error("Ошибка загрузки TWI", e); }
+});
+
+// 1. РЕНДЕР СПИСКА TWI КАРТ (С бейджиками типов)
+function renderTwiList() {
+    const container = document.getElementById('twi-cards-container');
+    const searchInput = document.getElementById('twi-search-input')?.value.toLowerCase() || '';
+    if (!container) return;
+
+    const filtered = customTwiCards.filter(card => 
+        card.title.toLowerCase().includes(searchInput) || 
+        card.checklistName.toLowerCase().includes(searchInput)
+    );
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500 text-sm font-bold bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">Инструкций пока нет. Создайте первую!</div>`;
+        return;
+    }
+
+    container.innerHTML = filtered.map(card => {
+        let typeBadge = '';
+        if (card.type === 'INSPECTOR') typeBadge = '🕵️‍♂️ Карта Технадзора';
+        else if (card.type === 'WORKER') typeBadge = '🛠 TWI Рабочего';
+        else if (card.type === 'PDF') typeBadge = '📄 PDF Документ';
+
+        let infoText = '';
+        if (card.type === 'WORKER') infoText = `⏱️ ${(card.totalTime || 0)} мин | 📝 ${card.steps?.length || 0} шагов`;
+        else if (card.type === 'INSPECTOR') infoText = `🔍 Привязан к пункту ID: ${card.itemId}`;
+        else if (card.type === 'PDF') infoText = `📎 Внешний файл (Офлайн)`;
+
+        return `
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm flex flex-col justify-between">
+            <div>
+                <div class="flex justify-between items-start mb-2">
+                    <div class="text-[9px] font-black text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-0.5 rounded uppercase truncate max-w-[60%]">
+                        ${card.checklistName}
+                    </div>
+                    <div class="text-[8px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded whitespace-nowrap border border-slate-200 dark:border-slate-600">
+                        ${typeBadge}
+                    </div>
+                </div>
+                <div class="text-[13px] font-black leading-tight text-slate-800 dark:text-white mb-2">${card.title}</div>
+                <div class="text-[10px] font-bold text-slate-500 mb-3">${infoText}</div>
+            </div>
+            <div class="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                <button onclick="openTwiConstructor('${card.id}')" class="flex-1 bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 py-2 rounded-lg text-[10px] font-bold uppercase active:scale-95 transition-colors">✏️ Редак.</button>
+                <button onclick="deleteTwiCard('${card.id}')" class="w-10 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 rounded-lg flex items-center justify-center font-bold text-sm active:scale-95 border border-red-100 dark:border-red-800 transition-colors">🗑️</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// 2. ОТКРЫТИЕ КОНСТРУКТОРА И ПЕРЕКЛЮЧЕНИЕ ТИПОВ
+function changeTwiType(type) {
+    currentTwiType = type;
+    
+    // Сбрасываем стили кнопок
+    const btns = ['inspector', 'worker', 'pdf'];
+    btns.forEach(b => {
+        const btnEl = document.getElementById(`twi-type-btn-${b}`);
+        if(btnEl) {
+            btnEl.className = "flex-1 py-2 text-[10px] font-bold uppercase rounded-lg text-slate-500 hover:text-slate-700 transition-all bg-transparent border border-transparent shadow-none";
+        }
+    });
+
+    // Красим активную
+    const activeBtn = document.getElementById(`twi-type-btn-${type.toLowerCase()}`);
+    if (activeBtn) {
+        activeBtn.className = "flex-1 py-2 text-[10px] font-bold uppercase rounded-lg bg-indigo-50 shadow-sm text-indigo-600 border border-indigo-200 transition-all";
+    }
+
+    // Показываем нужный блок
+    document.getElementById('twi-block-inspector').classList.add('hidden');
+    document.getElementById('twi-block-worker').classList.add('hidden');
+    document.getElementById('twi-block-pdf').classList.add('hidden');
+
+    document.getElementById(`twi-block-${type.toLowerCase()}`).classList.remove('hidden');
+}
+
+function populateTwiItemSelect(selectedItemId = null) {
+    const checklistKey = document.getElementById('twi-checklist-select').value;
+    const itemSelect = document.getElementById('twi-item-select');
+    
+    if (!checklistKey) {
+        itemSelect.innerHTML = '<option value="" disabled selected>Сначала выберите чек-лист выше...</option>';
+        return;
+    }
+
+    // Ищем массив пунктов (напрямую из глобальных объектов, чтобы работало всегда)
+    let checklistGroups = [];
+    const type = checklistKey.split('_')[0];
+    const key = checklistKey.replace(type + '_', '');
+    
+    if (type === 'sys' && SYSTEM_TEMPLATES[key]) {
+        checklistGroups = SYSTEM_TEMPLATES[key].groups;
+    } else if (type === 'user' && userTemplates[key]) {
+        checklistGroups = userTemplates[key].groups;
+    }
+
+    if (checklistGroups.length === 0) {
+        itemSelect.innerHTML = '<option value="" disabled selected>Чек-лист пуст...</option>';
+        return;
+    }
+
+    let optionsHtml = '<option value="" disabled selected>Выберите конкретный пункт нарушения...</option>';
+    
+    checklistGroups.forEach(g => {
+        optionsHtml += `<optgroup label="${g.group || g.title}">`;
+        g.items.forEach(i => {
+            optionsHtml += `<option value="${i.id}">[B${i.w}] ${i.n}</option>`;
+        });
+        optionsHtml += `</optgroup>`;
+    });
+
+    itemSelect.innerHTML = optionsHtml;
+    
+    if (selectedItemId) {
+        // Убеждаемся, что значение приводится к строке, так как id в HTML option всегда строка
+        itemSelect.value = String(selectedItemId);
+    }
+}
+
+function openTwiConstructor(editId = null) {
+    document.getElementById('twi-list-view').classList.add('hidden');
+    document.getElementById('twi-constructor-view').classList.remove('hidden');
+    window.scrollTo(0, 0);
+
+    const selectEl = document.getElementById('twi-checklist-select');
+    let options = '<option value="" disabled selected>Выберите вид работ...</option>';
+    const allTemplates = { ...SYSTEM_TEMPLATES, ...userTemplates };
+    for (let key in allTemplates) {
+        options += `<option value="${key}">${allTemplates[key].title}</option>`;
+    }
+    selectEl.innerHTML = options;
+
+    // Сброс всех полей
+    document.getElementById('twi-title-input').value = '';
+    document.getElementById('twi-steps-container').innerHTML = '';
+    document.getElementById('twi-why-input').value = '';
+    document.getElementById('twi-how-input').value = '';
+    removeTwiGoodPhoto();
+    removeTwiBadPhoto();
+    removeTwiPdf();
+    twiStepCount = 0;
+    currentEditingTwiId = editId;
+
+    if (editId) {
+        const card = customTwiCards.find(c => c.id === editId);
+        if (card) {
+            document.getElementById('twi-title-input').value = card.title;
+            selectEl.value = card.checklistKey;
+            
+            // Вызываем заполнение пунктов чек-листа и сразу подставляем сохраненный
+            if(card.type === 'INSPECTOR') populateTwiItemSelect(card.itemId);
+            else populateTwiItemSelect(); // Для остальных просто заполняем, чтобы было
+
+            changeTwiType(card.type || 'WORKER');
+
+            if (card.type === 'INSPECTOR') {
+                document.getElementById('twi-why-input').value = card.whyImportant || '';
+                document.getElementById('twi-how-input').value = card.howToCheck || '';
+                if(card.photoGood) renderGoodPhoto(card.photoGood);
+                if(card.photoBad) renderBadPhoto(card.photoBad);
+            } else if (card.type === 'PDF') {
+                if (card.pdfData) renderPdfFile(card.pdfName, card.pdfSize, card.pdfData);
+            } else {
+                // WORKER
+                card.steps.forEach(step => addTwiStep(step));
+            }
+        }
+    } else {
+        // Создание новой
+        changeTwiType('INSPECTOR');
+        addTwiStep(); // Пустой шаг для Worker, на случай если он переключится
+        populateTwiItemSelect();
+    }
+}
+
+function closeTwiConstructor() {
+    document.getElementById('twi-list-view').classList.remove('hidden');
+    document.getElementById('twi-constructor-view').classList.add('hidden');
+    currentEditingTwiId = null;
+    renderTwiList();
+}
+
+// 3. ОБРАБОТКА ФОТО И PDF (ИНСПЕКТОР)
+function compressImageToBase64(file, maxWidth, quality, callback) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            let width = img.width; let height = img.height;
+            if (width > height && width > maxWidth) { height *= maxWidth / width; width = maxWidth; } 
+            else if (height > maxWidth) { width *= maxWidth / height; height = maxWidth; }
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            callback(canvas.toDataURL('image/jpeg', quality));
+        }
+        img.src = e.target.result;
+    }
+    reader.readAsDataURL(file);
+}
+
+function handleTwiGoodPhotoUpload(event) {
+    if (!event.target.files[0]) return;
+    compressImageToBase64(event.target.files[0], 800, 0.8, (base64) => {
+        renderGoodPhoto(base64);
+        event.target.value = '';
+    });
+}
+function renderGoodPhoto(base64) {
+    const cont = document.getElementById('twi-photo-good-container');
+    cont.dataset.photo = base64;
+    cont.innerHTML = `<div class="relative w-full h-24 rounded-lg overflow-hidden border border-green-300 shadow-sm mt-1"><img src="${base64}" class="w-full h-full object-cover"><button onclick="removeTwiGoodPhoto()" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-xs shadow-md">✕</button></div>`;
+}
+function removeTwiGoodPhoto() {
+    const cont = document.getElementById('twi-photo-good-container');
+    cont.dataset.photo = '';
+    cont.innerHTML = `<button onclick="document.getElementById('twi-photo-good-input').click()" class="w-full h-full min-h-[80px] bg-white dark:bg-slate-800 border border-dashed border-green-300 py-4 rounded-lg text-[10px] font-bold text-green-600 active:scale-95 transition-all">➕ Загрузить фото</button>`;
+}
+
+function handleTwiBadPhotoUpload(event) {
+    if (!event.target.files[0]) return;
+    compressImageToBase64(event.target.files[0], 800, 0.8, (base64) => {
+        renderBadPhoto(base64);
+        event.target.value = '';
+    });
+}
+function renderBadPhoto(base64) {
+    const cont = document.getElementById('twi-photo-bad-container');
+    cont.dataset.photo = base64;
+    cont.innerHTML = `<div class="relative w-full h-24 rounded-lg overflow-hidden border border-red-300 shadow-sm mt-1"><img src="${base64}" class="w-full h-full object-cover"><button onclick="removeTwiBadPhoto()" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-xs shadow-md">✕</button></div>`;
+}
+function removeTwiBadPhoto() {
+    const cont = document.getElementById('twi-photo-bad-container');
+    cont.dataset.photo = '';
+    cont.innerHTML = `<button onclick="document.getElementById('twi-photo-bad-input').click()" class="w-full h-full min-h-[80px] bg-white dark:bg-slate-800 border border-dashed border-red-300 py-4 rounded-lg text-[10px] font-bold text-red-600 active:scale-95 transition-all">➕ Загрузить фото</button>`;
+}
+
+function handleTwiPdfUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+        event.target.value = '';
+        return alert("Файл слишком большой! Максимум 5 МБ для оффлайн БД.");
+    }
+    
+    showToast("⚙️ Загружаем PDF в память...");
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const base64 = e.target.result;
+        renderPdfFile(file.name, (file.size / 1024 / 1024).toFixed(1) + ' MB', base64);
+        event.target.value = '';
+    }
+    reader.readAsDataURL(file);
+}
+function renderPdfFile(name, size, base64) {
+    const cont = document.getElementById('twi-pdf-container');
+    cont.dataset.pdf = base64;
+    document.getElementById('twi-pdf-name').innerText = name;
+    document.getElementById('twi-pdf-size').innerText = size;
+    cont.classList.remove('hidden');
+    cont.nextElementSibling.classList.add('hidden'); // прячем кнопку выбора
+}
+function removeTwiPdf() {
+    const cont = document.getElementById('twi-pdf-container');
+    cont.dataset.pdf = '';
+    cont.classList.add('hidden');
+    cont.nextElementSibling.classList.remove('hidden'); // показываем кнопку выбора
+}
+
+// 4. ДОБАВЛЕНИЕ ШАГА (ДЛЯ РАБОЧЕГО TWI)
+function addTwiStep(data = null) {
+    twiStepCount++;
+    const stepId = `twi-step-${twiStepCount}`;
+    const text = data ? data.text : '';
+    const time = data ? data.time : '';
+    const photoSrc = data ? data.photo : null;
+    
+    const photoHtml = photoSrc ? 
+        `<div class="relative w-full h-32 rounded-lg overflow-hidden border border-slate-200 shadow-sm mt-2"><img src="${photoSrc}" class="w-full h-full object-cover" id="img-${stepId}"><button onclick="removeTwiPhoto('${stepId}')" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-xs shadow-md">✕</button></div>` : 
+        `<button onclick="triggerTwiPhotoUpload('${stepId}')" class="w-full mt-2 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 py-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 font-bold text-[10px] uppercase active:scale-95 transition-colors flex items-center justify-center gap-2" id="btn-photo-${stepId}">📸 Прикрепить фото/схему</button>`;
+
+    const html = `
+        <div id="${stepId}" class="twi-step-item bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm relative transition-all">
+            <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-700 pb-2 mb-2">
+                <div class="font-black text-[12px] text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5"><span class="w-5 h-5 bg-indigo-100 dark:bg-indigo-900/50 rounded flex items-center justify-center">${twiStepCount}</span> Шаг</div>
+                <button onclick="document.getElementById('${stepId}').remove()" class="text-red-400 active:scale-90 font-black text-sm px-2">✕</button>
+            </div>
+            <textarea class="input-base text-[12px] h-16 resize-none mb-2 twi-step-text" placeholder="Опишите действие...">${text}</textarea>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-[10px] font-bold text-slate-500 uppercase flex-1">Время на операцию:</span>
+                <input type="number" class="input-base !w-24 text-center !py-1 text-[11px] twi-step-time" placeholder="Мин." value="${time}">
+            </div>
+            <div class="twi-photo-container" data-photo="${photoSrc || ''}">${photoHtml}</div>
+        </div>`;
+    document.getElementById('twi-steps-container').insertAdjacentHTML('beforeend', html);
+}
+
+function triggerTwiPhotoUpload(stepId) { currentTwiStepUploadId = stepId; document.getElementById('twi-photo-input').click(); }
+
+function handleTwiPhotoUpload(event) {
+    if (!event.target.files[0] || !currentTwiStepUploadId) return;
+    compressImageToBase64(event.target.files[0], 800, 0.8, (base64) => {
+        const container = document.getElementById(currentTwiStepUploadId).querySelector('.twi-photo-container');
+        container.dataset.photo = base64;
+        container.innerHTML = `<div class="relative w-full h-32 rounded-lg overflow-hidden border border-slate-200 shadow-sm mt-2"><img src="${base64}" class="w-full h-full object-cover"><button onclick="removeTwiPhoto('${currentTwiStepUploadId}')" class="absolute top-1 right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-black text-xs shadow-md">✕</button></div>`;
+        event.target.value = '';
+    });
+}
+
+function removeTwiPhoto(stepId) {
+    const container = document.getElementById(stepId).querySelector('.twi-photo-container');
+    container.dataset.photo = '';
+    container.innerHTML = `<button onclick="triggerTwiPhotoUpload('${stepId}')" class="w-full mt-2 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 py-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 font-bold text-[10px] uppercase active:scale-95 transition-colors flex items-center justify-center gap-2">📸 Прикрепить фото/схему</button>`;
+}
+
+// 5. СОХРАНЕНИЕ TWI КАРТЫ С УЧЕТОМ ТИПОВ
+async function saveTwiCard() {
+    const title = document.getElementById('twi-title-input').value.trim();
+    const select = document.getElementById('twi-checklist-select');
+    const checklistKey = select.value;
+    const checklistName = select.options[select.selectedIndex]?.text || 'Без привязки';
+
+    if (!title || !checklistKey) return showToast("⚠️ Укажите название и привязку к чек-листу!");
+
+    let cardData = {
+        id: currentEditingTwiId || 'twi_' + Date.now().toString(36),
+        title: title,
+        checklistKey: checklistKey,
+        checklistName: checklistName,
+        type: currentTwiType // 'INSPECTOR', 'WORKER', 'PDF'
+    };
+
+    if (currentTwiType === 'INSPECTOR') {
+        const itemId = document.getElementById('twi-item-select').value;
+        const why = document.getElementById('twi-why-input').value.trim();
+        const how = document.getElementById('twi-how-input').value.trim();
+        const pGood = document.getElementById('twi-photo-good-container').dataset.photo;
+        const pBad = document.getElementById('twi-photo-bad-container').dataset.photo;
+
+        if (!itemId) return showToast("⚠️ Выберите конкретный пункт контроля!");
+        if (!why || !how) return showToast("⚠️ Заполните описания (Почему важно / Как проверять)!");
+
+        cardData.itemId = parseInt(itemId);
+        cardData.whyImportant = why;
+        cardData.howToCheck = how;
+        cardData.photoGood = pGood || null;
+        cardData.photoBad = pBad || null;
+
+    } else if (currentTwiType === 'WORKER') {
+        const stepEls = document.getElementById('twi-steps-container').querySelectorAll('.twi-step-item');
+        if (stepEls.length === 0) return showToast("⚠️ Добавьте хотя бы один шаг!");
+
+        const steps = []; let totalTime = 0; let isValid = true;
+        stepEls.forEach((el, index) => {
+            const text = el.querySelector('.twi-step-text').value.trim();
+            const time = parseInt(el.querySelector('.twi-step-time').value) || 0;
+            const photo = el.querySelector('.twi-photo-container').dataset.photo || null;
+            if (!text) isValid = false;
+            totalTime += time;
+            steps.push({ order: index + 1, text: text, time: time, photo: photo });
+        });
+
+        if (!isValid) return showToast("⚠️ Заполните текст во всех шагах!");
+        cardData.totalTime = totalTime;
+        cardData.steps = steps;
+
+    } else if (currentTwiType === 'PDF') {
+        const pdfData = document.getElementById('twi-pdf-container').dataset.pdf;
+        if (!pdfData) return showToast("⚠️ Загрузите PDF-файл!");
+        cardData.pdfData = pdfData;
+        cardData.pdfName = document.getElementById('twi-pdf-name').innerText;
+        cardData.pdfSize = document.getElementById('twi-pdf-size').innerText;
+    }
+
+    if (currentEditingTwiId) {
+        const index = customTwiCards.findIndex(c => c.id === currentEditingTwiId);
+        if (index !== -1) customTwiCards[index] = cardData;
+    } else {
+        customTwiCards.push(cardData);
+    }
+
+    try {
+        await dbPut(STORES.SETTINGS, { key: 'custom_twi_cards', data: customTwiCards });
+        showToast("✅ Инструкция успешно сохранена!");
+        closeTwiConstructor();
+    } catch (e) {
+        console.error(e);
+        showToast("❌ Ошибка при сохранении. Возможно файл слишком большой.");
+    }
+}
+
+// 6. УДАЛЕНИЕ КАРТЫ
+async function deleteTwiCard(id) {
+    if (!confirm('Удалить эту инструкцию безвозвратно?')) return;
+    customTwiCards = customTwiCards.filter(c => c.id !== id);
+    try {
+        await dbPut(STORES.SETTINGS, { key: 'custom_twi_cards', data: customTwiCards });
+        showToast("🗑️ Инструкция удалена");
+        renderTwiList();
+    } catch (e) { showToast("❌ Ошибка удаления"); }
+}
+
+// === УПРАВЛЕНИЕ АККОРДЕОНАМИ (СПРАВОЧНИК) ===
+function toggleManagePanel() {
+    const body = document.getElementById('ref-manage-body');
+    const icon = document.getElementById('ref-manage-toggle-icon');
+    
+    if (!body || !icon) return;
+
+    if (body.style.maxHeight === '0px' || !body.style.maxHeight) {
+        // Открываем панель управления
+        body.style.maxHeight = '400px';
+        body.style.opacity = '1';
+        body.style.marginTop = '12px';
+        icon.style.transform = 'rotate(0deg)';
+        
+        // Рендерим список шаблонов, если он пуст
+        if (typeof renderSettingsTab === 'function') {
+            renderSettingsTab();
+        }
+    } else {
+        // Скрываем панель управления
+        body.style.maxHeight = '0px';
+        body.style.opacity = '0';
+        body.style.marginTop = '0px';
+        icon.style.transform = 'rotate(-90deg)';
+    }
+}
+// ==========================================
+// БЛОК: БИБЛИОТЕКА ТЕХНИЧЕСКИХ УЗЛОВ
+// ==========================================
+
+// Вшитые в систему узлы (Справочник)
+const SYSTEM_NODES = [
+    {
+        id: 'node_1',
+        category: 'ФАСАД',
+        title: 'Узел примыкания НВФ к оконному блоку',
+        desc: 'Типовое решение монтажа откоса из оцинкованной стали с полимерным покрытием с устройством противопожарной отсечки.',
+        img: 'https://via.placeholder.com/800x600.png?text=Схема+Примыкания+Окна', // В реальности тут будет Base64 или путь к картинке
+        materials: [
+            { name: 'Кронштейн несущий КН-200', qty: '2 шт/м' },
+            { name: 'Утеплитель минватный 100мм', qty: '1.05 м2/м2' },
+            { name: 'Дюбель фасадный 10х120', qty: '5 шт/м2' },
+            { name: 'Откос стальной (t=0.55мм)', qty: 'По проекту' }
+        ],
+        linkedDoc: 'СП 522.1325800.2023',
+        linkedTwiChecklistKey: 'sys_nvf_facade' // Ищет TWI карту, привязанную к фасаду
+    },
+    {
+        id: 'node_2',
+        category: 'КЖ',
+        title: 'Узел армирования пилона (П-1)',
+        desc: 'Схема расположения продольной и поперечной арматуры пилона первого этажа. Шаг хомутов в зоне перехлеста.',
+        img: 'https://via.placeholder.com/800x600.png?text=Схема+Армирования+Пилона',
+        materials: [
+            { name: 'Арматура A500C Ø16 (Продольная)', qty: '8 стержней' },
+            { name: 'Арматура A240 Ø8 (Хомуты)', qty: 'Шаг 100/200' },
+            { name: 'Фиксатор защитного слоя "Звездочка" 30мм', qty: '4 шт/м2' }
+        ],
+        linkedDoc: 'СП 70.13330.2012',
+        linkedTwiChecklistKey: 'sys_armature'
+    },
+    {
+        id: 'node_3',
+        category: 'КЖ',
+        title: 'Узел опирания лестничного марша',
+        desc: 'Требования к минимальной глубине опирания сборного железобетонного марша на лестничную площадку.',
+        img: 'https://via.placeholder.com/800x600.png?text=Опирание+Марша',
+        materials: [
+            { name: 'Раствор цементный М150', qty: 'Толщина 10-15мм' },
+            { name: 'Закладная деталь ЗД-1', qty: '2 шт' }
+        ],
+        linkedDoc: 'ГОСТ 9818-2015',
+        linkedTwiChecklistKey: 'sys_vent_stairs'
+    }
+];
+
+let currentNodeFilter = 'ALL';
+
+function renderNodesList() {
+    const container = document.getElementById('nodes-list-container');
+    const searchInput = document.getElementById('node-search-input')?.value.toLowerCase() || '';
+    if (!container) return;
+
+    let filtered = SYSTEM_NODES.filter(node => {
+        const matchSearch = node.title.toLowerCase().includes(searchInput) || node.desc.toLowerCase().includes(searchInput);
+        const matchFilter = currentNodeFilter === 'ALL' || node.category === currentNodeFilter;
+        return matchSearch && matchFilter;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-500 text-sm font-bold bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">Узлы не найдены</div>`;
+        return;
+    }
+
+    container.innerHTML = filtered.map(node => `
+        <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl overflow-hidden shadow-sm flex flex-col cursor-pointer active:scale-[0.98] transition-transform" onclick="openNodeViewer('${node.id}')">
+            <div class="h-28 bg-white dark:bg-slate-800 border-b border-[var(--card-border)] p-2">
+                <img src="${node.img}" class="w-full h-full object-contain opacity-90">
+            </div>
+            <div class="p-3 flex-1 flex flex-col">
+                <div class="text-[8px] font-black text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-0.5 rounded w-fit mb-1.5 uppercase">${node.category}</div>
+                <div class="text-[11px] font-bold text-slate-800 dark:text-white leading-tight line-clamp-2">${node.title}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterNodes(category, btnElement) {
+    currentNodeFilter = category;
+    const container = document.getElementById('node-filters-container');
+    container.querySelectorAll('.node-filter-btn').forEach(btn => {
+        btn.className = "node-filter-btn px-3 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 active:scale-95 whitespace-nowrap border border-slate-200 dark:border-slate-700";
+    });
+    btnElement.className = "node-filter-btn px-3 py-1.5 rounded-lg text-[10px] font-bold bg-indigo-600 text-white shadow-sm active:scale-95 whitespace-nowrap border border-indigo-600";
+    renderNodesList();
+}
+
+function openNodeViewer(nodeId) {
+    const node = SYSTEM_NODES.find(n => n.id === nodeId);
+    if (!node) return;
+
+    document.getElementById('viewer-node-category').innerText = node.category;
+    document.getElementById('viewer-node-title').innerText = node.title;
+    document.getElementById('viewer-node-desc').innerText = node.desc;
+    document.getElementById('viewer-node-img').src = node.img;
+
+    const matTbody = document.getElementById('viewer-node-materials');
+    matTbody.innerHTML = node.materials.map(m => `
+        <tr>
+            <td class="p-2 font-medium text-slate-700 dark:text-slate-300">${m.name}</td>
+            <td class="p-2 text-right font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">${m.qty}</td>
+        </tr>
+    `).join('');
+
+    // Находим привязанную TWI карту (если есть)
+    const linkedTwi = customTwiCards.find(c => c.checklistKey === node.linkedTwiChecklistKey);
+    const twiBtnHtml = linkedTwi 
+        ? `<button onclick="closeNodeViewer(); setTimeout(()=>openTwiViewer('${linkedTwi.id}'), 300)" class="bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400 py-3 rounded-xl text-[10px] font-bold uppercase shadow-sm active:scale-95 flex items-center justify-center gap-1.5"><span>🛠️</span> TWI Монтажа</button>`
+        : `<div class="bg-slate-50 text-slate-400 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 py-3 rounded-xl text-[10px] font-bold uppercase flex items-center justify-center gap-1.5 opacity-70"><span>🚫</span> TWI Нет</div>`;
+
+    document.getElementById('viewer-node-links').innerHTML = `
+        <button onclick="closeNodeViewer(); setTimeout(()=>findAndOpenND('${node.linkedDoc}'), 300)" class="bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400 py-3 rounded-xl text-[10px] font-bold uppercase shadow-sm active:scale-95 flex items-center justify-center gap-1.5">
+            <span>📚</span> ${node.linkedDoc}
+        </button>
+        ${twiBtnHtml}
+    `;
+
+    const overlay = document.getElementById('node-viewer-overlay');
+    overlay.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+}
+
+function closeNodeViewer() {
+    const overlay = document.getElementById('node-viewer-overlay');
+    overlay.classList.add('opacity-0');
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }, 300);
 }
