@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rbi-quality-v16.2.0';
+const CACHE_NAME = 'rbi-quality-v16.22.0';
 
 // Добавили внешние библиотеки, чтобы приложение было на 100% автономным при первом же запуске
 const urlsToCache = [
