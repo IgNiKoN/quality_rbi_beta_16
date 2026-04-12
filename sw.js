@@ -1,6 +1,8 @@
-const CACHE_NAME = 'rbi-quality-v16.22.0';
+/* Файл: sw.js */
+// ОБЯЗАТЕЛЬНО МЕНЯЕМ ВЕРСИЮ, чтобы браузер понял, что вышел новый код!
+const CACHE_NAME = 'rbi-quality-v16.2.1'; 
 
-// Добавили внешние библиотеки, чтобы приложение было на 100% автономным при первом же запуске
+// Оставляем ЗДЕСЬ ТОЛЬКО ЛОКАЛЬНЫЕ ФАЙЛЫ (чтобы установка SW никогда не падала)
 const urlsToCache = [
   './',
   './index.html',
@@ -9,22 +11,18 @@ const urlsToCache = [
   './js/templates.js',
   './js/math.js',
   './js/app.js',
-  './manifest.webmanifest',
-  'https://cdn.tailwindcss.com',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
+  './manifest.webmanifest'
 ];
 
-// 1. УСТАНОВКА: Скачиваем все файлы в память
+// 1. УСТАНОВКА: Скачиваем локальные файлы в память
 self.addEventListener('install', event => {
+  self.skipWaiting(); // ЗАСТАВЛЯЕМ новый SW примениться немедленно (не ждать закрытия вкладок)
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('[SW] Кэшируем ядро приложения...');
-        return cache.addAll(urlsToCache);
-      })
+    caches.open(CACHE_NAME).then(cache => {
+      console.log('[SW] Кэшируем ядро приложения...');
+      return cache.addAll(urlsToCache);
+    })
   );
-  self.skipWaiting(); // Заставляем SW примениться немедленно
 });
 
 // 2. АКТИВАЦИЯ: Жестко удаляем старые версии кэша
@@ -41,36 +39,35 @@ self.addEventListener('activate', event => {
       );
     })
   );
-  self.clients.claim(); // Немедленно берем контроль над открытыми страницами
+  self.clients.claim(); // Немедленно перехватываем контроль над всеми открытыми страницами
 });
 
-// 3. ПЕРЕХВАТ ЗАПРОСОВ: Стратегия "Stale-While-Revalidate" (Сначала кэш, но тихо обновляем в фоне)
+// 3. ПЕРЕХВАТ ЗАПРОСОВ: Stale-While-Revalidate (Устаревшее, пока обновляется)
 self.addEventListener('fetch', event => {
+  // Игнорируем запросы, которые не относятся к HTTP/HTTPS (например, chrome-extension://)
   if (!event.request.url.startsWith('http')) return;
+  // Игнорируем всё, кроме GET запросов
+  if (event.request.method !== 'GET') return;
 
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       
-      // Независимо от того, нашли мы файл в кэше или нет, мы делаем запрос в сеть (в фоне)
+      // Фоновый запрос в сеть за свежей версией
       const fetchPromise = fetch(event.request).then(networkResponse => {
-        // Проверяем, что ответ нормальный (или это непрозрачный ответ от CDN, типа Tailwind)
-        if (!networkResponse || (networkResponse.status !== 200 && networkResponse.type !== 'opaque')) {
-          return networkResponse;
+        // Если ответ ок (или это непрозрачный ответ от CDN типа Tailwind) — кэшируем его "на лету"
+        if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, responseToCache);
+          });
         }
-        
-        // Клонируем свежий ответ и кладем его в кэш (тихо обновляем старый)
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseToCache);
-        });
-        
         return networkResponse;
-      }).catch(() => {
-        console.log('[SW] Офлайн режим: мы без интернета, используем только кэш.');
+      }).catch(err => {
+        console.log('[SW] Офлайн режим. Сеть недоступна.', err);
       });
 
-      // Если файл есть в кэше — отдаем его МГНОВЕННО (пользователь не ждет сеть).
-      // Если файла в кэше нет — ждем ответа от сети (fetchPromise).
+      // СНАЧАЛА отдаем кэш (если он есть). А в фоне уже пошел fetchPromise обновлять файлы.
+      // Если кэша нет (например, впервые грузим Tailwind) — ждем fetchPromise.
       return cachedResponse || fetchPromise;
     })
   );
