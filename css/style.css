@@ -582,3 +582,15 @@ body.nav-pos-top #fab-download-btn { bottom: 30px; }
 @media (min-width: 896px) {
     #fab-download-btn { right: calc(50vw - 26rem + 16px) !important; }
 }
+
+/* === ИНТЕРАКТИВНЫЙ ТУТОРИАЛ === */
+.tut-relative {
+    position: relative !important;
+}
+.tut-highlight {
+    z-index: 10001 !important;
+    box-shadow: 0 0 0 4px var(--primary), 0 15px 30px rgba(0,0,0,0.4) !important;
+    background-color: var(--card-bg) !important;
+    border-radius: 12px !important;
+    transition: box-shadow 0.3s ease, background-color 0.3s ease;
+}

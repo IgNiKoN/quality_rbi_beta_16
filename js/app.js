@@ -678,13 +678,17 @@ function showHistoryDetail(id) {
 // === ШАПКА И ВЫБОР ЧЕК-ЛИСТА ===
 // === ШАПКА И ВЫБОР ЧЕК-ЛИСТА ===
 function renderSelector() {
-    // 1. Селектор в Осмотре
+    // Селекторы в шапке
     const sysGroup = document.getElementById('system-group');
     const userGroup = document.getElementById('user-group');
     
-    // 2. Селектор в Справочнике
+    // Селекторы в Справочнике
     const refSysGroup = document.getElementById('ref-system-group');
     const refUserGroup = document.getElementById('ref-user-group');
+
+    // Селекторы на стартовом экране (Фейковые)
+    const fakeSysGroup = document.getElementById('fake-system-group');
+    const fakeUserGroup = document.getElementById('fake-user-group');
 
     let sysHtml = Object.keys(SYSTEM_TEMPLATES).map(key => `<option value="sys_${key}">${SYSTEM_TEMPLATES[key].title}</option>`).join('');
     let userKeys = Object.keys(userTemplates);
@@ -695,6 +699,9 @@ function renderSelector() {
     
     if(refSysGroup) refSysGroup.innerHTML = sysHtml;
     if(refUserGroup) refUserGroup.innerHTML = userHtml;
+
+    if(fakeSysGroup) fakeSysGroup.innerHTML = sysHtml;
+    if(fakeUserGroup) fakeUserGroup.innerHTML = userHtml;
 
     if(currentTemplateKey) {
         const sel = document.getElementById('checklist-selector');
@@ -715,11 +722,18 @@ function changeTemplate(val) {
         if(document.getElementById('checklist-selector')) document.getElementById('checklist-selector').value = ''; 
         state = {}; details = {}; photos = {};
         switchTab('tab-audit');
+        
         document.getElementById('empty-checklist-state').style.display = 'block';
         document.getElementById('audit-items').style.display = 'none';
         document.getElementById('audit-actions').style.display = 'none';
-        document.getElementById('data-block-summary').innerText = '';
-        if(document.getElementById('current-checklist-label')) document.getElementById('current-checklist-label').innerText = 'Чек-лист не выбран';
+        
+        // ОЧИЩАЕМ НАВИГАЦИЮ
+        const nav = document.getElementById('audit-group-nav');
+        if(nav) { nav.innerHTML = ''; nav.classList.add('hidden'); }
+        
+        document.getElementById('data-block-summary')?.classList.add('hidden');
+        if(document.getElementById('current-checklist-label')) document.getElementById('current-checklist-label').innerText = 'Вид работ не выбран';
+        
         saveSessionData();
         return;
     }
@@ -1526,7 +1540,10 @@ function startDemoMode() {
     isDemoMode = true;
     document.body.classList.add('demo-mode');
     
-    // Генерируем фейковую базу (она уже исправлена нами в Шаге 2)
+    // Показываем кнопку Выхода слева сверху
+    const fabExit = document.getElementById('fab-exit-demo');
+    if(fabExit) { fabExit.classList.remove('hidden'); fabExit.style.display = 'flex'; }
+    
     contractorArray = generateDemoHistory();
 
     document.getElementById('inp-project').value = 'ЖК "Демонстрационный"';
@@ -1534,22 +1551,14 @@ function startDemoMode() {
     document.getElementById('inp-contractor').value = 'ООО "Монолит-Строй"';
     document.getElementById('inp-location').value = 'Секция 2, Пилон П-10';
 
-    // Включаем РЕАЛЬНЫЙ системный шаблон "Арматурные работы"
     currentTemplateKey = 'sys_armature';
     if(document.getElementById('checklist-selector')) document.getElementById('checklist-selector').value = currentTemplateKey;
     currentChecklist = SYSTEM_TEMPLATES['armature'].groups;
     
-    // Имитируем заполнение чек-листа реальными ID из шаблона armature
     state = {}; details = {}; photos = {};
-    
-    // 201 - Документация (Этап 1)
     state['201'] = 'ok';
-    // 204 - Отклонение шага (B2) (Этап 2)
-    state['204'] = 'fail'; 
-    details['204'] = { causeCode: 'C04', comment: '[Персонал] Отклонение превышает допуск на 5мм' };
-    // 210 - Защитный слой (Критический B3 через эскалацию) (Этап 2)
-    state['210'] = 'fail_escalated'; 
-    details['210'] = { causeCode: 'C01', comment: '[Технология] Жесткое нарушение, арматура торчит' };
+    state['204'] = 'fail'; details['204'] = { causeCode: 'C04', comment: '[Персонал] Отклонение превышает допуск на 5мм' };
+    state['210'] = 'fail_escalated'; details['210'] = { causeCode: 'C01', comment: '[Технология] Жесткое нарушение, арматура торчит' };
 
     updateDataSummary();
     document.getElementById('empty-checklist-state').style.display = 'none';
@@ -1557,17 +1566,13 @@ function startDemoMode() {
     document.getElementById('audit-actions').style.display = 'grid';
     
     render(); updateUI();
-    // НОВОЕ: Принудительно рендерим остальные вкладки, чтобы данные появились сразу
-    renderHistoryTab(); 
-    renderCurrentAnalyticsTab(); 
+    renderHistoryTab(); renderCurrentAnalyticsTab(); 
     
     showToast('🎮 Демо-режим активирован!');
-    toggleDataBlock(true); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function exitDemoMode() {
-    // Восстанавливаем реальные данные
     state = JSON.parse(JSON.stringify(realState));
     details = JSON.parse(JSON.stringify(realDetails));
     photos = JSON.parse(JSON.stringify(realPhotos));
@@ -1576,24 +1581,20 @@ function exitDemoMode() {
     isDemoMode = false;
     document.body.classList.remove('demo-mode');
     
+    // Прячем кнопку Выхода
+    const fabExit = document.getElementById('fab-exit-demo');
+    if(fabExit) { fabExit.classList.add('hidden'); fabExit.style.display = 'none'; }
+    
     document.getElementById('inp-project').value = '';
     document.getElementById('inp-inspector').value = '';
     document.getElementById('inp-contractor').value = '';
     document.getElementById('inp-location').value = '';
     
-    if (realTemplateKey) {
-        changeTemplate(realTemplateKey);
-    } else {
-        currentTemplateKey = '';
-        if(document.getElementById('checklist-selector')) document.getElementById('checklist-selector').value = '';
-        document.getElementById('empty-checklist-state').style.display = 'block';
-        document.getElementById('audit-items').style.display = 'none';
-        document.getElementById('audit-actions').style.display = 'none';
-    }
+    if (realTemplateKey) changeTemplate(realTemplateKey);
+    else changeTemplate('HOME');
 
     switchTab('tab-audit');
     updateDataSummary();
-    render(); updateUI();
     showToast('Возврат к реальным данным');
 }
 
@@ -3257,21 +3258,25 @@ function printPdfShell(title, content) {
     const inspName = document.getElementById('inp-inspector')?.value || 'Не указан';
     
     const html = `
-    <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>${title}</title>
+    <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
+    <!-- ИСПРАВЛЕНО: Добавлен Viewport для мобильных телефонов -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>${title}</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        /* Печать А3 Альбомная */
         @page { size: A3 landscape; margin: 15mm; }
         
-        body { font-family: 'Inter', sans-serif; color: #0f172a; margin: 0; padding: 0; background: #e2e8f0; font-size: 13px; line-height: 1.5; }
+        body { font-family: 'Inter', sans-serif; color: #0f172a; margin: 0; padding: 0; background: #e2e8f0; font-size: 13px; line-height: 1.5; overflow-x: hidden; }
         
+        /* ИСПРАВЛЕНО: Контейнер не вылезает за экран */
         .preview-container {
-            max-width: 400mm; margin: 20px auto; background: white; padding: 20px 25mm; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.15); min-height: 280mm;
+            width: 100%; max-width: 1200px; margin: 20px auto; background: white; 
+            padding: 20px; box-sizing: border-box; box-shadow: 0 10px 25px rgba(0,0,0,0.15); min-height: 100vh; overflow-x: hidden;
         }
         
-        .print-controls { position: fixed; bottom: 30px; right: 20px; display: flex; flex-direction: column; gap: 12px; z-index: 1000; }
-        .btn { width: 60px; height: 60px; border-radius: 30px; display: flex; justify-content: center; align-items: center; cursor: pointer; border: none; box-shadow: 0 10px 15px rgba(0,0,0,0.2); font-size: 24px; }
+        /* ИСПРАВЛЕНО: Кнопки фиксируются четко */
+        .print-controls { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10000; }
+        .btn { width: 50px; height: 50px; border-radius: 25px; display: flex; justify-content: center; align-items: center; cursor: pointer; border: none; box-shadow: 0 10px 15px rgba(0,0,0,0.2); font-size: 20px; outline: none; -webkit-tap-highlight-color: transparent;}
         .btn-print { background: #4f46e5; color: white; }
         .btn-close { background: #475569; color: white; }
         
@@ -3283,28 +3288,28 @@ function printPdfShell(title, content) {
         }
         
         .header { border-bottom: 3px solid #1e293b; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
-        .header-title { font-size: 24px; font-weight: 900; text-transform: uppercase; margin: 0; }
-        .header-meta { font-size: 11px; color: #64748b; text-align: right; }
-        .section-title { font-size: 18px; background: #1e293b; color: white; padding: 10px 15px; border-radius: 6px; text-transform: uppercase; margin-bottom: 20px; }
+        .header-title { font-size: 20px; font-weight: 900; text-transform: uppercase; margin: 0; }
+        .header-meta { font-size: 10px; color: #64748b; text-align: right; }
+        .section-title { font-size: 16px; background: #1e293b; color: white; padding: 10px 15px; border-radius: 6px; text-transform: uppercase; margin-bottom: 20px; }
         
-        /* Таблицы */
-        .data-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 25px; }
-        .data-table th { background: #f1f5f9; padding: 12px; border: 1px solid #cbd5e1; color: #475569; text-transform: uppercase; }
-        .data-table td { padding: 12px; border: 1px solid #cbd5e1; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 25px; }
+        .data-table th { background: #f1f5f9; padding: 10px; border: 1px solid #cbd5e1; color: #475569; text-transform: uppercase; }
+        .data-table td { padding: 10px; border: 1px solid #cbd5e1; }
         .data-table tr:nth-child(even) { background-color: #f8fafc; }
         
-        /* Сетки для графиков и KPI */
+        /* ИСПРАВЛЕНО: Изображения графиков не рвут контейнер */
+        img { max-width: 100%; height: auto; }
+        
+        /* Адаптивные сетки для телефона и печати */
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
-        .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+        .grid-5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
         
-        /* Фото-галерея */
         .photo-card { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; }
-        .photo-card img { width: 100%; height: 180px; object-fit: cover; display: block; border-bottom: 1px solid #cbd5e1; }
-        .photo-label { padding: 8px; font-size: 10px; line-height: 1.3; color: #334155; }
+        .photo-card img { width: 100%; height: 140px; object-fit: cover; display: block; border-bottom: 1px solid #cbd5e1; }
+        .photo-label { padding: 8px; font-size: 10px; line-height: 1.3; color: #334155; word-wrap: break-word;}
         
-        /* Утилиты */
         .text-center { text-align: center; } .font-bold { font-weight: bold; } .text-xl { font-size: 20px; } 
         .mt-20 { margin-top: 20px; } .mb-20 { margin-bottom: 20px; }
     </style></head><body>
@@ -3318,7 +3323,7 @@ function printPdfShell(title, content) {
         <div class="header avoid-break">
             <div>
                 <h1 class="header-title">${title}</h1>
-                <div style="font-size: 13px; margin-top: 6px; font-weight: bold; color: #475569;">Объект: ${projName} | Инспектор: ${inspName}</div>
+                <div style="font-size: 12px; margin-top: 4px; font-weight: bold; color: #475569;">Объект: ${projName} | Инсп: ${inspName}</div>
             </div>
             <div class="header-meta">Сформировано:<br>${new Date().toLocaleString('ru-RU')}<br>RBI Quality Pro</div>
         </div>
@@ -3375,4 +3380,220 @@ function initCollapsiblePanel(panelId, bodyId, headerId, iconId) {
         if (y > 100 && !collapsed) setCollapsed(true);
         else if (y < 40 && collapsed) setCollapsed(false);
     }, { passive: true });
+}
+// === ИНТЕРАКТИВНЫЙ ТУТОРИАЛ (АВТОПИЛОТ) ===
+let currentTutStep = 0;
+let tutOverlay, tutTooltip, tutText, tutArrow, tutStepNum, tutNextBtn;
+let highlightedElement = null;
+
+const tutorialSteps = [
+    {
+        text: "Добро пожаловать в RBI Quality! 👋<br>Здесь мы выбираем вид работ для осмотра из загруженных шаблонов.",
+        targetId: "checklist-selector",
+        action: () => { window.scrollTo({top: 0, behavior: 'smooth'}); }
+    },
+    {
+        text: "В этом блоке вводим данные объекта. Они автоматически сохраняются и пойдут в шапку PDF-отчета.",
+        targetId: "header-data-block",
+        action: () => {
+            document.getElementById('checklist-selector').value = 'sys_armature';
+            changeTemplate('sys_armature');
+            document.getElementById('inp-project').value = 'ЖК Обучающий';
+            document.getElementById('inp-contractor').value = 'ООО Демо-Строй';
+        }
+    },
+    {
+        text: "Это умный мини-дашборд. Он в реальном времени считает УрК (Уровень Качества). Кликните по нему, чтобы увидеть формулу расчета и штрафы.",
+        targetId: "header-dashboard",
+        action: () => {}
+    },
+    {
+        text: "Свайпы по умолчанию выключены, поэтому жмем <b>Зеленую галочку</b> (Всё ОК). Карточка автоматически свернется, чтобы не мешать.",
+        targetId: "card_wrapper_201",
+        action: () => {
+            const el = document.getElementById('card_wrapper_201');
+            if(el) el.scrollIntoView({block: 'center', behavior: 'smooth'});
+            setTimeout(() => toggleOk(201), 600);
+        }
+    },
+    {
+        text: "Если есть брак — жмем <b>Красный крестик</b>. Карточка подсветится красным и появятся дополнительные опции.",
+        targetId: "card_wrapper_204",
+        action: () => {
+            const el = document.getElementById('card_wrapper_204');
+            if(el) el.scrollIntoView({block: 'center', behavior: 'smooth'});
+            setTimeout(() => toggleFail(204), 600);
+        }
+    },
+    {
+        text: "Теперь к дефекту можно прикрепить 📸 <b>Фото</b>, написать 💬 <b>Комментарий</b> (с выбором причины), или нажать <b>>1.5</b>, чтобы сделать дефект критическим (B3).",
+        targetId: "card_wrapper_204",
+        action: () => {
+            setTimeout(() => toggleEscalation(204), 600); // Робот нажимает >1.5
+        }
+    },
+    {
+        text: "После осмотра сохраняем акт (кнопка внизу экрана). А мы перейдем во вкладку <b>История</b>.",
+        targetSelector: ".bottom-nav .nav-item[data-tab='tab-history']",
+        action: () => { switchTab('tab-history'); }
+    },
+    {
+        text: "В Истории лежат все сохраненные инспекции. Здесь их можно фильтровать по подрядчикам, датам или массово удалять.",
+        targetId: "hist-sticky-panel",
+        action: () => { window.scrollTo({top: 0, behavior: 'smooth'}); }
+    },
+    {
+        text: "Переходим в <b>Аналитику</b>. Это самый мощный раздел. Система сама строит графики и пишет смарт-заключения.",
+        targetSelector: ".bottom-nav .nav-item[data-tab='tab-analytics']",
+        action: () => { switchTab('tab-analytics'); }
+    },
+    {
+        text: "Здесь есть 4 подвкладки:<br><b>Рейтинг</b> (сравнение подрядчиков), <b>Инженерия</b> (глубокий анализ причин брака), <b>Сводка</b> (отчет для шефа) и <b>База</b>.",
+        targetId: "analytics-subtabs-block",
+        action: () => { window.scrollTo({top: 0, behavior: 'smooth'}); }
+    },
+    {
+        text: "А вот и круглая кнопка <b>Скачать PDF</b>! Нажмите её, чтобы выгрузить готовую аналитику со всеми графиками и фото.",
+        targetId: "fab-download-btn",
+        action: () => {
+            const fab = document.getElementById('fab-download-btn');
+            if(fab) { 
+                fab.classList.remove('hidden'); 
+                fab.style.display = 'flex'; 
+                // Немного прокрутим, чтобы кнопка была в центре внимания
+                window.scrollTo({top: 200, behavior: 'smooth'});
+            }
+        }
+    },
+    {
+        text: "В <b>Справочнике</b> лежат СНиП и ГОСТ, а в <b>Настройках</b> можно включить темную тему и сбросить кэш.<br><br><b>Обучение завершено!</b>",
+        targetSelector: ".bottom-nav .nav-item[data-tab='tab-settings']",
+        action: () => { switchTab('tab-settings'); },
+        isEnd: true
+    }
+];
+
+function startInteractiveTutorial() {
+    currentTutStep = 0;
+    tutOverlay = document.getElementById('tutorial-overlay');
+    tutTooltip = document.getElementById('tutorial-tooltip');
+    tutText = document.getElementById('tut-text');
+    tutArrow = document.getElementById('tut-arrow');
+    tutStepNum = document.getElementById('tut-step');
+    tutNextBtn = document.getElementById('tut-next-btn');
+    document.getElementById('tut-total').innerText = tutorialSteps.length;
+
+    tutOverlay.classList.remove('hidden');
+    tutTooltip.classList.remove('hidden');
+    
+    setTimeout(() => { tutOverlay.classList.remove('opacity-0'); }, 10);
+    showTutorialStep();
+}
+
+function showTutorialStep() {
+    const step = tutorialSteps[currentTutStep];
+    if(!step) return stopTutorial();
+
+    // Снимаем старую подсветку
+    if (highlightedElement) {
+        highlightedElement.classList.remove('tut-highlight', 'tut-relative');
+        highlightedElement = null;
+    }
+
+    // Выполняем действие шага (робот нажимает кнопки)
+    if(step.action) step.action();
+
+    // Ждем окончания скролла и анимаций
+    setTimeout(() => {
+        let target = step.targetId ? document.getElementById(step.targetId) : document.querySelector(step.targetSelector);
+        
+        if(target) {
+            highlightedElement = target;
+            
+            // Если у элемента не задано позиционирование, даем ему tut-relative, чтобы сработал z-index
+            const computedStyle = window.getComputedStyle(target);
+            if (computedStyle.position === 'static') {
+                target.classList.add('tut-relative');
+            }
+            
+            // Добавляем красивую подсветку поверх затемнения
+            target.classList.add('tut-highlight');
+            
+            // Умное позиционирование тултипа
+            const rect = target.getBoundingClientRect();
+            
+            tutTooltip.style.left = '50%';
+            tutTooltip.style.transform = 'translate(-50%, 0)';
+            
+            // Вычисляем, куда поставить подсказку: сверху или снизу
+            if (rect.top > 250) {
+                tutTooltip.style.top = (rect.top - tutTooltip.offsetHeight - 20) + 'px';
+                tutArrow.style.top = 'auto';
+                tutArrow.style.bottom = '-6px';
+            } else {
+                tutTooltip.style.top = (rect.bottom + 20) + 'px';
+                tutArrow.style.bottom = 'auto';
+                tutArrow.style.top = '-6px';
+            }
+            tutArrow.style.left = '50%';
+            tutArrow.style.transform = 'translateX(-50%) rotate(45deg)';
+        } else {
+            // Центруем, если таргета нет
+            tutTooltip.style.top = '50%';
+            tutTooltip.style.left = '50%';
+            tutTooltip.style.transform = 'translate(-50%, -50%)';
+            tutArrow.style.display = 'none';
+        }
+
+        tutStepNum.innerText = currentTutStep + 1;
+        tutText.innerHTML = step.text;
+        
+        if(step.isEnd) {
+            tutNextBtn.innerText = "Запустить Демо ➔";
+            tutNextBtn.classList.remove('bg-indigo-600');
+            tutNextBtn.classList.add('bg-green-600');
+        } else {
+            tutNextBtn.innerText = "Понятно ➔";
+            tutNextBtn.classList.add('bg-indigo-600');
+            tutNextBtn.classList.remove('bg-green-600');
+        }
+
+        tutTooltip.classList.remove('scale-90', 'opacity-0');
+    }, 700); 
+}
+
+function nextTutorialStep() {
+    const step = tutorialSteps[currentTutStep];
+    tutTooltip.classList.add('scale-90', 'opacity-0');
+    
+    setTimeout(() => {
+        if(step.isEnd) {
+            stopTutorial();
+            startDemoMode(); // Запускаем демо
+        } else {
+            currentTutStep++;
+            showTutorialStep();
+        }
+    }, 300);
+}
+
+function stopTutorial() {
+    tutOverlay.classList.add('opacity-0');
+    tutTooltip.classList.add('scale-90', 'opacity-0');
+    
+    if (highlightedElement) {
+        highlightedElement.classList.remove('tut-highlight', 'tut-relative');
+    }
+    
+    // Сбрасываем изменения робота
+    changeTemplate('HOME');
+    
+    setTimeout(() => { 
+        tutOverlay.classList.add('hidden'); 
+        tutTooltip.classList.add('hidden');
+        
+        // Прячем кнопку скачивания, чтобы она не висела на Главном экране
+        const fab = document.getElementById('fab-download-btn');
+        if(fab) { fab.classList.add('hidden'); fab.style.display = 'none'; }
+    }, 500);
 }
