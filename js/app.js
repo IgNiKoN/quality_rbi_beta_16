@@ -154,6 +154,7 @@ async function restoreSession() {
     } catch (e) {
         console.error('Ошибка восстановления:', e);
     }
+    updateAllDynamicFilters();
 }
 
 // === УВЕДОМЛЕНИЯ И МОДАЛКИ (v15 100% совместимость) ===
@@ -361,28 +362,21 @@ function applySettingsToUI() {
     if (activeTab) updateFabButton(activeTab.id);
 }
 
-function renderSettingsTab() {
-    const map = {
-        'set-swipe': appSettings.swipeEnabled,
-        'set-collapse': appSettings.autoCollapseOk,
-        'set-fast': appSettings.fastMode,
-        'set-sortfail': appSettings.sortFailTop,
-        'set-ai': appSettings.aiEnabled,
-        'set-aiauto': appSettings.aiAuto
-    };
-    for (let id in map) {
-        const el = document.getElementById(id);
-        if(el) el.checked = map[id];
+// Вывод списка пользовательских шаблонов для управления (Удаления)
+    const templatesList = document.getElementById('settings-user-templates-list');
+    if (templatesList) {
+        const customKeys = Object.keys(userTemplates);
+        if (customKeys.length === 0) {
+            templatesList.innerHTML = `<div class="text-[10px] text-slate-400 italic py-2 text-center">Созданных чек-листов пока нет</div>`;
+        } else {
+            templatesList.innerHTML = customKeys.map(key => `
+                <div class="flex justify-between items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-2 rounded-lg">
+                    <div class="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate pr-2 flex-1">📋 ${userTemplates[key].title}</div>
+                    <button onclick="deleteUserTemplate('${key}')" class="text-[10px] font-black text-red-500 bg-red-50 dark:bg-red-900/30 px-3 py-1.5 rounded border border-red-100 dark:border-red-900 shadow-sm active:scale-95">УДАЛИТЬ</button>
+                </div>
+            `).join('');
+        }
     }
-    
-    // Новые селекторы
-    if(document.getElementById('set-theme')) document.getElementById('set-theme').value = appSettings.theme || 'auto';
-    if(document.getElementById('set-fontsize')) document.getElementById('set-fontsize').value = appSettings.fontSize || 'medium';
-    if(document.getElementById('set-navpos')) document.getElementById('set-navpos').value = appSettings.navPosition || 'auto';
-    if(document.getElementById('set-apikey')) document.getElementById('set-apikey').value = appSettings.apiKey || '';
-    if(document.getElementById('set-dashmode')) document.getElementById('set-dashmode').value = appSettings.dashboardMode || 'compact';
-    updateStorageInfo();
-}
 
 function toggleSetting(settingKey, element) {
     let val = element.type === 'checkbox' ? element.checked : element.value;
@@ -457,6 +451,42 @@ function renderReferenceTab() {
 function applyHistoryFilters() {
     renderHistoryTab();
 }
+// --- УМНОЕ ОБНОВЛЕНИЕ ФИЛЬТРОВ (ЧТОБЫ НЕ СБРАСЫВАЛСЯ ВЫБОР) ---
+function populateSelect(id, values, defaultText) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const currentVal = el.value; // Запоминаем, что выбрано сейчас
+    el.innerHTML = `<option value="ALL">${defaultText}</option>` + values.map(v => `<option value="${v}">${v}</option>`).join('');
+    if (values.includes(currentVal)) el.value = currentVal; // Восстанавливаем выбор
+    else el.value = "ALL";
+}
+
+function updateAllDynamicFilters() {
+    const projects = [...new Set(contractorArray.map(i => i.projectName).filter(Boolean))];
+    const contractors = [...new Set(contractorArray.map(i => i.contractorName).filter(Boolean))];
+    const inspectors = [...new Set(contractorArray.map(i => i.inspectorName).filter(Boolean))];
+
+    populateSelect('hist-filter-project', projects, 'Все объекты');
+    populateSelect('hist-filter-contractor', contractors, 'Все подрядчики');
+    populateSelect('hist-filter-inspector', inspectors, 'Все инспекторы');
+
+    populateSelect('global-filter-project', projects, 'Все объекты');
+    populateSelect('global-filter-contractor', contractors, 'Все подрядчики');
+    populateSelect('global-filter-inspector', inspectors, 'Все инспекторы');
+    
+    // Шаблоны для Аналитики
+    const tmplSelect = document.getElementById('checklist-selector');
+    const targetTmpl = document.getElementById('global-filter-template');
+    if(tmplSelect && targetTmpl) {
+        const currentTmpl = targetTmpl.value;
+        let opts = `<option value="ALL">Все виды работ</option>`;
+        Array.from(tmplSelect.options).forEach(o => {
+            if(o.value && o.value !== "HOME" && o.value !== "UPLOAD") opts += `<option value="${o.value}">${o.text}</option>`;
+        });
+        targetTmpl.innerHTML = opts;
+        if(Array.from(targetTmpl.options).some(o => o.value === currentTmpl)) targetTmpl.value = currentTmpl;
+    }
+}
 
 function renderHistoryTab() {
     const listDiv = document.getElementById('history-list'); 
@@ -470,22 +500,19 @@ function renderHistoryTab() {
         if(countEl) countEl.innerText = '0';
         return; 
     }
-    
     if(emptyMsg) emptyMsg.style.display = 'none';
 
     // Сбор фильтров из DOM
     const fSearch = document.getElementById('hist-search-text')?.value.toLowerCase() || '';
+    const fProj = document.getElementById('hist-filter-project')?.value || 'ALL';
     const fContr = document.getElementById('hist-filter-contractor')?.value || 'ALL';
-    const fTmpl = document.getElementById('hist-filter-template')?.value || 'ALL';
+    const fInsp = document.getElementById('hist-filter-inspector')?.value || 'ALL';
     const fPeriod = document.getElementById('hist-filter-period')?.value || 'ALL';
-    const fPhoto = document.getElementById('hist-filter-photo')?.checked || false;
-    const fB3 = document.getElementById('hist-filter-b3')?.checked || false;
 
     // Применение фильтров
     let filteredArr = contractorArray;
     const now = new Date();
     
-    // Текстовый поиск
     if (fSearch) {
         filteredArr = filteredArr.filter(i => 
             (i.location && i.location.toLowerCase().includes(fSearch)) ||
@@ -495,15 +522,13 @@ function renderHistoryTab() {
         );
     }
     
+    if (fProj !== 'ALL') filteredArr = filteredArr.filter(i => i.projectName === fProj);
     if (fContr !== 'ALL') filteredArr = filteredArr.filter(i => i.contractorName === fContr);
-    if (fTmpl !== 'ALL') filteredArr = filteredArr.filter(i => i.templateKey === fTmpl);
+    if (fInsp !== 'ALL') filteredArr = filteredArr.filter(i => i.inspectorName === fInsp);
     
     if (fPeriod === 'DAY') filteredArr = filteredArr.filter(i => new Date(i.date).toDateString() === now.toDateString());
     else if (fPeriod === 'WEEK') { const w = new Date(); w.setDate(now.getDate()-7); filteredArr = filteredArr.filter(i => new Date(i.date) >= w); }
     else if (fPeriod === 'MONTH') { const m = new Date(); m.setDate(now.getDate()-30); filteredArr = filteredArr.filter(i => new Date(i.date) >= m); }
-
-    if (fPhoto) filteredArr = filteredArr.filter(i => i.photos && Object.keys(i.photos).length > 0);
-    if (fB3) filteredArr = filteredArr.filter(i => i.metrics && i.metrics.n_B3_fail > 0);
 
     if(countEl) countEl.innerText = filteredArr.length;
 
@@ -512,7 +537,6 @@ function renderHistoryTab() {
         return;
     }
 
-    // Группировка: Подрядчик -> Вид работ
     const grouped = {};
     filteredArr.forEach(item => {
         const cName = item.contractorName || 'Не указан'; 
@@ -523,17 +547,12 @@ function renderHistoryTab() {
     });
 
     let html = '';
-    let groupIndex = 0; // Для уникальных ID блоков
+    let groupIndex = 0;
     for (let cName in grouped) {
         const safeGroupName = `hist-group-${groupIndex++}`;
-        
-        // Кликабельный заголовок подрядчика
-        html += `
-        <div class="font-black text-slate-700 dark:text-slate-300 text-xs mt-4 mb-2 uppercase tracking-tight pl-2 border-l-4 border-indigo-500 cursor-pointer flex justify-between items-center" onclick="document.getElementById('${safeGroupName}').classList.toggle('hidden')">
-            <span>🏗️ ${cName}</span>
-            <span class="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">СВЕРНУТЬ</span>
-        </div>
-        <div id="${safeGroupName}" class="transition-all duration-300 origin-top">`; // Начало обертки
+        html += `<div class="font-black text-slate-700 dark:text-slate-300 text-xs mt-4 mb-2 uppercase tracking-tight pl-2 border-l-4 border-indigo-500 cursor-pointer flex justify-between items-center" onclick="document.getElementById('${safeGroupName}').classList.toggle('hidden')">
+            <span>🏗️ ${cName}</span><span class="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">СВЕРНУТЬ</span>
+        </div><div id="${safeGroupName}" class="transition-all duration-300 origin-top">`; 
         
         for (let tTitle in grouped[cName]) {
             html += `<div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-2 ml-2 mt-2">${tTitle} (${grouped[cName][tTitle].length} изд.)</div>`;
@@ -547,21 +566,16 @@ function renderHistoryTab() {
                     <div class="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm cursor-pointer hover:border-indigo-300 transition-colors active:scale-[0.98]" onclick="showHistoryDetail(${item.id})">
                         <div class="flex justify-between items-start mb-1">
                             <div>
-                                <div class="text-xs font-bold text-slate-800 dark:text-white">${item.location} <span class="text-[10px] ml-1">${photoIcon}</span></div>
-                                <div class="text-[9px] text-slate-400 mt-0.5">${new Date(item.date).toLocaleString('ru-RU')}</div>
+                                <div class="text-[11px] font-bold text-slate-800 dark:text-white">${item.location} <span class="text-[10px] ml-1">${photoIcon}</span></div>
+                                <div class="text-[9px] text-slate-400 mt-0.5">${new Date(item.date).toLocaleString('ru-RU')} | Инсп: ${item.inspectorName || 'Не указан'}</div>
                             </div>
                             <span class="status-tag ${item.metrics.statusCls}">${item.metrics.final}%</span>
-                        </div>
-                        <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-2 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded">
-                            Ошибки: <span class="text-blue-600 font-bold">B1: ${item.metrics.n_B1_fail}</span> | 
-                            <span class="text-orange-600 font-bold">B2: ${item.metrics.n_B2_fail}</span> | 
-                            <span class="text-red-600 font-bold">B3: ${item.metrics.n_B3_fail}</span>
                         </div>
                     </div>
                 </div>`
             }).join('');
         }
-        html += `</div>`; // Закрываем обертку подрядчика
+        html += `</div>`; 
     }
     listDiv.innerHTML = html;
 }
@@ -1275,10 +1289,7 @@ async function fullFactoryReset() {
 
 // === АНАЛИТИКА И ОТЧЕТЫ ===
 function updateAnalyticsFilters() {
-    const selectC = document.getElementById('analytics-contractor-select');
-    if(!selectC) return;
-    const uniqueCs = [...new Set(contractorArray.map(i => i.contractorName).filter(Boolean))];
-    selectC.innerHTML = `<option value="ALL">Все подрядчики</option>` + uniqueCs.map(c => `<option value="${c}">${c}</option>`).join('');
+    updateAllDynamicFilters();
 }
 
 function renderAnalyticsTab() {
@@ -1362,23 +1373,45 @@ function processDataImport(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
+    
     reader.onload = async (e) => {
         try {
             const data = JSON.parse(e.target.result);
             if (!Array.isArray(data)) throw new Error("Неверный формат бэкапа");
             
+            let addedCount = 0;
+            
             for(const item of data) {
-                // Если нет такого ID, добавляем
+                // Если в текущей базе нет проверки с таким ID, добавляем её
                 if(!contractorArray.find(x => x.id === item.id)) {
                     contractorArray.push(item);
                     await dbPut(STORES.HISTORY, item);
+                    addedCount++;
                 }
             }
-            showToast('База успешно объединена!');
-            if (document.getElementById('tab-history').classList.contains('active')) renderHistoryTab();
-        } catch (err) { alert("Ошибка файла бэкапа."); }
+            
+            // Обязательно сортируем весь массив по дате (свежие сверху)
+            contractorArray.sort((a, b) => new Date(b.date) - new Date(a.date));
+            updateAllDynamicFilters();
+            showToast(`База объединена! Добавлено новых: ${addedCount} шт.`);
+            
+            // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ИНТЕРФЕЙС В ЗАВИСИМОСТИ ОТ ОТКРЫТОЙ ВКЛАДКИ
+            if (document.getElementById('tab-history').classList.contains('active')) {
+                renderHistoryTab();
+            } else if (document.getElementById('tab-analytics').classList.contains('active')) {
+                // Если мы на вкладке Аналитика -> База, обновляем фильтры и саму таблицу
+                if (typeof updateAnalyticsFilters === 'function') updateAnalyticsFilters();
+                if (typeof renderCurrentAnalyticsTab === 'function') renderCurrentAnalyticsTab();
+            }
+            
+        } catch (err) { 
+            console.error(err);
+            alert("Ошибка файла бэкапа. Проверьте формат файла."); 
+        }
     };
+    
     reader.readAsText(file);
+    // Сбрасываем input, чтобы можно было загрузить тот же файл еще раз, если нужно
     event.target.value = '';
 }
 
@@ -1473,49 +1506,147 @@ function removePhoto(id, e) {
 
 // Обработка загрузки фото (Конвертация в сжатый формат для экономии IndexedDB)
 // Обработка загрузки фото (Повышенное качество для презентаций)
+// === ФОТОРЕДАКТОР (ЗАГРУЗКА И РИСОВАНИЕ) ===
+let editorCanvas, editorCtx, isDrawing = false;
+let editorImgElement = null; // Оригинальное изображение для сброса
+
 function handlePhotoUpload(event) {
     const file = event.target.files[0];
     if (!file || !currentPhotoId) return;
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-            const canvas = document.getElementById('photo-canvas') || document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+        editorImgElement = new Image();
+        editorImgElement.onload = function() {
+            // Открываем оверлей редактора
+            document.getElementById('photo-editor-overlay').style.display = 'flex';
+            document.body.classList.add('modal-open');
             
-            // Увеличили разрешение для отличного качества на экранах
-            const MAX_WIDTH = 1280; const MAX_HEIGHT = 1280;
-            let width = img.width; let height = img.height;
-
-            if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } 
-            else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
-
-            canvas.width = width; canvas.height = height;
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            // --- НАЛОЖЕНИЕ ДАТЫ И ВРЕМЕНИ ---
-            const now = new Date();
-            const timestamp = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
-            
-            ctx.fillStyle = 'rgba(0,0,0,0.6)'; 
-            // Увеличили плашку под новое разрешение
-            ctx.fillRect(15, height - 40, 200, 30);
-            ctx.font = 'bold 18px Arial'; 
-            ctx.fillStyle = 'white'; 
-            ctx.fillText(timestamp, 25, height - 19);
-
-            // Увеличили качество JPEG с 0.6 до 0.85 (оптимальный баланс вес/качество)
-            photos[currentPhotoId] = canvas.toDataURL('image/jpeg', 0.85);
-            showToast("📸 Фото добавлено (HD)");
-            
-            updateCardDOM(currentPhotoId); 
-            scheduleSessionSave();
+            initPhotoEditor();
         }
-        img.src = e.target.result;
+        editorImgElement.src = e.target.result;
     }
     reader.readAsDataURL(file);
-    event.target.value = ''; 
+    event.target.value = ''; // Сброс инпута
+}
+
+function initPhotoEditor() {
+    editorCanvas = document.getElementById('drawing-canvas');
+    editorCtx = editorCanvas.getContext('2d');
+    
+    // Оптимизируем размер (HD качество, но не гигантское)
+    const MAX_WIDTH = 1280; const MAX_HEIGHT = 1280;
+    let width = editorImgElement.width; 
+    let height = editorImgElement.height;
+
+    if (width > height) { 
+        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } 
+    } else { 
+        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } 
+    }
+
+    editorCanvas.width = width; 
+    editorCanvas.height = height;
+    
+    // Рисуем картинку на холсте
+    clearPhotoEditor();
+
+    // Настраиваем кисть
+    editorCtx.strokeStyle = '#ef4444'; // Красный цвет
+    editorCtx.lineWidth = Math.max(4, width / 150); // Толщина зависит от размера фото
+    editorCtx.lineCap = 'round';
+    editorCtx.lineJoin = 'round';
+
+    // Привязываем события рисования
+    editorCanvas.onmousedown = startDrawing;
+    editorCanvas.onmousemove = draw;
+    editorCanvas.onmouseup = stopDrawing;
+    editorCanvas.onmouseout = stopDrawing;
+
+    editorCanvas.ontouchstart = startDrawing;
+    editorCanvas.ontouchmove = draw;
+    editorCanvas.ontouchend = stopDrawing;
+}
+
+function clearPhotoEditor() {
+    if (!editorCtx || !editorImgElement) return;
+    editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
+    editorCtx.drawImage(editorImgElement, 0, 0, editorCanvas.width, editorCanvas.height);
+}
+
+function getCanvasCoordinates(e) {
+    const rect = editorCanvas.getBoundingClientRect();
+    const scaleX = editorCanvas.width / rect.width;
+    const scaleY = editorCanvas.height / rect.height;
+    
+    let clientX, clientY;
+    if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+    }
+    
+    return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+    };
+}
+
+function startDrawing(e) {
+    e.preventDefault();
+    isDrawing = true;
+    const pos = getCanvasCoordinates(e);
+    editorCtx.beginPath();
+    editorCtx.moveTo(pos.x, pos.y);
+}
+
+function draw(e) {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const pos = getCanvasCoordinates(e);
+    editorCtx.lineTo(pos.x, pos.y);
+    editorCtx.stroke();
+}
+
+function stopDrawing(e) {
+    if(e) e.preventDefault();
+    isDrawing = false;
+    editorCtx.closePath();
+}
+
+function cancelPhotoEditor() {
+    document.getElementById('photo-editor-overlay').style.display = 'none';
+    document.body.classList.remove('modal-open');
+    currentPhotoId = null;
+    editorImgElement = null;
+}
+
+function saveEditedPhoto() {
+    if (!currentPhotoId || !editorCanvas) return;
+    
+    // Добавляем штамп времени на финальное фото
+    const now = new Date();
+    const timestamp = now.toLocaleDateString('ru-RU') + ' ' + now.toLocaleTimeString('ru-RU', {hour: '2-digit', minute:'2-digit'});
+    
+    const w = editorCanvas.width;
+    const h = editorCanvas.height;
+    const fontSize = Math.max(16, Math.floor(w / 35)); // Адаптивный шрифт
+    
+    editorCtx.fillStyle = 'rgba(0,0,0,0.6)'; 
+    editorCtx.fillRect(15, h - (fontSize + 20), fontSize * 10, fontSize + 15);
+    editorCtx.font = `bold ${fontSize}px Arial`; 
+    editorCtx.fillStyle = 'white'; 
+    editorCtx.fillText(timestamp, 25, h - 20);
+
+    // Сохраняем как сжатый JPEG (0.85 качество)
+    photos[currentPhotoId] = editorCanvas.toDataURL('image/jpeg', 0.85);
+    showToast("📸 Фото с пометками сохранено!");
+    
+    updateCardDOM(currentPhotoId); 
+    scheduleSessionSave();
+    cancelPhotoEditor();
 }
 
 function openPhotoViewer(src) {
@@ -1926,22 +2057,60 @@ function switchAnalyticsSubTab(tabId, btnElement) {
         fab.dataset.context = tabId;
     }
 }
-
+function toggleDateRange() {
+    const period = document.getElementById('global-filter-period')?.value;
+    const rangeBlock = document.getElementById('custom-date-range');
+    if (!rangeBlock) return;
+    
+    if (period === 'CUSTOM') {
+        rangeBlock.classList.remove('hidden');
+        rangeBlock.classList.add('grid');
+    } else {
+        rangeBlock.classList.add('hidden');
+        rangeBlock.classList.remove('grid');
+    }
+}
 // Фильтрация данных для всех вкладок аналитики
 function getFilteredAnalyticsData() {
     const selPeriod = document.getElementById('global-filter-period')?.value || 'ALL';
     const selTmpl = document.getElementById('global-filter-template')?.value || 'ALL';
+    const selProj = document.getElementById('global-filter-project')?.value || 'ALL';
     const selContr = document.getElementById('global-filter-contractor')?.value || 'ALL';
+    const selInsp = document.getElementById('global-filter-inspector')?.value || 'ALL';
     
     let arr = contractorArray;
     const now = new Date();
     
-    if (selPeriod === 'DAY') arr = arr.filter(i => new Date(i.date).toDateString() === now.toDateString()); 
-    else if (selPeriod === 'MONTH') { const m = new Date(); m.setDate(now.getDate()-30); arr = arr.filter(i => new Date(i.date) >= m); } 
-    else if (selPeriod === 'WEEK') { const w = new Date(); w.setDate(now.getDate()-7); arr = arr.filter(i => new Date(i.date) >= w); }
+    // ФИЛЬТР ВРЕМЕНИ
+    if (selPeriod === 'DAY') {
+        arr = arr.filter(i => new Date(i.date).toDateString() === now.toDateString()); 
+    } else if (selPeriod === 'MONTH') { 
+        const m = new Date(); m.setDate(now.getDate()-30); 
+        arr = arr.filter(i => new Date(i.date) >= m); 
+    } else if (selPeriod === 'WEEK') { 
+        const w = new Date(); w.setDate(now.getDate()-7); 
+        arr = arr.filter(i => new Date(i.date) >= w); 
+    } else if (selPeriod === 'CUSTOM') {
+        const dFrom = document.getElementById('filter-date-from')?.value;
+        const dTo = document.getElementById('filter-date-to')?.value;
+        
+        if (dFrom) {
+            const fDate = new Date(dFrom);
+            fDate.setHours(0, 0, 0, 0); // Начало дня
+            arr = arr.filter(i => new Date(i.date) >= fDate);
+        }
+        if (dTo) {
+            const tDate = new Date(dTo);
+            tDate.setHours(23, 59, 59, 999); // Конец дня
+            arr = arr.filter(i => new Date(i.date) <= tDate);
+        }
+    }
 
+    // ОСТАЛЬНЫЕ ФИЛЬТРЫ
+    if(selProj !== "ALL") arr = arr.filter(i => i.projectName === selProj);
     if(selContr !== "ALL") arr = arr.filter(i => i.contractorName === selContr);
     if(selTmpl !== "ALL") arr = arr.filter(i => i.templateKey === selTmpl);
+    if(selInsp !== "ALL") arr = arr.filter(i => i.inspectorName === selInsp);
     
     return arr;
 }
@@ -2508,9 +2677,34 @@ function renderOnePagerSubTab(data) {
     const firstHalf = sortedData.slice(0, midPoint);
     const secondHalf = sortedData.slice(midPoint);
 
-    const calcAvgUrk = (arr) => arr.length ? Math.round(arr.reduce((sum, i) => sum + (i.metrics?.final || 0), 0) / arr.length) : 0;
-    const globalUrk = calcAvgUrk(data);
-    const delta = (secondHalf.length > 0 && firstHalf.length > 0) ? (calcAvgUrk(secondHalf) - calcAvgUrk(firstHalf)) : 0;
+    // НОВАЯ ЛОГИКА: Расчет Глобального УрК (Среднее качество Подрядчиков)
+    const calcGlobalUrk = (arr) => {
+        if (arr.length === 0) return 0;
+        const grouped = {};
+        arr.forEach(item => {
+            const k = item.contractorName + "_||_" + item.templateKey;
+            if(!grouped[k]) grouped[k] = [];
+            grouped[k].push(item);
+        });
+        
+        let sum = 0, count = 0;
+        for(let k in grouped) {
+            if(grouped[k].length >= 3) { // Условие: у подрядчика должно быть мин. 3 проверки
+                const m = getContractorMetrics(grouped[k], userTemplates);
+                if(m) { sum += m.finalC; count++; }
+            }
+        }
+        
+        // Если нет ни одного подрядчика с 3 проверками, показываем среднее по изделиям (страховка)
+        if (count === 0) return Math.round(arr.reduce((s, i) => s + (i.metrics?.final || 0), 0) / arr.length);
+        
+        return Math.round(sum / count);
+    };
+
+    const globalUrk = calcGlobalUrk(data);
+    const u1 = calcGlobalUrk(firstHalf);
+    const u2 = calcGlobalUrk(secondHalf);
+    const delta = (secondHalf.length > 0 && firstHalf.length > 0 && u1 > 0 && u2 > 0) ? (u2 - u1) : 0;
     
     let sumB3 = 0; const criticalPhotos = [];
     
@@ -2557,7 +2751,7 @@ function renderOnePagerSubTab(data) {
     }
 
     const getSelectHtml = (type) => `
-        <select onchange="updateTrendCharts('${type}', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white rounded px-1 py-1 outline-none cursor-pointer shadow-sm">
+        <select onchange="updateTrendCharts('${type}', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400 rounded px-1 py-1 outline-none cursor-pointer shadow-sm">
             <option value="WEEK" ${trendGroupings[type]==='WEEK'?'selected':''}>Недели</option>
             <option value="MONTH" ${trendGroupings[type]==='MONTH'?'selected':''}>Месяцы</option>
             <option value="QUARTER" ${trendGroupings[type]==='QUARTER'?'selected':''}>Кварталы</option>
@@ -2573,7 +2767,7 @@ function renderOnePagerSubTab(data) {
         
         <div class="grid grid-cols-2 gap-2 mb-4">
             <div class="bg-[var(--card-bg)] rounded-xl p-4 border border-[var(--card-border)] text-center shadow-sm relative overflow-hidden">
-                <div class="text-[10px] uppercase font-black text-[var(--text-muted)] mb-1">Глобальный УрК</div>
+                <div class="text-[10px] uppercase font-black text-[var(--text-muted)] mb-1">Глобальный УрК (Бизнес)</div>
                 <div class="text-4xl font-black ${urkColor}">${globalUrk}%</div>
                 ${delta !== 0 ? `<div class="absolute top-2 right-2 text-[10px] font-black px-1.5 py-0.5 rounded ${delta > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}%</div>` : ''}
             </div>
@@ -2658,13 +2852,11 @@ function renderDataSubTab(data) {
     if(!tbody) return;
 
     if(data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-[var(--text-muted)]">Нет данных</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-[var(--text-muted)]">Нет данных</td></tr>`;
         return;
     }
 
     const sortedData = [...data].sort((a,b) => new Date(b.date) - new Date(a.date));
-
-    // Выводим максимум 50 последних записей для производительности мобилок
     const limit = Math.min(sortedData.length, 50);
     let html = '';
 
@@ -2681,12 +2873,12 @@ function renderDataSubTab(data) {
                 <td class="p-2 max-w-[80px] truncate" title="${r.contractorName}">${r.contractorName}</td>
                 <td class="p-2 max-w-[80px] truncate font-bold text-slate-700 dark:text-slate-300" title="${r.location}">${r.location}</td>
                 <td class="p-2 max-w-[80px] truncate text-slate-500" title="${r.stageName}">${r.stageName}</td>
+                <td class="p-2 max-w-[80px] truncate text-slate-600 font-medium" title="${r.inspectorName || 'Не указан'}">${r.inspectorName || '-'}</td>
                 <td class="p-2 text-center font-black ${color}">${m ? m.final+'%' : '-'}</td>
                 <td class="p-2 text-center font-bold bg-slate-50 dark:bg-slate-900 border-l border-[var(--card-border)]">${bText}</td>
             </tr>
         `;
     }
-
     tbody.innerHTML = html;
 }
 
@@ -3054,7 +3246,7 @@ function exportPdfEngineering(data) {
         return `
         <div class="avoid-break mt-20" style="background:${bgColor}; border:1px solid ${borderColor}; padding:15px; border-radius:10px;">
             <h3 style="margin-top:0; border-bottom:2px solid ${borderColor}; padding-bottom:5px; color:#1e293b; font-size:14px;">📸 ${title}</h3>
-            <div class="grid-5">
+            <div class="photo-grid">
                 ${photos.map(p => `<div class="photo-card" style="border-color:${borderColor};"><img src="${p.src}"><div class="photo-label"><b>${p.loc}</b><br><span style="color:#475569;">${p.text.replace(/^\[.*?\]\s*/, '')}</span></div></div>`).join('')}
             </div>
         </div>`;
@@ -3103,8 +3295,28 @@ function exportPdfEngineering(data) {
 // 3. PDF: One-Pager для Руководства
 function exportPdfOnePager(data) {
     const uniqueLocs = [...new Set(data.map(i => i.location))];
-    const calcAvgUrk = (arr) => arr.length ? Math.round(arr.reduce((sum, i) => sum + (i.metrics?.final || 0), 0) / arr.length) : 0;
-    const globalUrk = calcAvgUrk(data);
+    
+    // НОВАЯ ЛОГИКА: Расчет Глобального УрК (Среднее качество Подрядчиков) для PDF
+    const calcGlobalUrk = (arr) => {
+        if (arr.length === 0) return 0;
+        const grouped = {};
+        arr.forEach(item => {
+            const k = item.contractorName + "_||_" + item.templateKey;
+            if(!grouped[k]) grouped[k] = [];
+            grouped[k].push(item);
+        });
+        let sum = 0, count = 0;
+        for(let k in grouped) {
+            if(grouped[k].length >= 3) { 
+                const m = getContractorMetrics(grouped[k], userTemplates);
+                if(m) { sum += m.finalC; count++; }
+            }
+        }
+        if (count === 0) return Math.round(arr.reduce((s, i) => s + (i.metrics?.final || 0), 0) / arr.length);
+        return Math.round(sum / count);
+    };
+
+    const globalUrk = calcGlobalUrk(data);
     
     let sumB3 = 0; const criticalPhotos = [];
     data.forEach(i => { 
@@ -3141,7 +3353,7 @@ function exportPdfOnePager(data) {
     const photoHtml = topPhotos.length > 0 ? `
         <div class="avoid-break mt-20 mb-20" style="background:#1e293b; padding:15px; border-radius:10px;">
             <h3 style="margin:0 0 10px 0; color:#f8fafc; font-size:14px; border-bottom:1px solid #475569; padding-bottom:5px;">📸 Внимание Руководителя</h3>
-            <div class="grid-4">
+            <div class="photo-grid">
                 ${topPhotos.map(p => `
                 <div class="photo-card" style="border:none;">
                     <img src="${p.src}">
@@ -3163,7 +3375,7 @@ function exportPdfOnePager(data) {
         
         <div class="grid-2 mb-20 avoid-break">
             <div style="background: #f8fafc; padding: 20px; border-radius: 12px; text-align: center; border: 2px solid #cbd5e1;">
-                <div style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 900;">Глобальный УрК</div>
+                <div style="font-size: 12px; color: #64748b; text-transform: uppercase; font-weight: 900;">Глобальный УрК (Бизнес)</div>
                 <div style="font-size: 48px; font-weight: 900; color: ${globalUrk < 70 ? '#dc2626' : (globalUrk < 85 ? '#f59e0b' : '#16a34a')};">${globalUrk}%</div>
             </div>
             <div style="background: ${sumB3>0?'#fef2f2':'#f8fafc'}; padding: 20px; border-radius: 12px; text-align: center; border: 2px solid ${sumB3>0?'#fecaca':'#cbd5e1'};">
@@ -3259,7 +3471,6 @@ function printPdfShell(title, content) {
     
     const html = `
     <!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
-    <!-- ИСПРАВЛЕНО: Добавлен Viewport для мобильных телефонов -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>${title}</title>
     <style>
@@ -3268,13 +3479,11 @@ function printPdfShell(title, content) {
         
         body { font-family: 'Inter', sans-serif; color: #0f172a; margin: 0; padding: 0; background: #e2e8f0; font-size: 13px; line-height: 1.5; overflow-x: hidden; }
         
-        /* ИСПРАВЛЕНО: Контейнер не вылезает за экран */
         .preview-container {
             width: 100%; max-width: 1200px; margin: 20px auto; background: white; 
             padding: 20px; box-sizing: border-box; box-shadow: 0 10px 25px rgba(0,0,0,0.15); min-height: 100vh; overflow-x: hidden;
         }
         
-        /* ИСПРАВЛЕНО: Кнопки фиксируются четко */
         .print-controls { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10000; }
         .btn { width: 50px; height: 50px; border-radius: 25px; display: flex; justify-content: center; align-items: center; cursor: pointer; border: none; box-shadow: 0 10px 15px rgba(0,0,0,0.2); font-size: 20px; outline: none; -webkit-tap-highlight-color: transparent;}
         .btn-print { background: #4f46e5; color: white; }
@@ -3297,17 +3506,22 @@ function printPdfShell(title, content) {
         .data-table td { padding: 10px; border: 1px solid #cbd5e1; }
         .data-table tr:nth-child(even) { background-color: #f8fafc; }
         
-        /* ИСПРАВЛЕНО: Изображения графиков не рвут контейнер */
         img { max-width: 100%; height: auto; }
         
-        /* Адаптивные сетки для телефона и печати */
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; }
-        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
-        .grid-5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
         
-        .photo-card { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; }
-        .photo-card img { width: 100%; height: 140px; object-fit: cover; display: block; border-bottom: 1px solid #cbd5e1; }
+        /* НОВАЯ ЖЕСТКАЯ СЕТКА ФОТО (Исключает растягивание 1 фото) */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 150px);
+            gap: 15px;
+            justify-content: start;
+            align-items: start;
+        }
+        
+        .photo-card { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; background: #f8fafc; width: 150px; }
+        .photo-card img { width: 100%; height: 120px; object-fit: cover; display: block; border-bottom: 1px solid #cbd5e1; }
         .photo-label { padding: 8px; font-size: 10px; line-height: 1.3; color: #334155; word-wrap: break-word;}
         
         .text-center { text-align: center; } .font-bold { font-weight: bold; } .text-xl { font-size: 20px; } 
@@ -3323,7 +3537,7 @@ function printPdfShell(title, content) {
         <div class="header avoid-break">
             <div>
                 <h1 class="header-title">${title}</h1>
-                <div style="font-size: 12px; margin-top: 4px; font-weight: bold; color: #475569;">Объект: ${projName} | Инсп: ${inspName}</div>
+                <div style="font-size: 12px; margin-top: 4px; font-weight: bold; color: #475569;">Объект: ${projName} | Ваш инспектор: ${inspName}</div>
             </div>
             <div class="header-meta">Сформировано:<br>${new Date().toLocaleString('ru-RU')}<br>RBI Quality Pro</div>
         </div>
@@ -3332,6 +3546,53 @@ function printPdfShell(title, content) {
     </body></html>`;
     
     printWindow.document.open(); printWindow.document.write(html); printWindow.document.close();
+}
+// === ОКНО "О ПРИЛОЖЕНИИ" ===
+function showAboutApp() {
+    const modal = document.getElementById('modal-overlay');
+    document.getElementById('modal-icon').innerHTML = `<div class="text-4xl mb-2">ℹ️</div>`;
+    document.getElementById('modal-title').innerText = "О приложении RBI Quality";
+    
+    // ВСТАВЛЯЙ СВОЙ ТЕКСТ ВМЕСТО РУССКИХ БУКВ ВНУТРИ ТЕГОВ <p> И <li>
+    document.getElementById('modal-body').innerHTML = `
+        <div class="space-y-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+            
+            <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 p-4 rounded-xl">
+                <h4 class="font-black text-indigo-800 dark:text-indigo-300 mb-2 uppercase text-[11px]">Архитектура</h4>
+                <p class="text-[12px]">
+                    <!-- ЗДЕСЬ ОПИСАНИЕ АРХИТЕКТУРЫ -->
+                    Приложение построено на базе PWA (Progressive Web App) с оффлайн-хранилищем IndexedDB. 
+                    Оно позволяет проводить инспекции без интернета, синхронизировать данные через бэкапы и 
+                    автоматически рассчитывать математические модели качества (УрК).
+                </p>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl">
+                <h4 class="font-black text-slate-800 dark:text-white mb-2 uppercase text-[11px]">Функционал</h4>
+                <ul class="list-disc pl-4 text-[12px] space-y-1">
+                    <!-- ЗДЕСЬ СПИСОК ФУНКЦИЙ -->
+                    <li>Система умных чек-листов (B1, B2, B3).</li>
+                    <li>Автоматический расчет УрК изделия и Подрядчика.</li>
+                    <li>Аналитика: Рейтинги, Тренд-графики, Парето причин брака.</li>
+                    <li>Генерация заключений ИИ (с возможностью редактирования).</li>
+                    <li>Выгрузка управленческих отчетов в PDF.</li>
+                </ul>
+            </div>
+
+            <div class="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 p-4 rounded-xl">
+                <h4 class="font-black text-green-800 dark:text-green-300 mb-2 uppercase text-[11px]">Ближайшие доработки (Roadmap)</h4>
+                <ul class="list-disc pl-4 text-[12px] space-y-1">
+                    <!-- ЗДЕСЬ ПЛАНЫ НА БУДУЩЕЕ -->
+                    <li>Интеграция облачной базы данных для live-синхронизации.</li>
+                    <li>Добавление фоторедактора (рисование стрелок на фото).</li>
+                    <li>Возможность создавать свои шаблоны прямо в приложении.</li>
+                </ul>
+            </div>
+
+        </div>
+    `;
+    document.body.classList.add('modal-open'); 
+    modal.style.display = 'flex';
 }
 
 // === СВОРАЧИВАЕМЫЕ ПАНЕЛИ (УМНАЯ ЛОГИКА БЕЗ ПРЫЖКОВ) ===
@@ -3596,4 +3857,411 @@ function stopTutorial() {
         const fab = document.getElementById('fab-download-btn');
         if(fab) { fab.classList.add('hidden'); fab.style.display = 'none'; }
     }, 500);
+}
+// === КОНСТРУКТОР СВОИХ ЧЕК-ЛИСТОВ ===
+let builderGroupCount = 0;
+let builderItemCount = 0;
+
+function openTemplateBuilder() {
+    const overlay = document.getElementById('template-builder-overlay');
+    document.getElementById('builder-title').value = '';
+    document.getElementById('builder-groups').innerHTML = '';
+    builderGroupCount = 0;
+    builderItemCount = 0;
+    
+    addBuilderGroup(); // Добавляем первую пустую группу по умолчанию
+    
+    overlay.style.display = 'flex';
+    document.body.classList.add('modal-open');
+}
+
+function closeTemplateBuilder() {
+    document.getElementById('template-builder-overlay').style.display = 'none';
+    document.body.classList.remove('modal-open');
+}
+
+function addBuilderGroup() {
+    builderGroupCount++;
+    const groupId = `builder-group-${builderGroupCount}`;
+    const html = `
+        <div id="${groupId}" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm relative">
+            <button onclick="document.getElementById('${groupId}').remove()" class="absolute top-2 right-2 w-7 h-7 bg-red-50 text-red-500 rounded-lg flex items-center justify-center font-bold text-xs active:scale-95 border border-red-100">✕</button>
+            <label class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase mb-1 block">Название этапа (Группы)</label>
+            <input type="text" class="input-base text-xs mb-3 group-title-input" placeholder="Например: 1. Подготовительные работы" value="Этап ${builderGroupCount}">
+            
+            <div id="${groupId}-items" class="space-y-2 mb-3 pl-2 border-l-2 border-indigo-100 dark:border-indigo-800">
+                <!-- Сюда будут падать пункты -->
+            </div>
+            
+            <button onclick="addBuilderItem('${groupId}-items')" class="text-[10px] font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 px-3 py-2 rounded-lg active:scale-95 transition-colors uppercase dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400">
+                + Добавить пункт контроля
+            </button>
+        </div>
+    `;
+    document.getElementById('builder-groups').insertAdjacentHTML('beforeend', html);
+    addBuilderItem(`${groupId}-items`); // Сразу добавляем 1 пустой пункт
+}
+
+function addBuilderItem(containerId) {
+    builderItemCount++;
+    const itemId = `builder-item-${builderItemCount}`;
+    const html = `
+        <div id="${itemId}" class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)] relative">
+            <button onclick="document.getElementById('${itemId}').remove()" class="absolute top-2 right-2 text-red-500 font-black text-sm px-2">✕</button>
+            
+            <div class="pr-8 mb-2">
+                <input type="text" class="input-base text-xs item-name-input" placeholder="Текст нарушения (Напр: Отклонение от вертикали)">
+            </div>
+            
+            <div class="grid grid-cols-3 gap-2 mb-2">
+                <div class="col-span-1">
+                    <select class="input-base text-[10px] !py-1 item-weight-select bg-white">
+                        <option value="1">B1 (Мелкий)</option>
+                        <option value="2" selected>B2 (Значимый)</option>
+                        <option value="3">B3 (Критич.)</option>
+                    </select>
+                </div>
+                <div class="col-span-2">
+                    <input type="text" class="input-base text-[10px] !py-1 item-norm-input" placeholder="СНиП / Допуск (Напр: ±2 мм)">
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById(containerId).insertAdjacentHTML('beforeend', html);
+}
+
+async function saveCustomTemplate() {
+    const titleInput = document.getElementById('builder-title').value.trim();
+    if (!titleInput) return showToast("Введите название чек-листа!");
+
+    const groupsEl = document.getElementById('builder-groups').children;
+    if (groupsEl.length === 0) return showToast("Добавьте хотя бы один этап!");
+
+    const newTemplate = {
+        title: titleInput,
+        templateVersion: "1.0",
+        groups: []
+    };
+
+    let isValid = true;
+
+    Array.from(groupsEl).forEach(groupEl => {
+        const groupTitle = groupEl.querySelector('.group-title-input').value.trim();
+        const itemsContainer = groupEl.querySelector('div[id$="-items"]');
+        const itemsEl = itemsContainer.children;
+        
+        if (!groupTitle || itemsEl.length === 0) isValid = false;
+
+        const groupData = { group: groupTitle || "Без названия", items: [] };
+
+        Array.from(itemsEl).forEach(itemEl => {
+            const name = itemEl.querySelector('.item-name-input').value.trim();
+            const weight = parseInt(itemEl.querySelector('.item-weight-select').value);
+            const norm = itemEl.querySelector('.item-norm-input').value.trim();
+
+            if (!name) isValid = false;
+
+            // Генерируем уникальный ID для пункта (чтобы не пересекался с системными)
+            const uniqueId = Date.now() % 100000 + Math.floor(Math.random() * 1000);
+
+            groupData.items.push({
+                id: uniqueId,
+                n: name || "Пустой пункт",
+                w: weight,
+                t: formatNorms(norm || "Без норматива")
+            });
+        });
+
+        newTemplate.groups.push(groupData);
+    });
+
+    if (!isValid) return showToast("Заполните все пустые поля и пункты!");
+
+    // Генерируем slug (ключ) для шаблона
+    const slug = "cstm_" + Date.now().toString(36);
+    
+    // Сохраняем в глобальный объект
+    userTemplates[slug] = newTemplate;
+
+    // Сохраняем в IndexedDB
+    try {
+        await dbPut(STORES.TEMPLATES, { slug: slug, data: newTemplate });
+        showToast("✅ Шаблон успешно сохранен!");
+        closeTemplateBuilder();
+        
+        // Обновляем списки селекторов и список в настройках
+        renderSelector();
+        renderSettingsTab();
+        
+    } catch (e) {
+        console.error(e);
+        showToast("Ошибка сохранения шаблона!");
+    }
+}
+
+// Функция для удаления пользовательских шаблонов
+async function deleteUserTemplate(slug) {
+    if (!confirm("Удалить этот чек-лист? Вы не сможете проводить по нему новые проверки.")) return;
+    
+    delete userTemplates[slug];
+    try {
+        await dbDelete(STORES.TEMPLATES, slug);
+        showToast("🗑️ Чек-лист удален");
+        renderSelector();
+        renderSettingsTab();
+        
+        // Если удалили тот, что был выбран - сбрасываем на HOME
+        if (currentTemplateKey === `user_${slug}`) {
+            changeTemplate('HOME');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast("Ошибка при удалении");
+    }
+}
+// === АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ШАБЛОНОВ ИЗ EXCEL ===
+
+function triggerExcelImport() {
+    document.getElementById('excel-template-input').click();
+}
+
+function showExcelHelp() {
+    const modal = document.getElementById('modal-overlay');
+    document.getElementById('modal-icon').innerHTML = `<div class="text-4xl mb-2">📊</div>`;
+    document.getElementById('modal-title').innerText = "Как загрузить Excel";
+    document.getElementById('modal-body').innerHTML = `
+        <div class="text-sm leading-relaxed space-y-3">
+            <p>Система автоматически превратит вашу таблицу в чек-лист. Файл должен быть формата <b>.xlsx</b>.</p>
+            <p class="font-bold text-indigo-600 dark:text-indigo-400 mt-2">Структура таблицы (строго 4 столбца):</p>
+            <table class="w-full text-left border-collapse border border-slate-300 mt-2 text-[10px] bg-white dark:bg-slate-800">
+                <tr class="bg-slate-100 dark:bg-slate-700">
+                    <th class="border border-slate-300 p-1">Столбец A</th>
+                    <th class="border border-slate-300 p-1">Столбец B</th>
+                    <th class="border border-slate-300 p-1">Столбец C</th>
+                    <th class="border border-slate-300 p-1">Столбец D</th>
+                </tr>
+                <tr>
+                    <td class="border border-slate-300 p-1"><b>Название этапа (Группы)</b></td>
+                    <td class="border border-slate-300 p-1"><b>Название дефекта/пункта</b></td>
+                    <td class="border border-slate-300 p-1"><b>Категория (1, 2 или 3)</b></td>
+                    <td class="border border-slate-300 p-1"><b>Текст норматива / ГОСТ</b></td>
+                </tr>
+                <tr>
+                    <td class="border border-slate-300 p-1 text-slate-500">Подготовка поверхности</td>
+                    <td class="border border-slate-300 p-1 text-slate-500">Грязь, пыль на бетоне</td>
+                    <td class="border border-slate-300 p-1 text-slate-500">2</td>
+                    <td class="border border-slate-300 p-1 text-slate-500">СП 70.13330 очистить до основания</td>
+                </tr>
+            </table>
+            <div class="bg-yellow-50 text-yellow-800 border border-yellow-200 p-3 rounded-lg text-[11px] mt-3">
+                ⚠️ <b>Важно:</b> Первая строка таблицы (заголовки столбцов) игнорируется при загрузке. Данные должны начинаться со 2-й строки.
+            </div>
+        </div>
+    `;
+    document.body.classList.add('modal-open'); 
+    modal.style.display = 'flex';
+}
+
+async function handleExcelImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Показываем уведомление о начале загрузки
+    showToast("⚙️ Обработка Excel файла...");
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            // Читаем Excel файл
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // Берем первый лист
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Переводим в формат массива массивов
+            const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            if (rows.length < 2) throw new Error("Файл пуст или не содержит данных со 2-й строки");
+
+            // Имя файла становится названием чек-листа
+            const templateTitle = file.name.replace(/\.[^/.]+$/, ""); 
+            const newTemplate = {
+                title: templateTitle,
+                templateVersion: "1.0",
+                groups: []
+            };
+
+            let currentGroupTitle = "";
+            let currentGroupItems = [];
+
+            // Пропускаем 1-ю строку (rows[0]), так как это заголовки
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue; // Пропуск пустых строк
+
+                // Считываем ячейки (Колонка A, B, C, D)
+                const groupCol = row[0] ? row[0].toString().trim() : null;
+                const itemCol = row[1] ? row[1].toString().trim() : null;
+                const weightCol = row[2];
+                const normCol = row[3] ? row[3].toString().trim() : null;
+
+                // Если есть название группы и оно отличается от предыдущего - создаем новый блок
+                if (groupCol && groupCol !== currentGroupTitle) {
+                    if (currentGroupTitle && currentGroupItems.length > 0) {
+                        newTemplate.groups.push({ group: currentGroupTitle, items: currentGroupItems });
+                    }
+                    currentGroupTitle = groupCol;
+                    currentGroupItems = [];
+                }
+
+                // Если есть название дефекта
+                if (itemCol) {
+                    // Проверка категории
+                    let weight = parseInt(weightCol);
+                    if (isNaN(weight) || weight < 1 || weight > 3) weight = 2; // По умолчанию B2
+
+                    currentGroupItems.push({
+                        id: Date.now() % 100000 + Math.floor(Math.random() * 10000) + i,
+                        n: itemCol,
+                        w: weight,
+                        t: formatNorms(normCol ? normCol : "Без норматива")
+                    });
+                }
+            }
+
+            // Не забываем добавить последнюю группу после цикла
+            if (currentGroupTitle && currentGroupItems.length > 0) {
+                newTemplate.groups.push({ group: currentGroupTitle, items: currentGroupItems });
+            }
+
+            if (newTemplate.groups.length === 0) throw new Error("Не удалось найти данные в таблице. Проверьте формат по инструкции (Кнопка '?').");
+
+            // Генерируем уникальный ключ
+            const slug = "cstm_" + Date.now().toString(36);
+            
+            // Сохраняем в память
+            userTemplates[slug] = newTemplate;
+            await dbPut(STORES.TEMPLATES, { slug: slug, data: newTemplate });
+
+            showToast(`✅ Чек-лист "${templateTitle}" успешно загружен!`);
+            
+            // Перерисовываем интерфейс, чтобы шаблон сразу появился в списках
+            renderSelector();
+            renderSettingsTab();
+
+        } catch (err) {
+            console.error(err);
+            alert("Ошибка загрузки: " + err.message);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+    
+    // Сбрасываем инпут, чтобы можно было выбрать тот же файл снова
+    event.target.value = '';
+}
+// === ЭКСПОРТ ЧЕК-ЛИСТОВ В EXCEL И JSON ===
+
+// Вспомогательная функция очистки HTML-тегов для выгрузки
+// (Убирает красные и синие подсветки нормативов, чтобы в Excel был чистый текст)
+function stripHtmlTags(str) {
+    if (!str) return "";
+    // Заменяем <br> на реальные переносы строк для Excel
+    let text = str.replace(/<br\s*[\/]?>/gi, "\n");
+    // Удаляем все остальные HTML-теги
+    return text.replace(/<\/?[^>]+(>|$)/g, "");
+}
+
+function exportAllTemplatesExcel() {
+    showToast("⚙️ Формирование Excel-книги...");
+    
+    try {
+        // Создаем новую Excel-книгу
+        const wb = XLSX.utils.book_new();
+        
+        // Объединяем системные и загруженные/созданные пользователем чек-листы
+        const allTemplates = { ...SYSTEM_TEMPLATES, ...userTemplates };
+        
+        for (let key in allTemplates) {
+            const tmpl = allTemplates[key];
+            
+            // Заголовки таблицы (строго как в инструкции для импорта)
+            const ws_data = [
+                ['Название этапа (Группы)', 'Название дефекта/пункта', 'Категория (1, 2 или 3)', 'Текст норматива / ГОСТ']
+            ];
+
+            // Перебираем группы и пункты
+            if (tmpl.groups && Array.isArray(tmpl.groups)) {
+                tmpl.groups.forEach(g => {
+                    const groupTitle = g.group || g.title || "Без названия";
+                    if (g.items && Array.isArray(g.items)) {
+                        g.items.forEach(i => {
+                            ws_data.push([
+                                groupTitle,
+                                i.n || "",
+                                i.w || 2,
+                                stripHtmlTags(i.t || "") // Очищаем от HTML
+                            ]);
+                        });
+                    }
+                });
+            }
+
+            // Создаем лист из массива данных
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            
+            // Настраиваем ширину колонок для красоты в Excel
+            ws['!cols'] = [
+                { wch: 30 }, // Группа
+                { wch: 50 }, // Дефект
+                { wch: 20 }, // Категория
+                { wch: 70 }  // Норматив
+            ];
+
+            // Имя листа в Excel (макс. 31 символ, убираем спецсимволы, чтобы Excel не ругался)
+            let sheetName = (tmpl.title || key).replace(/[\\/?*\[\]:]/g, '').substring(0, 31);
+            
+            // Добавляем лист в книгу
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        }
+
+        // Скачиваем готовый файл
+        XLSX.writeFile(wb, `RBI_Checklists_${new Date().toLocaleDateString('ru-RU')}.xlsx`);
+        showToast("✅ Excel-файл со всеми чек-листами скачан!");
+        
+    } catch (error) {
+        console.error(error);
+        showToast("❌ Ошибка при формировании Excel");
+    }
+}
+
+function exportAllTemplatesJson() {
+    showToast("⚙️ Формирование JSON...");
+    
+    // Объединяем чек-листы
+    const allTemplates = { ...SYSTEM_TEMPLATES, ...userTemplates };
+    
+    // Делаем глубокую копию, чтобы случайно не сломать текущий интерфейс при очистке тегов
+    const cleanTemplates = JSON.parse(JSON.stringify(allTemplates));
+    
+    // Очищаем нормативы от HTML-разметки (позже в коде formatNorms() снова их добавит)
+    for (let key in cleanTemplates) {
+        if (cleanTemplates[key].groups) {
+            cleanTemplates[key].groups.forEach(g => {
+                if (g.items) {
+                    g.items.forEach(i => {
+                        i.t = stripHtmlTags(i.t);
+                    });
+                }
+            });
+        }
+    }
+
+    // Форматируем JSON с отступами (4 пробела) для красивого кода
+    const dataStr = JSON.stringify(cleanTemplates, null, 4);
+    
+    // Скачиваем файл (функция downloadFile уже есть в storage.js)
+    downloadFile(dataStr, `RBI_Templates_Code_${new Date().toLocaleDateString('ru-RU')}.json`, 'application/json');
+    showToast("✅ JSON-код скачан!");
 }

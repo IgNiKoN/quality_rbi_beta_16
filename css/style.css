@@ -505,29 +505,111 @@ body.nav-pos-auto #fab-download-btn {
 
 /* === ИДЕАЛЬНОЕ ПОЗИЦИОНИРОВАНИЕ ЛИПКИХ ПАНЕЛЕЙ (ФИЛЬТРОВ И ВКЛАДОК) === */
 
-/* 1. ГЛОБАЛЬНЫЕ ФИЛЬТРЫ (История, Справочник, Аналитика) */
-.sticky-top-panel {
+/* 1. ФИЛЬТРЫ ИСТОРИИ И СПРАВОЧНИКА */
+#hist-sticky-panel, #ref-sticky-panel {
     position: sticky !important;
-    top: 5px !important; 
+    top: 10px !important; /* Отступ 10px сверху */
     z-index: 40;
     transition: top 0.3s ease;
-    
-    /* ПРИНУДИТЕЛЬНЫЙ ЭФФЕКТ СТЕКЛА ДЛЯ ВСЕХ ПАНЕЛЕЙ */
     background-color: var(--header-bg) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
 }
 
-/* Когда меню СВЕРХУ (добавляется высота меню 60px + 5px зазор) */
-body.nav-pos-top .sticky-top-panel {
-    top: 65px !important; 
+/* Если навигация сверху: отступ 60px (меню) + 10px (зазор) = 70px */
+body.nav-pos-top #hist-sticky-panel, 
+body.nav-pos-top #ref-sticky-panel { 
+    top: 70px !important; 
 }
 
-/* Для ПК (режим авто переносит меню наверх) */
+@media (min-width: 768px) { 
+    body.nav-pos-auto #hist-sticky-panel, 
+    body.nav-pos-auto #ref-sticky-panel { 
+        top: 70px !important; 
+    } 
+}
+
+
+/* === 2. ОСОБЕННАЯ ЛОГИКА ДЛЯ АНАЛИТИКИ === */
+
+/* БАЗОВО: НАВИГАЦИЯ СНИЗУ (ТЕЛЕФОНЫ) */
+#analytics-filters-block {
+    position: sticky;
+    top: 10px; /* Зазор 10px сверху */
+    z-index: 40;
+    margin-bottom: 10px; /* Зазор снизу до графиков */
+}
+
+#analytics-subtabs-block {
+    position: fixed;
+    /* Высота меню (65px) + мертвая зона iOS + Зазор 10px */
+    bottom: calc(65px + env(safe-area-inset-bottom) + 10px); 
+    left: 0; right: 0; z-index: 45;
+    padding: 0 16px;
+}
+
+#tab-analytics {
+    /* Чтобы самый нижний контент не прятался под подвкладками */
+    padding-bottom: 85px; 
+}
+
+/* КНОПКА СКАЧАТЬ (FAB) ПРИ НАВИГАЦИИ СНИЗУ */
+body.nav-pos-bottom #fab-download-btn,
+body.nav-pos-auto #fab-download-btn {
+    /* Меню (65px) + Подвкладки (~60px) + Зазор (20px) = 145px */
+    bottom: calc(145px + env(safe-area-inset-bottom));
+}
+
+
+/* ПЕРЕОПРЕДЕЛЕНИЕ: НАВИГАЦИЯ СВЕРХУ (РУЧНАЯ НАСТРОЙКА В МЕНЮ) */
+body.nav-pos-top #analytics-subtabs-block {
+    position: sticky !important;
+    top: 70px !important; /* Меню (60px) + Зазор (10px) = 70px */
+    bottom: auto !important;
+    z-index: 45;
+    padding: 0 !important; 
+    margin-bottom: 10px !important; /* Зазор между подвкладками и фильтрами */
+}
+
+body.nav-pos-top #analytics-filters-block {
+    position: sticky !important;
+    top: 140px !important; /* Меню (60px) + Зазор (10px) + Подвкладки (~60px) + Зазор (10px) = 140px */
+    z-index: 40;
+    margin-bottom: 10px !important; /* Зазор между фильтрами и графиками */
+}
+
+body.nav-pos-top #tab-analytics {
+    padding-bottom: 20px !important; /* Убираем огромный нижний отступ */
+}
+
+
+/* ПЕРЕОПРЕДЕЛЕНИЕ: НАВИГАЦИЯ СВЕРХУ (ДЛЯ ПК И ПЛАНШЕТОВ В РЕЖИМЕ АВТО) */
 @media (min-width: 768px) {
-    body.nav-pos-auto .sticky-top-panel {
-        top: 65px !important;
+    body.nav-pos-auto #analytics-subtabs-block {
+        position: sticky !important;
+        top: 70px !important; 
+        bottom: auto !important;
+        z-index: 45;
+        padding: 0 !important; 
+        margin-bottom: 10px !important; 
     }
+
+    body.nav-pos-auto #analytics-filters-block {
+        position: sticky !important;
+        top: 140px !important; 
+        z-index: 40;
+        margin-bottom: 10px !important; 
+    }
+
+    body.nav-pos-auto #tab-analytics {
+        padding-bottom: 20px !important; 
+    }
+}
+
+
+/* 3. ПРИЛИПАНИЕ FAB КНОПКИ (СКАЧАТЬ PDF) */
+@media (min-width: 896px) {
+    #fab-download-btn { right: calc(50vw - 26rem + 16px) !important; }
 }
 
 /* Плавная iOS-анимация сворачивания фильтров при скролле */
@@ -537,50 +619,11 @@ body.nav-pos-top .sticky-top-panel {
     transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease, margin 0.3s ease;
 }
 
-/* 2. ПОДВКЛАДКИ АНАЛИТИКИ (Рейтинг, Инженерия и т.д.) */
-
-/* Меню СНИЗУ (телефоны) */
-body.nav-pos-auto #analytics-subtabs-block,
-body.nav-pos-bottom #analytics-subtabs-block {
-    position: fixed; 
-    bottom: calc(65px + env(safe-area-inset-bottom) + 10px);
-    left: 0; right: 0; z-index: 45;
-    width: 100%; max-width: 56rem; margin: 0 auto; padding-left: 1rem; padding-right: 1rem;
-}
-body.nav-pos-auto #tab-analytics,
-body.nav-pos-bottom #tab-analytics { padding-bottom: 70px; }
-body.nav-pos-auto #fab-download-btn,
-body.nav-pos-bottom #fab-download-btn {
-    bottom: calc(150px + env(safe-area-inset-bottom));
-    right: 16px;
-}
-
-/* Меню СВЕРХУ (Настройки) */
-body.nav-pos-top #analytics-subtabs-block {
-    position: sticky;
-    /* Прилипает ровно ПОД свернутыми фильтрами (65px меню + 45px свернутый фильтр + 5px зазор) */
-    top: 115px !important; 
-    bottom: auto; left: auto; right: auto; z-index: 45;
-    margin-bottom: 10px; padding-left: 0.25rem; padding-right: 0.25rem;
-}
-body.nav-pos-top #tab-analytics { padding-bottom: 0; }
-body.nav-pos-top #fab-download-btn { bottom: 30px; }
-
-
-/* Для ПК (Режим Авто) */
-@media (min-width: 768px) {
-    body.nav-pos-auto #analytics-subtabs-block {
-        position: sticky;
-        top: 115px !important;
-        bottom: auto; left: auto; right: auto; z-index: 45;
-        margin-bottom: 10px; padding-left: 0.25rem; padding-right: 0.25rem;
-    }
-    body.nav-pos-auto #tab-analytics { padding-bottom: 0; }
-    body.nav-pos-auto #fab-download-btn { bottom: 30px; }
-}
-
-@media (min-width: 896px) {
-    #fab-download-btn { right: calc(50vw - 26rem + 16px) !important; }
+/* Плавная iOS-анимация сворачивания фильтров при скролле */
+#hist-panel-body,
+#ref-panel-body,
+#analytics-panel-body {
+    transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease, margin 0.3s ease;
 }
 
 /* === ИНТЕРАКТИВНЫЙ ТУТОРИАЛ === */
