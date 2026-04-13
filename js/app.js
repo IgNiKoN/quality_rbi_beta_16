@@ -22,7 +22,6 @@ let isDemoMode = false;
 let realState = {}, realDetails = {}, realPhotos = {}, realContractorArray = [], realTemplateKey = '';
 
 // Настройки приложения (v16.0)
-// Настройки приложения (v16.0)
 let appSettings = {
     theme: 'auto',
     fontSize: 'medium',
@@ -37,9 +36,12 @@ let appSettings = {
     aiAuto: false,      
     apiKey: '',
     dashboardMode: 'compact',
-    anaEngPareto: true, // Аналитика: Парето в Инженерии
-    anaOpTrend: true,   // Аналитика: Глобальный тренд в Сводке
-    anaOpLeader: true   // Аналитика: Лидеры/Риск в Сводке
+    anaEngPareto: true, 
+    anaOpTrend: true,   
+    anaOpLeader: true,
+    anaEngAi: true, 
+    anaEngPhotos: true,
+    anaOpTopDefects: true
 };
 
 // Звуковые эффекты (base64 для офлайна)
@@ -359,6 +361,9 @@ function renderSettingsTab() {
     if(document.getElementById('set-ana-pareto')) document.getElementById('set-ana-pareto').checked = appSettings.anaEngPareto;
     if(document.getElementById('set-ana-trend')) document.getElementById('set-ana-trend').checked = appSettings.anaOpTrend;
     if(document.getElementById('set-ana-leader')) document.getElementById('set-ana-leader').checked = appSettings.anaOpLeader;
+    if(document.getElementById('set-ana-ai')) document.getElementById('set-ana-ai').checked = appSettings.anaEngAi;
+    if(document.getElementById('set-ana-photos')) document.getElementById('set-ana-photos').checked = appSettings.anaEngPhotos;
+    if(document.getElementById('set-ana-top')) document.getElementById('set-ana-top').checked = appSettings.anaOpTopDefects;
 }
 
 function resetSettingsToDefault() {
@@ -368,7 +373,8 @@ function resetSettingsToDefault() {
     appSettings = {
         theme: 'auto', fontSize: 'medium', navPosition: 'auto', swipeEnabled: false,
         autoCollapseOk: false, defaultGroupsCollapsed: false, fastMode: false,
-        soundEnabled: true, autoSave: true, aiEnabled: false, aiAuto: false, apiKey: '', dashboardMode: 'compact'
+        soundEnabled: true, autoSave: true, aiEnabled: false, aiAuto: false, apiKey: '', dashboardMode: 'compact',
+        anaEngPareto: true, anaOpTrend: true, anaOpLeader: true, anaEngAi: true, anaEngPhotos: true, anaOpTopDefects: true
     };
     
     // 2. Сохраняем в базу
@@ -1569,15 +1575,12 @@ function initSwipes() {
 // === ОБНОВЛЕНИЕ МИНИ-ДАШБОРДА ===
 function updateUI() {
     const p = currentTemplateKey ? getProductMetrics(state, currentChecklist) : null;
-    
-    // Функция контраста текста
     const getTextColor = (val, isDanger) => {
         if(isDanger || val < 70) return 'text-white drop-shadow-md';
-        if(val < 85) return 'text-slate-900'; // На желтом черный текст лучше читается
-        return 'text-white drop-shadow-md'; // На зеленом белый норм
+        if(val < 85) return 'text-slate-900'; 
+        return 'text-white drop-shadow-md'; 
     };
 
-    // Обновляем изделие
     if (!p) {
         if(document.getElementById('dash-p-text')) document.getElementById('dash-p-text').innerText = "0/0";
         if(document.getElementById('dash-p-bar')) document.getElementById('dash-p-bar').style.width = "0%";
@@ -1593,27 +1596,25 @@ function updateUI() {
             document.getElementById('dash-p-percent').innerText = `${p.final}%`;
             document.getElementById('dash-p-percent').className = `absolute inset-0 flex items-center justify-center text-[11px] font-black z-10 ${getTextColor(p.final, p.isDanger)}`;
         }
-        
-        // Детали развернутого вида
         if(document.getElementById('dash-p-kc')) document.getElementById('dash-p-kc').innerText = p.kc.toFixed(2);
         if(document.getElementById('dash-p-kcrit')) document.getElementById('dash-p-kcrit').innerText = p.kcrit.toFixed(2);
         if(document.getElementById('dash-p-b2')) document.getElementById('dash-p-b2').innerText = p.n_B2_fail;
         if(document.getElementById('dash-p-b3')) document.getElementById('dash-p-b3').innerText = p.n_B3_fail;
     }
 
-    // Обновляем подрядчика
     const currentContr = document.getElementById('inp-contractor')?.value.trim();
     const filteredArr = currentContr ? contractorArray.filter(i => i.contractorName === currentContr && i.templateKey === currentTemplateKey) : [];
     
-    if (filteredArr.length < 3) { // Порог достоверности
-        if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${filteredArr.length} шт.`;
+    // ПРАВКА 5: Порог достоверности 7 и отображение 2/7
+    if (filteredArr.length < 7) { 
+        if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${filteredArr.length}/7 изд.`;
         if(document.getElementById('dash-c-bar')) document.getElementById('dash-c-bar').style.width = "0%";
         if(document.getElementById('dash-c-percent')) document.getElementById('dash-c-percent').innerText = "СБОР";
         ['dash-c-ks', 'dash-c-kcrit', 'dash-c-b3'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerText = "-"; });
     } else {
         const c = getContractorMetrics(filteredArr, userTemplates);
         if(c) {
-            if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${c.count} шт.`;
+            if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${c.count} изд.`;
             if(document.getElementById('dash-c-bar')) {
                 document.getElementById('dash-c-bar').style.width = `${c.finalC}%`;
                 document.getElementById('dash-c-bar').className = `absolute top-0 left-0 h-full transition-all duration-500 ${c.isRedZone ? 'bg-red-500' : (c.finalC < 85 ? 'bg-yellow-400' : 'bg-green-500')}`;
@@ -1622,8 +1623,6 @@ function updateUI() {
                 document.getElementById('dash-c-percent').innerText = `${c.finalC}%`;
                 document.getElementById('dash-c-percent').className = `absolute inset-0 flex items-center justify-center text-[11px] font-black z-10 ${getTextColor(c.finalC, c.isRedZone)}`;
             }
-            
-            // Детали развернутого вида
             if(document.getElementById('dash-c-ks')) {
                 const ksEl = document.getElementById('dash-c-ks');
                 ksEl.innerText = c.ks.toFixed(2);
@@ -1638,7 +1637,6 @@ function updateUI() {
         }
     }
     
-    // Обновляем заголовок чек-листа в шапке
     const selectEl = document.getElementById('checklist-selector');
     const clName = selectEl?.options[selectEl.selectedIndex]?.text.replace('▼', '').trim() || 'Вид работ не выбран';
     const labelEl = document.getElementById('current-checklist-label');
@@ -1649,11 +1647,15 @@ function updateUI() {
 
 // === СОХРАНЕНИЕ / ОЧИСТКА ===
 function saveProductToArray() {
-    const fields = ['inp-project', 'inp-inspector', 'inp-contractor', 'inp-location'];
+    const projInput = document.getElementById('inp-project');
+    const inspInput = document.getElementById('inp-inspector');
+    const contrInput = document.getElementById('inp-contractor');
+    const locInput = document.getElementById('inp-location');
+
     let hasError = false;
     
-    fields.forEach(id => {
-        const el = document.getElementById(id);
+    // Жесткая проверка: если поле пустое, красим в красный
+    [projInput, inspInput, contrInput, locInput].forEach(el => {
         if (el && !el.value.trim()) {
             el.classList.add('border-red-500', 'bg-red-50');
             setTimeout(() => el.classList.remove('border-red-500', 'bg-red-50'), 3000);
@@ -1662,20 +1664,17 @@ function saveProductToArray() {
     });
 
     if (hasError) {
-        showToast('⚠️ Заполните все поля объекта в шапке!');
-        toggleDataBlock(true); 
+        showToast('⚠️ Заполните все поля (Объект, Проверяющий, Подрядчик, Локация)!');
         window.scrollTo({ top: 0, behavior: 'smooth' }); 
         return;
     }
 
-    // --- НОВАЯ ЛОГИКА: ОДНА ПРОВЕРКА = ОДНА ЗАПИСЬ ---
     let mergedState = {};
     let mergedDetails = {};
     let mergedPhotos = {};
     let checkedStageNames = [];
     let stagesToMetric = [];
 
-    // Проходим по всем этапам и собираем то, на что ответили
     currentChecklist.forEach(group => {
         let hasAnswersInStage = false;
         group.items.forEach(item => {
@@ -1687,7 +1686,6 @@ function saveProductToArray() {
             }
         });
 
-        // Если в этом этапе есть ответы, записываем, что этот этап проверялся
         if (hasAnswersInStage) {
             checkedStageNames.push(group.group || group.title);
             stagesToMetric.push(group);
@@ -1695,30 +1693,29 @@ function saveProductToArray() {
     });
 
     if (checkedStageNames.length === 0) {
-        return showToast('Чек-лист пуст. Заполните данные хотя бы одного этапа.');
+        return showToast('⚠️ Чек-лист пуст. Заполните хотя бы один пункт.');
     }
 
-    // Считаем метрики только по ТЕМ этапам, которые реально проверялись
     const finalMetrics = getProductMetrics(mergedState, stagesToMetric);
-
     const isFullCheck = checkedStageNames.length === currentChecklist.length;
     const stageNameLabel = isFullCheck ? 'Полная проверка' : 'Частичная проверка';
+    
+    const selectEl = document.getElementById('checklist-selector');
+    const tTitle = selectEl.options[selectEl.selectedIndex].text.replace('▼', '').trim();
 
     const newItem = { 
         id: Date.now() + Math.floor(Math.random() * 1000), 
         date: new Date().toISOString(), 
-        projectName: document.getElementById('inp-project').value.trim(), 
-        inspectorName: document.getElementById('inp-inspector').value.trim(), 
-        contractorName: document.getElementById('inp-contractor').value.trim(),
+        projectName: projInput.value.trim(), 
+        inspectorName: inspInput.value.trim(), 
+        contractorName: contrInput.value.trim(),
         templateKey: currentTemplateKey, 
-        templateTitle: document.getElementById('checklist-selector').options[document.getElementById('checklist-selector').selectedIndex].text,
-        location: document.getElementById('inp-location').value.trim(), 
-        
-        stageId: 0, // Устарело, но оставляем для совместимости старых данных
+        templateTitle: tTitle,
+        location: locInput.value.trim(), 
+        stageId: 0, 
         stageName: stageNameLabel,
-        checkedStagesInfo: checkedStageNames, // Новый массив: список проверенных этапов
+        checkedStagesInfo: checkedStageNames, 
         isCompleted: isFullCheck,
-        
         state: JSON.parse(JSON.stringify(mergedState)), 
         details: JSON.parse(JSON.stringify(mergedDetails)), 
         photos: JSON.parse(JSON.stringify(mergedPhotos)), 
@@ -1728,12 +1725,18 @@ function saveProductToArray() {
     contractorArray.push(newItem);
     dbPut(STORES.HISTORY, newItem);
     
+    // Очищаем стейт ответов
     state = {}; details = {}; photos = {}; 
+    
+    // СБРОС ТОЛЬКО ПОЛЯ ЛОКАЦИЯ
+    locInput.value = '';
+    
     scheduleSessionSave(); 
     
     window.scrollTo({ top: 0, behavior: "smooth" });
-    showToast(`✅ Акт сохранен! (${stageNameLabel})`);
-    render(); updateUI();
+    showToast(`✅ Сохранено в Историю!`);
+    render(); 
+    updateUI();
 }
 
 function resetChecklist() {
@@ -3125,72 +3128,83 @@ function renderEngineeringSubTab(data) {
         </select>
     `;
 
-    // ===== НАЧАЛО HTML =====
-    let html = `
-        <div class="mx-1 space-y-4">
-            <div class="bg-[var(--card-bg)] border border-indigo-200 rounded-xl shadow-sm relative overflow-hidden">
-                <div class="bg-indigo-50 border-b border-indigo-100 p-2 flex justify-between items-center">
-                    <div class="text-[10px] font-black text-indigo-600 uppercase flex items-center gap-1">🤖 AI-Анализ (Методика 70/85)</div>
-                    <button onclick="editExpertText('${smartKey}', 'hidden_eng_text')" class="text-[10px] font-bold bg-white text-indigo-600 border border-indigo-200 px-3 py-1 rounded shadow-sm">✏️ Редак.</button>
-                    <textarea id="hidden_eng_text" class="hidden">${rawSmartText}</textarea>
-                </div>
-                <div class="p-3 text-[11px] leading-snug space-y-2 whitespace-pre-wrap">${uiSmartText}</div>
+    let html = '<div class="mx-1 space-y-4">';
+
+    // ВОТ ЗДЕСЬ СРАБАТЫВАЕТ ТОГГЛ ИЗ НАСТРОЕК ДЛЯ ИИ
+    if (appSettings.anaEngAi) {
+        html += `
+        <div class="bg-[var(--card-bg)] border border-indigo-200 rounded-xl shadow-sm relative overflow-hidden">
+            <div class="bg-indigo-50 border-b border-indigo-100 p-2 flex justify-between items-center">
+                <div class="text-[10px] font-black text-indigo-600 uppercase flex items-center gap-1">🤖 AI-Анализ (Методика 70/85)</div>
+                <button onclick="editExpertText('${smartKey}', 'hidden_eng_text')" class="text-[10px] font-bold bg-white text-indigo-600 border border-indigo-200 px-3 py-1 rounded shadow-sm">✏️ Редак.</button>
+                <textarea id="hidden_eng_text" class="hidden">${rawSmartText}</textarea>
             </div>
+            <div class="p-3 text-[11px] leading-snug space-y-2 whitespace-pre-wrap">${uiSmartText}</div>
+        </div>`;
+    }
 
-            ${renderPhotoGallery(topCriticalPhotos, "Критические дефекты (B3)", "text-red-600", "bg-red-50")}
-            ${renderPhotoGallery(topSystemicPhotos, "Системные отклонения (B2)", "text-orange-600", "bg-orange-50")}
+    // ВОТ ЗДЕСЬ СРАБАТЫВАЕТ ТОГГЛ ДЛЯ ГАЛЕРЕИ ФОТО
+    if (appSettings.anaEngPhotos) {
+        html += renderPhotoGallery(topCriticalPhotos, "Критические дефекты (B3)", "text-red-600", "bg-red-50");
+        html += renderPhotoGallery(topSystemicPhotos, "Системные отклонения (B2)", "text-orange-600", "bg-orange-50");
+    }
 
-            <!-- ГРАФИКИ ТРЕНДОВ С НЕЗАВИСИМЫМИ ФИЛЬТРАМИ -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
-                    <div class="flex justify-between items-center mb-2">
-                        <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Динамика: Подрядчики</div>
-                        <div class="flex gap-1">
-                            <button onclick="openChartFilterModal('contrs')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
-                            ${getSelectHtml('contrs')}
-                        </div>
+    html += `
+        <!-- ГРАФИКИ ТРЕНДОВ С НЕЗАВИСИМЫМИ ФИЛЬТРАМИ -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Динамика: Подрядчики</div>
+                    <div class="flex gap-1">
+                        <button onclick="openChartFilterModal('contrs')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
+                        ${getSelectHtml('contrs')}
                     </div>
-                    <div style="height: 180px; position: relative;"><canvas id="chart_eng_trend_contrs"></canvas></div>
                 </div>
-                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
-                    <div class="flex justify-between items-center mb-2">
-                        <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Динамика: Виды работ</div>
-                        <div class="flex gap-1">
-                            <button onclick="openChartFilterModal('works')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
-                            ${getSelectHtml('works')}
-                        </div>
+                <div style="height: 180px; position: relative;"><canvas id="chart_eng_trend_contrs"></canvas></div>
+            </div>
+            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Динамика: Виды работ</div>
+                    <div class="flex gap-1">
+                        <button onclick="openChartFilterModal('works')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
+                        ${getSelectHtml('works')}
                     </div>
-                    <div style="height: 180px; position: relative;"><canvas id="chart_eng_trend_works"></canvas></div>
                 </div>
-            </div>
-
-            <!-- УСЛОВНЫЙ БЛОК: ПАРЕТО (Выключается из Настроек) -->
-            ${appSettings.anaEngPareto ? `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
-                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Причины брака (Парето)</div>
-                    <div style="height: 180px; position: relative;"><canvas id="chart_eng_causes"></canvas></div>
-                </div>
-                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm flex flex-col justify-center">
-                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Доля брака: ${Math.round((tB1+tB2+tB3)/(tOk+tB1+tB2+tB3)*100 || 0)}%</div>
-                    <div style="height: 160px; position: relative; display: flex; justify-content: center;"><canvas id="chart_eng_doughnut"></canvas></div>
-                </div>
-            </div>
-            ` : ''}
-
-            ${critList.length > 0 ? `
-            <div class="bg-red-50 border border-red-200 rounded-xl p-3 shadow-sm mt-4">
-                <div class="text-[10px] font-black text-red-600 uppercase mb-3">🚨 Реестр критических инцидентов (B3)</div>
-                <div class="max-h-[250px] overflow-y-auto space-y-2 custom-scrollbar">
-                    ${critList.map(c => `<div class="bg-white border border-red-100 p-2.5 rounded-lg shadow-sm"><div class="flex justify-between items-start mb-1"><span class="font-black text-[11px] text-red-700">${c.loc}</span><span class="text-[9px] font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded truncate max-w-[100px]">${c.contr}</span></div><div class="text-[10px] text-slate-700 italic">"${c.text}"</div></div>`).join('')}
-                </div>
-            </div>` : ''}
-
-            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm mt-4">
-                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Детализация по этапам</div>
-                <div class="overflow-x-auto"><table class="w-full text-left whitespace-nowrap"><thead class="bg-[var(--hover-bg)] text-[10px] text-[var(--text-muted)] border-b border-[var(--card-border)]"><tr><th class="p-2">Этап контроля</th><th class="p-2 text-center">Проверок</th><th class="p-2 text-center">УрК</th></tr></thead><tbody class="divide-y divide-[var(--card-border)]">${stagesHtml}</tbody></table></div>
+                <div style="height: 180px; position: relative;"><canvas id="chart_eng_trend_works"></canvas></div>
             </div>
         </div>`;
+
+    // ВОТ ЗДЕСЬ СРАБАТЫВАЕТ ТОГГЛ ДЛЯ ПАРЕТО
+    if (appSettings.anaEngPareto) {
+        html += `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Причины брака (Парето)</div>
+                <div style="height: 180px; position: relative;"><canvas id="chart_eng_causes"></canvas></div>
+            </div>
+            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm flex flex-col justify-center">
+                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Доля брака: ${Math.round((tB1+tB2+tB3)/(tOk+tB1+tB2+tB3)*100 || 0)}%</div>
+                <div style="height: 160px; position: relative; display: flex; justify-content: center;"><canvas id="chart_eng_doughnut"></canvas></div>
+            </div>
+        </div>`;
+    }
+
+    if (critList.length > 0) {
+        html += `
+        <div class="bg-red-50 border border-red-200 rounded-xl p-3 shadow-sm mt-4">
+            <div class="text-[10px] font-black text-red-600 uppercase mb-3">🚨 Реестр критических инцидентов (B3)</div>
+            <div class="max-h-[250px] overflow-y-auto space-y-2 custom-scrollbar">
+                ${critList.map(c => `<div class="bg-white border border-red-100 p-2.5 rounded-lg shadow-sm"><div class="flex justify-between items-start mb-1"><span class="font-black text-[11px] text-red-700">${c.loc}</span><span class="text-[9px] font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded truncate max-w-[100px]">${c.contr}</span></div><div class="text-[10px] text-slate-700 italic">"${c.text}"</div></div>`).join('')}
+            </div>
+        </div>`;
+    }
+
+    html += `
+        <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm mt-4">
+            <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Детализация по этапам</div>
+            <div class="overflow-x-auto"><table class="w-full text-left whitespace-nowrap"><thead class="bg-[var(--hover-bg)] text-[10px] text-[var(--text-muted)] border-b border-[var(--card-border)]"><tr><th class="p-2">Этап контроля</th><th class="p-2 text-center">Проверок</th><th class="p-2 text-center">УрК</th></tr></thead><tbody class="divide-y divide-[var(--card-border)]">${stagesHtml}</tbody></table></div>
+        </div>
+    </div>`;
 
     container.innerHTML = html;
 
@@ -3204,7 +3218,6 @@ function renderEngineeringSubTab(data) {
     const ctxTrendW = document.getElementById('chart_eng_trend_works').getContext('2d');
     chartInstances['chart_eng_trend_works'] = new Chart(ctxTrendW, { type: 'line', data: trendWorksData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 9} } } } } });
 
-    // Условная отрисовка Парето
     if(appSettings.anaEngPareto && causesChartData.length > 0) {
         const ctxBar = document.getElementById('chart_eng_causes').getContext('2d');
         chartInstances['chart_eng_causes'] = new Chart(ctxBar, { type: 'bar', indexAxis: 'y', data: { labels: causesChartLabels, datasets: [{ data: causesChartData, backgroundColor: '#6366f1', borderRadius: 4 }] }, options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
@@ -3221,11 +3234,6 @@ function renderOnePagerSubTab(data) {
     if(data.length === 0) { container.innerHTML = `<div class="text-center text-slate-500 text-sm py-10">Нет данных для анализа</div>`; return; }
 
     const uniqueLocs = [...new Set(data.map(i => i.location))];
-    const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
-    const midPoint = Math.floor(sortedData.length / 2);
-    const firstHalf = sortedData.slice(0, midPoint);
-    const secondHalf = sortedData.slice(midPoint);
-
     const calcGlobalUrk = (arr) => {
         if (arr.length === 0) return 0;
         const grouped = {};
@@ -3234,7 +3242,6 @@ function renderOnePagerSubTab(data) {
             if(!grouped[k]) grouped[k] = [];
             grouped[k].push(item);
         });
-        
         let sum = 0, count = 0;
         for(let k in grouped) {
             if(grouped[k].length >= 3) { 
@@ -3246,19 +3253,49 @@ function renderOnePagerSubTab(data) {
         return Math.round(sum / count);
     };
 
+    const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
+    const midPoint = Math.floor(sortedData.length / 2);
     const globalUrk = calcGlobalUrk(data);
-    const u1 = calcGlobalUrk(firstHalf);
-    const u2 = calcGlobalUrk(secondHalf);
-    const delta = (secondHalf.length > 0 && firstHalf.length > 0 && u1 > 0 && u2 > 0) ? (u2 - u1) : 0;
+    const u1 = calcGlobalUrk(sortedData.slice(0, midPoint));
+    const u2 = calcGlobalUrk(sortedData.slice(midPoint));
+    const delta = (sortedData.length > 1 && u1 > 0 && u2 > 0) ? (u2 - u1) : 0;
     
     let sumB3 = 0; const criticalPhotos = [];
     
+    // Сбор ТОП-5 Дефектов
+    let defectCountsB2 = {};
+    let defectCountsB3 = {};
+
     data.forEach(i => { 
         if(i.metrics) sumB3 += i.metrics.n_B3_fail; 
-        if(i.state && i.photos) {
+        if(i.state && i.photos && i.details) {
             Object.keys(i.state).forEach(id => {
-                if((i.state[id] === 'fail_escalated' || (i.metrics && i.metrics.n_B3_fail > 0 && i.state[id] === 'fail')) && i.photos[id]) {
-                    criticalPhotos.push({ src: i.photos[id], loc: i.location, text: i.details[id]?.comment || 'Без описания', date: new Date(i.date).getTime() });
+                const isFail = i.state[id] === 'fail' || i.state[id] === 'fail_escalated';
+                if(isFail) {
+                    const txt = i.details[id]?.comment || 'Без описания';
+                    const cause = i.details[id]?.causeCode || '';
+                    
+                    // Поиск имени дефекта по ID в шаблонах
+                    let defName = "Неизвестный дефект";
+                    const tType = i.templateKey.split('_')[0];
+                    const tKey = i.templateKey.replace(tType + '_', '');
+                    const cl = tType === 'sys' && SYSTEM_TEMPLATES[tKey] ? SYSTEM_TEMPLATES[tKey].groups : (userTemplates[tKey] ? userTemplates[tKey].groups : []);
+                    const flat = getFlatList(cl);
+                    const foundItem = flat.find(x => x.id == id);
+                    if(foundItem) defName = foundItem.n;
+
+                    const pData = { src: i.photos[id] || null, loc: i.location, text: txt, name: defName, cause: cause, date: new Date(i.date).getTime() };
+
+                    if(i.state[id] === 'fail_escalated' || (i.metrics && i.metrics.n_B3_fail > 0)) {
+                        if(i.photos[id]) criticalPhotos.push(pData);
+                        let key = defName;
+                        defectCountsB3[key] = defectCountsB3[key] || {count: 0, photo: pData.src, name: defName};
+                        defectCountsB3[key].count++;
+                    } else {
+                        let key = defName;
+                        defectCountsB2[key] = defectCountsB2[key] || {count: 0, photo: pData.src, name: defName};
+                        defectCountsB2[key].count++;
+                    }
                 }
             });
         }
@@ -3267,9 +3304,9 @@ function renderOnePagerSubTab(data) {
     const topPhotos = criticalPhotos.sort((a,b) => b.date - a.date).slice(0, 4);
     const urkColor = globalUrk < 70 ? 'text-red-600' : (globalUrk < 85 ? 'text-orange-500' : 'text-green-600');
     
+    let best = null, worst = null;
     const grouped = {};
     data.forEach(item => { if(!grouped[item.contractorName]) grouped[item.contractorName] = []; grouped[item.contractorName].push(item); });
-    let best = null, worst = null;
     for(let cName in grouped) {
         if (grouped[cName].length >= 3) {
             const m = getContractorMetrics(grouped[cName], userTemplates);
@@ -3280,9 +3317,7 @@ function renderOnePagerSubTab(data) {
         }
     }
 
-    let photoHtml = '';
-    if(topPhotos.length > 0) {
-        photoHtml = `
+    let photoHtml = topPhotos.length > 0 ? `
         <div class="mb-4 bg-slate-900 rounded-xl p-3 shadow-sm border border-slate-700">
             <div class="text-[10px] font-black text-white uppercase mb-2 flex items-center gap-1">📸 Внимание Руководителя</div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -3292,11 +3327,53 @@ function renderOnePagerSubTab(data) {
                     <div class="absolute inset-x-0 bottom-0 bg-black/80 text-white text-[8px] p-1.5 rounded-b-lg backdrop-blur-sm truncate">${p.loc}: ${p.text.replace(/^\[.*?\]\s*/, '')}</div>
                 </div>`).join('')}
             </div>
-        </div>`;
+        </div>` : '';
+
+    // ГЕНЕРАЦИЯ ТОП-5 БЛОКОВ
+    let topB2Array = Object.values(defectCountsB2).sort((a,b) => b.count - a.count).slice(0, 5);
+    let topB3Array = Object.values(defectCountsB3).sort((a,b) => b.count - a.count).slice(0, 5);
+
+    let topDefectsHtml = '';
+    if (appSettings.anaOpTopDefects && (topB2Array.length > 0 || topB3Array.length > 0)) {
+        topDefectsHtml = `<div class="mb-4 space-y-3">`;
+        
+        if(topB3Array.length > 0) {
+            topDefectsHtml += `<div class="bg-red-50 border border-red-200 rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] font-black text-red-700 uppercase mb-2">🚨 ТОП-5 Критических Дефектов (B3)</div>
+                <div class="space-y-2">
+                    ${topB3Array.map(d => `
+                    <div class="flex items-center gap-3 bg-white p-2 rounded-lg border border-red-100 shadow-sm">
+                        ${d.photo ? `<img src="${d.photo}" class="w-12 h-12 rounded object-cover border border-red-200 shrink-0 cursor-pointer" onclick="openPhotoViewer('${d.photo}')">` : `<div class="w-12 h-12 bg-red-50 rounded flex items-center justify-center text-red-300 text-xs shrink-0 border border-red-100 border-dashed">Нет фото</div>`}
+                        <div class="flex-1 min-w-0">
+                            <div class="text-[11px] font-bold text-slate-800 leading-tight line-clamp-2">${d.name}</div>
+                            <div class="text-[10px] text-red-600 font-black mt-0.5">Случаев: ${d.count}</div>
+                        </div>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }
+
+        if(topB2Array.length > 0) {
+            topDefectsHtml += `<div class="bg-orange-50 border border-orange-200 rounded-xl p-3 shadow-sm">
+                <div class="text-[10px] font-black text-orange-700 uppercase mb-2">🔄 ТОП-5 Повторяющихся Дефектов (B2)</div>
+                <div class="space-y-2">
+                    ${topB2Array.map(d => `
+                    <div class="flex items-center gap-3 bg-white p-2 rounded-lg border border-orange-100 shadow-sm">
+                        ${d.photo ? `<img src="${d.photo}" class="w-12 h-12 rounded object-cover border border-orange-200 shrink-0 cursor-pointer" onclick="openPhotoViewer('${d.photo}')">` : `<div class="w-12 h-12 bg-orange-50 rounded flex items-center justify-center text-orange-300 text-xs shrink-0 border border-orange-100 border-dashed">Нет фото</div>`}
+                        <div class="flex-1 min-w-0">
+                            <div class="text-[11px] font-bold text-slate-800 leading-tight line-clamp-2">${d.name}</div>
+                            <div class="text-[10px] text-orange-600 font-black mt-0.5">Случаев: ${d.count}</div>
+                        </div>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }
+        
+        topDefectsHtml += `</div>`;
     }
 
     const getSelectHtml = (type) => `
-        <select onchange="updateTrendCharts('${type}', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400 rounded px-1 py-1 outline-none cursor-pointer shadow-sm">
+        <select onchange="updateTrendCharts('${type}', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white rounded px-1 py-1 shadow-sm outline-none">
             <option value="WEEK" ${trendGroupings[type]==='WEEK'?'selected':''}>Недели</option>
             <option value="MONTH" ${trendGroupings[type]==='MONTH'?'selected':''}>Месяцы</option>
             <option value="QUARTER" ${trendGroupings[type]==='QUARTER'?'selected':''}>Кварталы</option>
@@ -3312,7 +3389,7 @@ function renderOnePagerSubTab(data) {
         
         <div class="grid grid-cols-2 gap-2 mb-4">
             <div class="bg-[var(--card-bg)] rounded-xl p-4 border border-[var(--card-border)] text-center shadow-sm relative overflow-hidden">
-                <div class="text-[10px] uppercase font-black text-[var(--text-muted)] mb-1">Глобальный УрК (Бизнес)</div>
+                <div class="text-[10px] uppercase font-black text-[var(--text-muted)] mb-1">Глобальный УрК</div>
                 <div class="text-4xl font-black ${urkColor}">${globalUrk}%</div>
                 ${delta !== 0 ? `<div class="absolute top-2 right-2 text-[10px] font-black px-1.5 py-0.5 rounded ${delta > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}%</div>` : ''}
             </div>
@@ -3322,7 +3399,6 @@ function renderOnePagerSubTab(data) {
             </div>
         </div>
 
-        <!-- УСЛОВНЫЙ БЛОК: ЛИДЕРЫ И АУТСАЙДЕРЫ -->
         ${appSettings.anaOpLeader ? `
         <div class="grid grid-cols-2 gap-2 mb-4">
             <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center">
@@ -3333,28 +3409,26 @@ function renderOnePagerSubTab(data) {
                 <div class="text-[9px] uppercase font-bold text-red-500 mb-1">⚠️ Зона риска</div>
                 <div class="text-xs font-black truncate">${worst ? worst.name : 'Нет данных'}</div>
             </div>
-        </div>
-        ` : ''}
+        </div>` : ''}
 
         ${photoHtml}
+        ${topDefectsHtml}
 
-        <!-- УСЛОВНЫЙ БЛОК: ГЛОБАЛЬНЫЙ ТРЕНД -->
         ${appSettings.anaOpTrend ? `
         <div class="mb-4 bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] shadow-sm">
             <div class="flex justify-between items-center mb-2">
-                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Глобальный Тренд Объекта</div>
+                <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Глобальный Тренд</div>
                 ${getSelectHtml('global')}
             </div>
             <div style="height: 160px; position: relative;"><canvas id="chart_onepager_trend"></canvas></div>
-        </div>
-        ` : ''}
+        </div>` : ''}
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div class="bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] shadow-sm">
                 <div class="flex justify-between items-center mb-2">
                     <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Тренд: Подрядчики</div>
                     <div class="flex gap-1">
-                        <button onclick="openChartFilterModal('contrs')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
+                        <button onclick="openChartFilterModal('contrs')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 shadow-sm">⚙️ Линии</button>
                         ${getSelectHtml('contrs')}
                     </div>
                 </div>
@@ -3364,26 +3438,25 @@ function renderOnePagerSubTab(data) {
                 <div class="flex justify-between items-center mb-2">
                     <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Тренд: Виды Работ</div>
                     <div class="flex gap-1">
-                        <button onclick="openChartFilterModal('works')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
+                        <button onclick="openChartFilterModal('works')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 shadow-sm">⚙️ Линии</button>
                         ${getSelectHtml('works')}
                     </div>
                 </div>
                 <div style="height: 160px; position: relative;"><canvas id="chart_op_trend_works"></canvas></div>
             </div>
         </div>
-
+        
         <div class="${globalUrk < 85 || sumB3 > 0 || delta < 0 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'} border rounded-xl p-4 shadow-sm mb-4">
             <div class="text-[11px] font-black uppercase mb-3 ${globalUrk < 85 || sumB3 > 0 || delta < 0 ? 'text-orange-800' : 'text-green-800'} flex items-center gap-1.5">🎯 Управленческое решение (ACT)</div>
             <div class="text-[11px] font-bold space-y-2 text-slate-800">
                 ${sumB3 > 0 ? `<div class="bg-red-100 text-red-800 p-2 rounded">🚨 <b>ОСТАНОВКА РАБОТ:</b> Обнаружено ${sumB3} инцидентов B3. Финишная сдача невозможна. Выдать предписания на демонтаж.</div>` : ''}
-                ${globalUrk < 70 ? `<div>❌ <b>ВНЕ КОНТРОЛЯ:</b> Глобальный УрК ниже 70%. Идет накопление опасных дефектов. Применить штрафы.</div>` : (globalUrk < 85 ? `<div>🟡 <b>УСЛОВНЫЙ ДОПУСК:</b> УрК в диапазоне СМР (70-84%). Риск "дефектного хвоста". Запрет на финальную приемку до устранения B2.</div>` : `<div>✅ <b>ЦЕЛЕВАЯ ЗОНА:</b> УрК ${globalUrk}% (Норма >= 85%). Отсутствуют критические дефекты. Готовность к сдаче с 1-го раза.</div>`)}
+                ${globalUrk < 70 ? `<div>❌ <b>ВНЕ КОНТРОЛЯ:</b> Глобальный УрК ниже 70%. Идет накопление опасных дефектов. Применить штрафы.</div>` : (globalUrk < 85 ? `<div>🟡 <b>УСЛОВНЫЙ ДОПУСК:</b> УрК в диапазоне СМР (70-84%). Запрет на финальную приемку до устранения B2.</div>` : `<div>✅ <b>ЦЕЛЕВАЯ ЗОНА:</b> УрК ${globalUrk}% (Норма >= 85%). Отсутствуют критические дефекты. Готовность к сдаче с 1-го раза.</div>`)}
             </div>
         </div>
     `;
 
     container.innerHTML = html;
 
-    // Рисуем графики с учетом настроек
     if (appSettings.anaOpTrend) {
         const trendGlobalData = buildTrendChartData(data, 'TOTAL', [], trendGroupings.global);
         const ctxTrend = document.getElementById('chart_onepager_trend').getContext('2d');

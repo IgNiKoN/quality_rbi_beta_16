@@ -590,21 +590,14 @@ body.nav-pos-auto #fab-download-btn {
 #ref-docs-filters {
     position: sticky !important;
     z-index: 40 !important;
-    /* Эффект стекла (Полупрозрачный фон + Блюр) */
-    background-color: var(--header-bg) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
+    /* Фон, блюр и рамки теперь работают через классы Tailwind в HTML */
     transition: top 0.3s ease;
     
-    /* 
-       ЗАДАННЫЙ ЗАЗОР 10px + ЧЕЛКА 
-       Это же значение должно быть и у стартового отступа, чтобы не было прыжков!
-    */
+    /* ЗАДАННЫЙ ЗАЗОР 10px + ЧЕЛКА */
     top: calc(10px + env(safe-area-inset-top)) !important; 
-    margin-top: -6px !important; /* Убираем лишние 6px от pt-4 (16px - 6px = 10px) */
-    margin-bottom: 10px !important; /* Одинаковый зазор снизу */
+    margin-top: -6px !important;
+    margin-bottom: 10px !important;
     border-radius: 16px !important;
-    border: 1px solid var(--card-border) !important;
 }
 
 /* 2. ЕСЛИ ГЛАВНОЕ МЕНЮ СВЕРХУ (top) ИЛИ НА ПК (auto > 768px) */
@@ -720,7 +713,7 @@ body.nav-pos-top #tab-reference {
 /* ИСПРАВЛЕНИЕ: Кнопка PDF не должна перекрывать нижнее меню подвкладок */
 body.nav-pos-bottom #fab-download-btn {
     /* Навигация (65px) + Подвкладки (около 50px) + Зазоры */
-    bottom: 140px !important; 
+    bottom: 165px !important; 
 }
 /* === ИНТЕРАКТИВНЫЙ ТУТОРИАЛ === */
 .tut-relative {
