@@ -27,16 +27,19 @@ let appSettings = {
     theme: 'auto',
     fontSize: 'medium',
     navPosition: 'auto',
-    swipeEnabled: false,      // Выключено по умолчанию
-    autoCollapseOk: false,    // Выключено по умолчанию
-    defaultGroupsCollapsed: false, // Развернуты по умолчанию
-    fastMode: false,          // Выключено по умолчанию
+    swipeEnabled: false,      
+    autoCollapseOk: false,    
+    defaultGroupsCollapsed: false, 
+    fastMode: false,          
     soundEnabled: true,
     autoSave: true,
     aiEnabled: false,   
     aiAuto: false,      
     apiKey: '',
-    dashboardMode: 'compact' 
+    dashboardMode: 'compact',
+    anaEngPareto: true, // Аналитика: Парето в Инженерии
+    anaOpTrend: true,   // Аналитика: Глобальный тренд в Сводке
+    anaOpLeader: true   // Аналитика: Лидеры/Риск в Сводке
 };
 
 // Звуковые эффекты (base64 для офлайна)
@@ -353,6 +356,9 @@ function renderSettingsTab() {
     if(document.getElementById('set-collapse')) document.getElementById('set-collapse').checked = appSettings.autoCollapseOk;
     if(document.getElementById('set-groups-col')) document.getElementById('set-groups-col').checked = appSettings.defaultGroupsCollapsed;
     if(document.getElementById('set-fast')) document.getElementById('set-fast').checked = appSettings.fastMode;
+    if(document.getElementById('set-ana-pareto')) document.getElementById('set-ana-pareto').checked = appSettings.anaEngPareto;
+    if(document.getElementById('set-ana-trend')) document.getElementById('set-ana-trend').checked = appSettings.anaOpTrend;
+    if(document.getElementById('set-ana-leader')) document.getElementById('set-ana-leader').checked = appSettings.anaOpLeader;
 }
 
 function resetSettingsToDefault() {
@@ -396,7 +402,7 @@ function applySettingsToUI() {
         document.documentElement.classList.add('dark');
         document.documentElement.classList.remove('light');
     } else {
-        document.documentElement.setAttribute('data-theme', 'light'); // ← ГЛАВНОЕ ИСПРАВЛЕНИЕ
+        document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.classList.remove('dark');
         document.documentElement.classList.add('light');
     }
@@ -404,13 +410,12 @@ function applySettingsToUI() {
     if (appSettings.fastMode) document.body.classList.add('fast-mode');
     else document.body.classList.remove('fast-mode');
 
-    // Масштабирование интерфейса применяем к корневому тегу HTML
     document.documentElement.classList.remove('font-small', 'font-medium', 'font-large', 'font-xlarge');
     document.documentElement.classList.add(`font-${appSettings.fontSize || 'medium'}`);
     
     document.body.classList.remove('nav-pos-auto', 'nav-pos-top', 'nav-pos-bottom');
     document.body.classList.add(`nav-pos-${appSettings.navPosition || 'auto'}`);
-    // Применяем режим мини-дашборда
+    
     const dash = document.getElementById('header-dashboard');
     const dashExp = document.getElementById('dash-expanded-view');
     const dashIcon = document.getElementById('dash-expand-icon');
@@ -420,22 +425,20 @@ function applySettingsToUI() {
     } else if (appSettings.dashboardMode === 'expanded') {
         if(dash) dash.style.display = 'block';
         if(dashExp) dashExp.classList.remove('hidden');
-        if(dashIcon) dashIcon.style.display = 'none'; // Прячем стрелку, так как он всегда развернут
+        if(dashIcon) dashIcon.style.display = 'none';
     } else {
-        // Компактный режим (по умолчанию)
         if(dash) dash.style.display = 'block';
         if(dashExp) dashExp.classList.add('hidden');
         if(dashIcon) dashIcon.style.display = 'flex';
     }
+    
+    // Плавный пересчет отступов без перерисовки контента
     setTimeout(() => {
-        const headerEl = document.getElementById('main-header');
-        if (headerEl) document.body.style.paddingTop = `${headerEl.offsetHeight + 10}px`;
-    }, 100);
+        if (typeof updateBodyPadding === 'function') updateBodyPadding();
+    }, 150);
 
-    if (document.getElementById('tab-audit')?.classList.contains('active') && typeof render === 'function') render();
-// НОВОЕ: Обновляем положение кнопки PDF, если мы сейчас в Аналитике
     const activeTab = document.querySelector('.view-section.active');
-    if (activeTab) updateFabButton(activeTab.id);
+    if (activeTab && typeof updateFabButton === 'function') updateFabButton(activeTab.id);
 }
 
 // Вывод списка пользовательских шаблонов для управления (Удаления)
@@ -1048,7 +1051,8 @@ function showHistoryDetail(id) {
     
     document.getElementById('modal-body').innerHTML = `
         <div class="text-xs font-bold text-slate-500 mb-1">${item.contractorName}</div>
-        <div class="text-[10px] font-bold text-slate-400 mb-1">${item.templateTitle}</div>
+        <div class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 mb-1">${item.templateTitle}</div>
+        ${item.checkedStagesInfo ? `<div class="text-[9px] bg-slate-100 dark:bg-slate-800 p-2 rounded mt-2 mb-2 text-slate-500 dark:text-slate-400 font-bold leading-snug"><span class="text-slate-400 uppercase tracking-widest block mb-1">Проверенные этапы:</span> ${item.checkedStagesInfo.join('<br>')}</div>` : ''}
         <div class="text-[10px] text-slate-400 mb-4">${new Date(item.date).toLocaleString('ru-RU')}</div>
         
         <div class="grid grid-cols-2 gap-3 mb-4">
@@ -1367,89 +1371,106 @@ function updateCardDOM(id, itemData = null) {
             : 'text-slate-600 bg-slate-100 border-slate-300 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600';
         
         helpBtnHtml = `
-            <div class="pt-1.5 pr-1.5 shrink-0">
-                <button onclick="openItemHelpMenu(${id}, event)" class="btn-status ${btnClass} !w-10 !h-10 !rounded-md relative shadow-sm" title="Инструкции и Справка">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    ${inspectorCard ? '<span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span></span>' : ''}
-                </button>
-            </div>
+            <button onclick="openItemHelpMenu(${id}, event)" class="btn-status ${btnClass} !w-10 !h-10 !rounded-md relative shadow-sm shrink-0" title="Инструкции и Справка">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                ${inspectorCard ? '<span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span></span>' : ''}
+            </button>
         `;
     } else {
         helpBtnHtml = `
-            <div class="pt-1.5 pr-1.5 shrink-0">
-                <button onclick="showToast('К этому пункту пока не привязаны инструкции')" class="btn-status text-slate-300 bg-transparent border-dashed border-slate-200 dark:text-slate-600 dark:border-slate-700 !w-10 !h-10 !rounded-md shadow-sm" title="Нет инструкций">
-                    <svg class="w-5 h-5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </button>
-            </div>
+            <button onclick="showToast('К этому пункту пока не привязаны инструкции')" class="btn-status text-slate-300 bg-transparent border-dashed border-slate-200 dark:text-slate-600 dark:border-slate-700 !w-10 !h-10 !rounded-md shadow-sm shrink-0" title="Нет инструкций">
+                <svg class="w-5 h-5 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </button>
         `;
     }
 
     // === ОСНОВНЫЕ КНОПКИ (OK / FAIL) ===
     let mainBtnsHtml = `
-    <div class="flex gap-1.5 shrink-0 pt-1.5">
         <button onclick="toggleOk(${id})" class="btn-status ${okActive ? 'bg-green-500 text-white border-green-500' : ''} !w-11 !h-11 shrink-0 shadow-sm transition-transform active:scale-90">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
         <button onclick="toggleFail(${id})" class="btn-status ${failActive ? 'bg-red-500 text-white border-red-500' : ''} !w-11 !h-11 shrink-0 shadow-sm transition-transform active:scale-90">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-    </div>`;
+    `;
 
     let contentHtml = '';
 
-    // === МАКЕТ ПРИ FAIL ===
+    // === 1. МАКЕТ ПРИ FAIL (Двухуровневый: Текст сверху, Кнопки снизу) ===
     if (failActive) {
         let hasComment = details[id]?.comment && details[id].comment.trim() !== "";
         
         let commBtn = hasComment ? 
-            `<div class="relative shrink-0 pt-1.5 pr-1.5"><button onclick="toggleCommentField(${id})" class="btn-status text-indigo-600 bg-indigo-100 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-300 !w-10 !h-10 !rounded-md shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button><div onclick="deleteComment(${id}, event)" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white z-10">✕</div></div>` : 
-            `<div class="pt-1.5 pr-1.5 shrink-0"><button onclick="toggleCommentField(${id})" class="btn-status !w-10 !h-10 !rounded-md shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button></div>`;
+            `<div class="relative shrink-0"><button onclick="toggleCommentField(${id})" class="btn-status text-indigo-600 bg-indigo-100 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-300 !w-10 !h-10 !rounded-md shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button><div onclick="deleteComment(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white z-10">✕</div></div>` : 
+            `<button onclick="toggleCommentField(${id})" class="btn-status !w-10 !h-10 !rounded-md shrink-0 shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button>`;
         
         let photoBtn = photos[id] ? 
-            `<div class="relative shrink-0 pt-1.5 pr-1.5"><img src="${photos[id]}" class="photo-thumb !w-10 !h-10 !rounded-md border-2 border-indigo-200 shadow-sm object-cover" onclick="openPhotoViewer('${photos[id]}')"><div onclick="removePhoto(${id}, event)" class="absolute top-0 right-0 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white z-10">✕</div></div>` : 
-            `<div class="pt-1.5 pr-1.5 shrink-0"><button onclick="triggerPhotoInput(${id})" class="btn-status !w-10 !h-10 !rounded-md shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></circle></svg></button></div>`;
+            `<div class="relative shrink-0"><img src="${photos[id]}" class="photo-thumb !w-10 !h-10 !rounded-md border-2 border-indigo-200 shadow-sm object-cover" onclick="openPhotoViewer('${photos[id]}')"><div onclick="removePhoto(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white z-10">✕</div></div>` : 
+            `<button onclick="triggerPhotoInput(${id})" class="btn-status !w-10 !h-10 !rounded-md shrink-0 shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></circle></svg></button>`;
 
-        let escBtn = (i.w === 2) ? `<div class="pt-1.5 pr-1.5 shrink-0"><button onclick="toggleEscalation(${id})" class="btn-status ${isEscalated ? 'bg-red-600 text-white border-red-600' : 'text-orange-500 bg-orange-50 border-orange-200'} !w-10 !h-10 !rounded-md transition-all shadow-sm"><span class="text-[12px] font-black">>1.5</span></button></div>` : '';
+        let escBtn = (i.w === 2) ? `<button onclick="toggleEscalation(${id})" class="btn-status ${isEscalated ? 'bg-red-600 text-white border-red-600' : 'text-orange-500 bg-orange-50 border-orange-200'} !w-10 !h-10 !rounded-md transition-all shrink-0 shadow-sm"><span class="text-[12px] font-black">>1.5</span></button>` : '';
 
         let visualIndicatorHtml = isEscalated ? `<div class="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded w-fit mt-1 shadow-sm">Дефект учтен как B3</div>` : '';
         let commentBlockHtml = hasComment ? `<div class="mt-2 text-[12px] font-semibold text-slate-700 dark:text-slate-300 italic bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-red-100 dark:border-red-800 shadow-sm leading-snug break-words w-full">💬 ${details[id].comment}</div>` : '';
 
         contentHtml = `
-            <div class="flex justify-between items-start w-full gap-2">
-                <div class="flex-1 min-w-0 pr-1 flex flex-col min-h-[44px]">
-                    <div class="text-[13px] font-bold leading-snug card-title-text text-slate-800 dark:text-white pointer-events-none mt-1">
+            <div class="flex flex-col w-full">
+                <!-- Верх: Название дефекта (Нормы скрыты) -->
+                <div class="w-full pointer-events-none mb-2">
+                    <div class="text-[13px] font-bold leading-snug card-title-text text-slate-800 dark:text-white">
                         <span class="weight-tag wt-${i.w}">B${i.w}</span> ${i.n}
                     </div>
                     ${visualIndicatorHtml}
                     ${commentBlockHtml}
                 </div>
                 
-                <div class="flex items-center shrink-0">
-                    <div class="flex items-center overflow-x-auto no-scrollbar max-w-[150px] min-[400px]:max-w-none">
-                        ${helpBtnHtml}
-                        ${commBtn}
+                <!-- Низ: Разделенный Тулбар -->
+                <div class="flex justify-between items-center w-full mt-1 border-t border-red-100 dark:border-red-800 pt-3">
+                    
+                    <!-- Левая сторона: Фото, Коммент, 1.5x -->
+                    <div class="flex items-center gap-1.5 shrink-0">
                         ${photoBtn}
+                        ${commBtn}
                         ${escBtn}
                     </div>
-                    ${mainBtnsHtml}
+                    
+                    <!-- Правая сторона: Справка, OK, FAIL -->
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        ${helpBtnHtml}
+                        ${mainBtnsHtml}
+                    </div>
                 </div>
             </div>
         `;
     } 
-    // === ОБЫЧНЫЙ МАКЕТ (OK или Нейтрально) ===
-    else {
-        // ИЗМЕНЕНО: Скрываем норматив, если карточка в статусе OK
-        let normHtml = okActive ? '' : `<div class="text-[11px] text-[var(--text-muted)] leading-snug norm-desc-text mb-1">${i.t}</div>`;
-        
+    // === 2. МАКЕТ ПРИ OK (Нормы скрыты) ===
+    else if (okActive) {
         contentHtml = `
             <div class="flex justify-between items-center w-full min-h-[44px]">
                 <div class="flex-1 mr-3 min-w-0 pointer-events-none">
-                    <div class="text-[13px] font-bold leading-snug mb-1 card-title-text text-slate-800 dark:text-white mt-1">
+                    <div class="text-[13px] font-bold leading-snug card-title-text text-slate-800 dark:text-white">
                         <span class="weight-tag wt-${i.w}">B${i.w}</span> ${i.n}
                     </div>
-                    ${normHtml}
+                    <!-- Нормы скрыты -->
                 </div>
-                <div class="flex items-center shrink-0">
+                <div class="flex items-center gap-1.5 shrink-0">
+                    ${helpBtnHtml}
+                    ${mainBtnsHtml}
+                </div>
+            </div>
+        `;
+    }
+    // === 3. НЕЙТРАЛЬНЫЙ МАКЕТ (Видно всё) ===
+    else {
+        contentHtml = `
+            <div class="flex justify-between items-center w-full min-h-[44px]">
+                <div class="flex-1 mr-3 min-w-0 pointer-events-none">
+                    <div class="text-[13px] font-bold leading-snug mb-1 card-title-text text-slate-800 dark:text-white">
+                        <span class="weight-tag wt-${i.w}">B${i.w}</span> ${i.n}
+                    </div>
+                    <div class="text-[11px] text-[var(--text-muted)] leading-snug norm-desc-text">${i.t}</div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
                     ${helpBtnHtml}
                     ${mainBtnsHtml}
                 </div>
@@ -1461,7 +1482,7 @@ function updateCardDOM(id, itemData = null) {
     <div class="card-audit swipe-container ${indicatorClass} ${cardBgClass} ${collapseClass}" data-id="${id}" onclick="if(this.classList.contains('card-collapsed')) toggleOk(${id})">
         <div class="swipe-actions-bg swipe-bg-ok"><span class="ml-4">OK</span></div>
         <div class="swipe-actions-bg swipe-bg-fail"><span class="mr-4">FAIL</span></div>
-        <div class="swipe-content p-2 bg-inherit border-inherit rounded-inherit h-full w-full bg-[var(--card-bg)] dark:bg-slate-800 transition-colors">
+        <div class="swipe-content p-2.5 bg-inherit border-inherit rounded-inherit h-full w-full bg-[var(--card-bg)] dark:bg-slate-800 transition-colors">
             ${contentHtml}
         </div>
     </div>`;
@@ -1628,7 +1649,6 @@ function updateUI() {
 
 // === СОХРАНЕНИЕ / ОЧИСТКА ===
 function saveProductToArray() {
-    // --- ПРОВЕРКА ЗАПОЛНЕННОСТИ ПОЛЕЙ (Валидация) ---
     const fields = ['inp-project', 'inp-inspector', 'inp-contractor', 'inp-location'];
     let hasError = false;
     
@@ -1643,75 +1663,76 @@ function saveProductToArray() {
 
     if (hasError) {
         showToast('⚠️ Заполните все поля объекта в шапке!');
-        toggleDataBlock(true); // Принудительно открываем шапку
-        window.scrollTo({ top: 0, behavior: 'smooth' }); // Скроллим наверх
+        toggleDataBlock(true); 
+        window.scrollTo({ top: 0, behavior: 'smooth' }); 
         return;
     }
 
-    // --- НОВАЯ ЛОГИКА (ШАГ 1): ПОЭТАПНОЕ СОХРАНЕНИЕ ---
-    let savedStagesCount = 0;
+    // --- НОВАЯ ЛОГИКА: ОДНА ПРОВЕРКА = ОДНА ЗАПИСЬ ---
+    let mergedState = {};
+    let mergedDetails = {};
+    let mergedPhotos = {};
+    let checkedStageNames = [];
+    let stagesToMetric = [];
 
-    // Проходим по всем группам (этапам) текущего чек-листа
-    currentChecklist.forEach((group, gIndex) => {
-        // Контейнеры для данных конкретно этого этапа
-        let stageState = {};
-        let stageDetails = {};
-        let stagePhotos = {};
-        let hasAnswers = false;
-
-        // Перебираем пункты только текущей группы
+    // Проходим по всем этапам и собираем то, на что ответили
+    currentChecklist.forEach(group => {
+        let hasAnswersInStage = false;
         group.items.forEach(item => {
             if (state[item.id]) {
-                stageState[item.id] = state[item.id];
-                if (details[item.id]) stageDetails[item.id] = details[item.id];
-                if (photos[item.id]) stagePhotos[item.id] = photos[item.id];
-                hasAnswers = true;
+                mergedState[item.id] = state[item.id];
+                if (details[item.id]) mergedDetails[item.id] = details[item.id];
+                if (photos[item.id]) mergedPhotos[item.id] = photos[item.id];
+                hasAnswersInStage = true;
             }
         });
 
-        // Если в этом этапе инженер ответил хотя бы на 1 пункт - сохраняем этап отдельно
-        if (hasAnswers) {
-            // Считаем метрики локально только для этого этапа
-            const stageMetrics = getProductMetrics(stageState, [group]);
-
-            const newItem = { 
-                id: Date.now() + Math.floor(Math.random() * 1000) + gIndex, // Уникальный ID (добавляем индекс, чтобы ID были разными при быстром сохранении)
-                date: new Date().toISOString(), 
-                projectName: document.getElementById('inp-project').value.trim(), 
-                inspectorName: document.getElementById('inp-inspector').value.trim(), 
-                contractorName: document.getElementById('inp-contractor').value.trim(),
-                templateKey: currentTemplateKey, 
-                templateTitle: document.getElementById('checklist-selector').options[document.getElementById('checklist-selector').selectedIndex].text,
-                location: document.getElementById('inp-location').value.trim(), 
-                
-                // НОВЫЕ ПОЛЯ АРХИТЕКТУРЫ
-                stageId: gIndex,
-                stageName: group.group || group.title,
-                isCompleted: false, // Флаг полного завершения изделия (будет меняться позже)
-                
-                // ДАННЫЕ ЭТАПА
-                state: JSON.parse(JSON.stringify(stageState)), 
-                details: JSON.parse(JSON.stringify(stageDetails)), 
-                photos: JSON.parse(JSON.stringify(stagePhotos)), 
-                metrics: stageMetrics 
-            };
-
-            contractorArray.push(newItem);
-            dbPut(STORES.HISTORY, newItem); // Пишем в IndexedDB
-            savedStagesCount++;
+        // Если в этом этапе есть ответы, записываем, что этот этап проверялся
+        if (hasAnswersInStage) {
+            checkedStageNames.push(group.group || group.title);
+            stagesToMetric.push(group);
         }
     });
 
-    if (savedStagesCount === 0) {
+    if (checkedStageNames.length === 0) {
         return showToast('Чек-лист пуст. Заполните данные хотя бы одного этапа.');
     }
+
+    // Считаем метрики только по ТЕМ этапам, которые реально проверялись
+    const finalMetrics = getProductMetrics(mergedState, stagesToMetric);
+
+    const isFullCheck = checkedStageNames.length === currentChecklist.length;
+    const stageNameLabel = isFullCheck ? 'Полная проверка' : 'Частичная проверка';
+
+    const newItem = { 
+        id: Date.now() + Math.floor(Math.random() * 1000), 
+        date: new Date().toISOString(), 
+        projectName: document.getElementById('inp-project').value.trim(), 
+        inspectorName: document.getElementById('inp-inspector').value.trim(), 
+        contractorName: document.getElementById('inp-contractor').value.trim(),
+        templateKey: currentTemplateKey, 
+        templateTitle: document.getElementById('checklist-selector').options[document.getElementById('checklist-selector').selectedIndex].text,
+        location: document.getElementById('inp-location').value.trim(), 
+        
+        stageId: 0, // Устарело, но оставляем для совместимости старых данных
+        stageName: stageNameLabel,
+        checkedStagesInfo: checkedStageNames, // Новый массив: список проверенных этапов
+        isCompleted: isFullCheck,
+        
+        state: JSON.parse(JSON.stringify(mergedState)), 
+        details: JSON.parse(JSON.stringify(mergedDetails)), 
+        photos: JSON.parse(JSON.stringify(mergedPhotos)), 
+        metrics: finalMetrics 
+    };
+
+    contractorArray.push(newItem);
+    dbPut(STORES.HISTORY, newItem);
     
-    // Очищаем форму, НО не трогаем Локацию (инженер может продолжить проверять этот же объект)
     state = {}; details = {}; photos = {}; 
     scheduleSessionSave(); 
     
     window.scrollTo({ top: 0, behavior: "smooth" });
-    showToast(`✅ Сохранено этапов: ${savedStagesCount}`);
+    showToast(`✅ Акт сохранен! (${stageNameLabel})`);
     render(); updateUI();
 }
 
@@ -3095,7 +3116,6 @@ function renderEngineeringSubTab(data) {
         return `<tr class="border-b border-[var(--card-border)] hover:bg-[var(--hover-bg)]"><td class="p-2 text-[10px] font-bold whitespace-normal">${k}</td><td class="p-2 text-center text-[11px]">${stageData[k].checks}</td><td class="p-2 text-center text-[11px] font-black ${avg<70?'text-red-500':(avg<85?'text-orange-500':'text-green-600')}">${avg}%</td></tr>`;
     }).join('');
 
-    // Генератор селекторов
     const getSelectHtml = (type) => `
         <select onchange="updateTrendCharts('${type}', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400 rounded px-1 py-1 outline-none cursor-pointer shadow-sm">
             <option value="WEEK" ${trendGroupings[type]==='WEEK'?'selected':''}>Недели</option>
@@ -3105,6 +3125,7 @@ function renderEngineeringSubTab(data) {
         </select>
     `;
 
+    // ===== НАЧАЛО HTML =====
     let html = `
         <div class="mx-1 space-y-4">
             <div class="bg-[var(--card-bg)] border border-indigo-200 rounded-xl shadow-sm relative overflow-hidden">
@@ -3143,7 +3164,9 @@ function renderEngineeringSubTab(data) {
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- УСЛОВНЫЙ БЛОК: ПАРЕТО (Выключается из Настроек) -->
+            ${appSettings.anaEngPareto ? `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
                     <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Причины брака (Парето)</div>
                     <div style="height: 180px; position: relative;"><canvas id="chart_eng_causes"></canvas></div>
@@ -3153,16 +3176,17 @@ function renderEngineeringSubTab(data) {
                     <div style="height: 160px; position: relative; display: flex; justify-content: center;"><canvas id="chart_eng_doughnut"></canvas></div>
                 </div>
             </div>
+            ` : ''}
 
             ${critList.length > 0 ? `
-            <div class="bg-red-50 border border-red-200 rounded-xl p-3 shadow-sm">
+            <div class="bg-red-50 border border-red-200 rounded-xl p-3 shadow-sm mt-4">
                 <div class="text-[10px] font-black text-red-600 uppercase mb-3">🚨 Реестр критических инцидентов (B3)</div>
                 <div class="max-h-[250px] overflow-y-auto space-y-2 custom-scrollbar">
                     ${critList.map(c => `<div class="bg-white border border-red-100 p-2.5 rounded-lg shadow-sm"><div class="flex justify-between items-start mb-1"><span class="font-black text-[11px] text-red-700">${c.loc}</span><span class="text-[9px] font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded truncate max-w-[100px]">${c.contr}</span></div><div class="text-[10px] text-slate-700 italic">"${c.text}"</div></div>`).join('')}
                 </div>
             </div>` : ''}
 
-            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
+            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm mt-4">
                 <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Детализация по этапам</div>
                 <div class="overflow-x-auto"><table class="w-full text-left whitespace-nowrap"><thead class="bg-[var(--hover-bg)] text-[10px] text-[var(--text-muted)] border-b border-[var(--card-border)]"><tr><th class="p-2">Этап контроля</th><th class="p-2 text-center">Проверок</th><th class="p-2 text-center">УрК</th></tr></thead><tbody class="divide-y divide-[var(--card-border)]">${stagesHtml}</tbody></table></div>
             </div>
@@ -3170,6 +3194,7 @@ function renderEngineeringSubTab(data) {
 
     container.innerHTML = html;
 
+    // Отрисовка графиков
     const trendContrsData = buildTrendChartData(data, 'contractorName', selectedChartFilters.contrs, trendGroupings.contrs);
     const trendWorksData = buildTrendChartData(data, 'templateTitle', selectedChartFilters.works, trendGroupings.works);
 
@@ -3179,11 +3204,12 @@ function renderEngineeringSubTab(data) {
     const ctxTrendW = document.getElementById('chart_eng_trend_works').getContext('2d');
     chartInstances['chart_eng_trend_works'] = new Chart(ctxTrendW, { type: 'line', data: trendWorksData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 9} } } } } });
 
-    if(causesChartData.length > 0) {
+    // Условная отрисовка Парето
+    if(appSettings.anaEngPareto && causesChartData.length > 0) {
         const ctxBar = document.getElementById('chart_eng_causes').getContext('2d');
         chartInstances['chart_eng_causes'] = new Chart(ctxBar, { type: 'bar', indexAxis: 'y', data: { labels: causesChartLabels, datasets: [{ data: causesChartData, backgroundColor: '#6366f1', borderRadius: 4 }] }, options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
     }
-    if(tB1 > 0 || tB2 > 0 || tB3 > 0) {
+    if(appSettings.anaEngPareto && (tB1 > 0 || tB2 > 0 || tB3 > 0)) {
         const ctxPie = document.getElementById('chart_eng_doughnut').getContext('2d');
         chartInstances['chart_eng_doughnut'] = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['B1', 'B2', 'B3'], datasets: [{ data: [tB1, tB2, tB3], backgroundColor: ['#3b82f6', '#f97316', '#ef4444'], borderWidth: 0 }] }, options: { animation: false, responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } } } } });
     }
@@ -3200,7 +3226,6 @@ function renderOnePagerSubTab(data) {
     const firstHalf = sortedData.slice(0, midPoint);
     const secondHalf = sortedData.slice(midPoint);
 
-    // НОВАЯ ЛОГИКА: Расчет Глобального УрК (Среднее качество Подрядчиков)
     const calcGlobalUrk = (arr) => {
         if (arr.length === 0) return 0;
         const grouped = {};
@@ -3212,15 +3237,12 @@ function renderOnePagerSubTab(data) {
         
         let sum = 0, count = 0;
         for(let k in grouped) {
-            if(grouped[k].length >= 3) { // Условие: у подрядчика должно быть мин. 3 проверки
+            if(grouped[k].length >= 3) { 
                 const m = getContractorMetrics(grouped[k], userTemplates);
                 if(m) { sum += m.finalC; count++; }
             }
         }
-        
-        // Если нет ни одного подрядчика с 3 проверками, показываем среднее по изделиям (страховка)
         if (count === 0) return Math.round(arr.reduce((s, i) => s + (i.metrics?.final || 0), 0) / arr.length);
-        
         return Math.round(sum / count);
     };
 
@@ -3300,6 +3322,8 @@ function renderOnePagerSubTab(data) {
             </div>
         </div>
 
+        <!-- УСЛОВНЫЙ БЛОК: ЛИДЕРЫ И АУТСАЙДЕРЫ -->
+        ${appSettings.anaOpLeader ? `
         <div class="grid grid-cols-2 gap-2 mb-4">
             <div class="bg-[var(--hover-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center">
                 <div class="text-[9px] uppercase font-bold text-green-600 mb-1">🏆 Лидер качества</div>
@@ -3310,9 +3334,12 @@ function renderOnePagerSubTab(data) {
                 <div class="text-xs font-black truncate">${worst ? worst.name : 'Нет данных'}</div>
             </div>
         </div>
+        ` : ''}
 
         ${photoHtml}
 
+        <!-- УСЛОВНЫЙ БЛОК: ГЛОБАЛЬНЫЙ ТРЕНД -->
+        ${appSettings.anaOpTrend ? `
         <div class="mb-4 bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] shadow-sm">
             <div class="flex justify-between items-center mb-2">
                 <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Глобальный Тренд Объекта</div>
@@ -3320,6 +3347,7 @@ function renderOnePagerSubTab(data) {
             </div>
             <div style="height: 160px; position: relative;"><canvas id="chart_onepager_trend"></canvas></div>
         </div>
+        ` : ''}
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div class="bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] shadow-sm">
@@ -3355,12 +3383,15 @@ function renderOnePagerSubTab(data) {
 
     container.innerHTML = html;
 
-    const trendGlobalData = buildTrendChartData(data, 'TOTAL', [], trendGroupings.global);
+    // Рисуем графики с учетом настроек
+    if (appSettings.anaOpTrend) {
+        const trendGlobalData = buildTrendChartData(data, 'TOTAL', [], trendGroupings.global);
+        const ctxTrend = document.getElementById('chart_onepager_trend').getContext('2d');
+        chartInstances['chart_onepager_trend'] = new Chart(ctxTrend, { type: 'line', data: trendGlobalData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { display: false } } } });
+    }
+
     const trendContrsData = buildTrendChartData(data, 'contractorName', selectedChartFilters.contrs, trendGroupings.contrs);
     const trendWorksData = buildTrendChartData(data, 'templateTitle', selectedChartFilters.works, trendGroupings.works);
-
-    const ctxTrend = document.getElementById('chart_onepager_trend').getContext('2d');
-    chartInstances['chart_onepager_trend'] = new Chart(ctxTrend, { type: 'line', data: trendGlobalData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { display: false } } } });
 
     const ctxTC = document.getElementById('chart_op_trend_contrs').getContext('2d');
     chartInstances['chart_op_trend_contrs'] = new Chart(ctxTC, { type: 'line', data: trendContrsData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 9} } } } } });
@@ -4367,40 +4398,63 @@ function showTutorialStep() {
             tutHighlightBox.style.left = `${rect.left - 4}px`;
             tutHighlightBox.style.width = `${rect.width + 8}px`;
             tutHighlightBox.style.height = `${rect.height + 8}px`;
-            
-            tutTooltip.style.left = '50%';
-            tutTooltip.style.transform = 'translate(-50%, 0)';
-            
-            // Защита: если элемент слишком высоко, тултип ставим под ним
-            if (rect.top > window.innerHeight / 2) {
-                tutTooltip.style.top = `${rect.top - tutTooltip.offsetHeight - 20}px`;
-            } else {
-                tutTooltip.style.top = `${rect.bottom + 20}px`;
-            }
         } else {
-            // Страховка: если элемент почему-то не найден
             tutHighlightBox.style.width = '0px';
             tutHighlightBox.style.height = '0px';
-            tutTooltip.style.top = '40%';
-            tutTooltip.style.left = '50%';
-            tutTooltip.style.transform = 'translate(-50%, -50%)';
         }
 
         tutStepNum.innerText = currentTutStep + 1;
         tutText.innerHTML = step.text;
         
-        if(step.isEnd) {
-            tutNextBtn.innerText = "Завершить 🚀";
-            tutNextBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
-            tutNextBtn.classList.add('bg-green-600', 'hover:bg-green-500');
-        } else {
-            tutNextBtn.innerText = "Далее ➔";
-            tutNextBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
-            tutNextBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
-        }
+        // Даем браузеру отрисовать текст, чтобы узнать реальную высоту тултипа
+        requestAnimationFrame(() => {
+            const screenW = window.innerWidth;
+            const screenH = window.innerHeight;
+            
+            // Сбрасываем позицию для замера
+            tutTooltip.style.left = '50%';
+            tutTooltip.style.transform = 'translate(-50%, 0)';
+            
+            // Читаем размеры самого тултипа
+            const tRect = tutTooltip.getBoundingClientRect();
+            
+            if(target) {
+                const targetRect = target.getBoundingClientRect();
+                
+                // Проверяем, куда лучше поставить: сверху или снизу от цели
+                if (targetRect.top > screenH / 2) {
+                    // Цель в нижней половине экрана -> тултип ставим СВЕРХУ
+                    let topPos = targetRect.top - tRect.height - 20;
+                    if (topPos < 10) topPos = 10; // Защита: не даем улететь за верхний край
+                    tutTooltip.style.top = `${topPos}px`;
+                } else {
+                    // Цель в верхней половине -> тултип ставим СНИЗУ
+                    let topPos = targetRect.bottom + 20;
+                    if (topPos + tRect.height > screenH - 10) topPos = screenH - tRect.height - 10; // Защита: не даем улететь за нижний край
+                    tutTooltip.style.top = `${topPos}px`;
+                }
+            } else {
+                tutTooltip.style.top = `${(screenH - tRect.height) / 2}px`;
+            }
+            
+            // Если текст слишком широкий и вылез за левый/правый край экрана:
+            if (tRect.width > screenW - 20) {
+                tutTooltip.style.width = `${screenW - 20}px`; // Сжимаем
+            }
 
-        tutTooltip.classList.remove('scale-90', 'opacity-0');
-    }, 700); 
+            if(step.isEnd) {
+                tutNextBtn.innerText = "Завершить 🚀";
+                tutNextBtn.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
+                tutNextBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+            } else {
+                tutNextBtn.innerText = "Далее ➔";
+                tutNextBtn.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+                tutNextBtn.classList.remove('bg-green-600', 'hover:bg-green-500');
+            }
+
+            tutTooltip.classList.remove('scale-90', 'opacity-0');
+        });
+    }, 700);
 }
 
 function nextTutorialStep() {

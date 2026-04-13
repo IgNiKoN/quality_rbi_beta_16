@@ -11,8 +11,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
-    <!-- Подключаем Tailwind (для базовых сеток и отступов) -->
+    <!-- Подключаем Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- ИСПРАВЛЕНИЕ ТЕМЫ: Заставляем Tailwind слушаться переключателя в приложении -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
 
     <!-- Подключаем наши модульные стили v16.0 -->
     <link rel="stylesheet" href="css/style.css">
@@ -26,15 +33,14 @@
 <body id="app-body">
 
     <!-- === СКРЫТЫЕ ИНПУТЫ ДЛЯ ФАЙЛОВ === -->
-    <input type="file" id="twi-photo-input" accept="image/*" style="display:none;" onchange="handleTwiPhotoUpload(event)">
-    <input type="file" id="twi-photo-good-input" accept="image/*" style="display:none;" onchange="handleTwiGoodPhotoUpload(event)">
-    <input type="file" id="twi-photo-bad-input" accept="image/*" style="display:none;" onchange="handleTwiBadPhotoUpload(event)">
+    <input type="file" id="twi-photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handleTwiPhotoUpload(event)">
+    <input type="file" id="twi-photo-good-input" accept="image/*" capture="environment" style="display:none;" onchange="handleTwiGoodPhotoUpload(event)">
+    <input type="file" id="twi-photo-bad-input" accept="image/*" capture="environment" style="display:none;" onchange="handleTwiBadPhotoUpload(event)">
     <input type="file" id="twi-pdf-input" accept="application/pdf" style="display:none;" onchange="handleTwiPdfUpload(event)">
-    <input type="file" id="photo-input" accept="image/*" style="display:none;" onchange="handlePhotoUpload(event)">
+    <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoUpload(event)">
     <input type="file" id="json-input" accept=".json" style="display:none;" onchange="handleFileUpload(event)">
     <input type="file" id="db-import-input" accept=".json" style="display:none;" onchange="processDataImport(event)">
-    <input type="file" id="excel-template-input" accept=".xlsx, .xls, .csv" style="display:none;"
-        onchange="handleExcelImport(event)">
+    <input type="file" id="excel-template-input" accept=".xlsx, .xls, .csv" style="display:none;" onchange="handleExcelImport(event)">
     <canvas id="photo-canvas" style="display:none;"></canvas>
 
     <!-- === ТОСТЫ И УВЕДОМЛЕНИЯ === -->
@@ -1208,6 +1214,31 @@
                         <div class="text-[10px] text-[var(--text-muted)] mt-1">Скрыть тексты нормативов</div>
                     </div>
                     <label class="toggle-switch"><input type="checkbox" id="set-fast" onchange="toggleSetting('fastMode', this)"><span class="toggle-slider"></span></label>
+                </div>
+            </div>
+
+            <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2 pl-2">Модуль Аналитики</div>
+            <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl mb-6 overflow-hidden">
+                <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-sm">Инженерия: Графики Парето</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Причины брака и структура нарушений</div>
+                    </div>
+                    <label class="toggle-switch"><input type="checkbox" id="set-ana-pareto" onchange="toggleSetting('anaEngPareto', this)"><span class="toggle-slider"></span></label>
+                </div>
+                <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-sm">Сводка: Тренд объекта</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Отображать глобальный график УрК</div>
+                    </div>
+                    <label class="toggle-switch"><input type="checkbox" id="set-ana-trend" onchange="toggleSetting('anaOpTrend', this)"><span class="toggle-slider"></span></label>
+                </div>
+                <div class="p-4 flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-sm">Сводка: Лидеры / Аутсайдеры</div>
+                        <div class="text-[10px] text-[var(--text-muted)] mt-1">Блоки зон риска и качества</div>
+                    </div>
+                    <label class="toggle-switch"><input type="checkbox" id="set-ana-leader" onchange="toggleSetting('anaOpLeader', this)"><span class="toggle-slider"></span></label>
                 </div>
             </div>
 
