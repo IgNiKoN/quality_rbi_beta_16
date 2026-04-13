@@ -540,12 +540,6 @@ body.nav-pos-bottom .sticky-subnav {
     right: 16px;
 }
 
-/* Если меню СВЕРХУ — кнопка опускается ниже, чтобы не висеть посреди экрана */
-body.nav-pos-top #fab-download-btn,
-body.nav-pos-auto #fab-download-btn {
-    bottom: 24px;
-    right: 16px;
-}
 
 /* На широких экранах (ПК) — прижимаем к правому краю контейнера */
 @media (min-width: 896px) {
@@ -813,3 +807,30 @@ html.font-xlarge { font-size: 18.5px !important; }
 /* Сброс стилей старой подсветки туториала (нам они больше не нужны) */
 .tut-relative { position: relative !important; }
 .tut-highlight { z-index: auto !important; box-shadow: none !important; }
+
+/* ПЛАВАЮЩАЯ КНОПКА СКАЧАТЬ PDF - ПОЗИЦИИ */
+/* ========================================= */
+
+/* Если явно включено меню СВЕРХУ (все устройства) */
+body.nav-pos-top #fab-download-btn {
+    bottom: 24px !important;
+}
+
+/* Если явно включено меню СНИЗУ (все устройства) */
+body.nav-pos-bottom #fab-download-btn {
+    bottom: 165px !important; /* Учитывает меню + подвкладки */
+}
+
+/* УМНАЯ НАСТРОЙКА "АВТО" */
+@media (max-width: 767px) {
+    /* На телефоне АВТО работает как меню СНИЗУ -> поднимаем кнопку над подвкладками */
+    body.nav-pos-auto #fab-download-btn {
+        bottom: 165px !important; 
+    }
+}
+@media (min-width: 768px) {
+    /* На ПК (планшете) АВТО работает как меню СВЕРХУ -> опускаем кнопку вниз */
+    body.nav-pos-auto #fab-download-btn {
+        bottom: 24px !important;
+    }
+}

@@ -37,7 +37,9 @@
     <input type="file" id="twi-photo-good-input" accept="image/jpeg, image/png, image/jpg, image/*" style="display:none;" onchange="handleTwiGoodPhotoUpload(event)">
     <input type="file" id="twi-photo-bad-input" accept="image/jpeg, image/png, image/jpg, image/*" style="display:none;" onchange="handleTwiBadPhotoUpload(event)">
     <input type="file" id="twi-pdf-input" accept="application/pdf" style="display:none;" onchange="handleTwiPdfUpload(event)">
-    <input type="file" id="photo-input" accept="image/jpeg, image/png, image/jpg, image/*" style="display:none;" onchange="handlePhotoUpload(event)">
+    <!-- Разделенные инпуты для Камеры и Галереи -->
+    <input type="file" id="photo-input-camera" accept="image/*" capture="environment" style="display:none;" onchange="handlePhotoUpload(event)">
+    <input type="file" id="photo-input-gallery" accept="image/jpeg, image/png, image/jpg, image/*" style="display:none;" onchange="handlePhotoUpload(event)">
     <input type="file" id="json-input" accept=".json" style="display:none;" onchange="handleFileUpload(event)">
     <input type="file" id="db-import-input" accept=".json" style="display:none;" onchange="processDataImport(event)">
     <input type="file" id="excel-template-input" accept=".xlsx, .xls, .csv" style="display:none;" onchange="handleExcelImport(event)">
@@ -45,6 +47,19 @@
 
     <!-- === ТОСТЫ И УВЕДОМЛЕНИЯ === -->
     <div id="toast-container"></div>
+    <!-- === МОДАЛКА ВЫБОРА ИСТОЧНИКА ФОТО === -->
+    <div id="photo-source-modal" class="fixed inset-0 bg-slate-900/70 z-[3000] hidden items-center justify-center p-4 backdrop-blur-sm" onclick="this.style.display='none'">
+        <div class="bg-[var(--card-bg)] w-full max-w-xs p-6 rounded-2xl shadow-2xl flex flex-col gap-3" onclick="event.stopPropagation()">
+            <div class="font-black text-center text-[14px] uppercase tracking-tight mb-2 text-slate-800 dark:text-white">Добавить фото</div>
+            <button onclick="document.getElementById('photo-input-camera').click(); document.getElementById('photo-source-modal').style.display='none';" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-[12px] uppercase shadow-md flex items-center justify-center gap-2 active:scale-95">
+                📷 Сделать снимок
+            </button>
+            <button onclick="document.getElementById('photo-input-gallery').click(); document.getElementById('photo-source-modal').style.display='none';" class="w-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 py-4 rounded-xl font-bold text-[12px] uppercase shadow-sm flex items-center justify-center gap-2 active:scale-95 border border-slate-200 dark:border-slate-700">
+                🖼️ Из галереи
+            </button>
+            <button onclick="document.getElementById('photo-source-modal').style.display='none'" class="w-full mt-2 text-slate-400 py-2 font-bold text-[10px] uppercase active:scale-95">Отмена</button>
+        </div>
+    </div>
     <!-- === ФОТОРЕДАКТОР (РИСОВАНИЕ СТРЕЛОК) === -->
     <div id="photo-editor-overlay" class="fixed inset-0 bg-slate-900 z-[2500] hidden flex-col">
         <div class="flex justify-between items-center p-4 bg-slate-900 text-white border-b border-slate-700">
@@ -258,14 +273,19 @@
         <div class="bg-[var(--bg-main)] w-full h-full max-w-2xl mx-auto flex flex-col shadow-2xl overflow-hidden relative"
             onclick="event.stopPropagation()">
 
-            <div class="bg-indigo-600 text-white p-4 flex justify-between items-center shadow-md z-10 sticky top-0">
+            <!-- Шапка читалки -->
+            <div class="bg-indigo-600 text-white p-4 flex justify-between items-center shadow-md z-10 sticky top-0 shrink-0">
                 <div class="flex flex-col min-w-0 pr-4">
-                    <span class="text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-0.5"
-                        id="viewer-node-category">Категория</span>
-                    <span class="text-sm font-black truncate leading-tight" id="viewer-node-title">Название Узла</span>
+                    <div class="flex items-center gap-2 mb-0.5">
+                        <span class="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-white/30" id="viewer-twi-badge">ТИП</span>
+                        <span class="text-[10px] font-bold text-indigo-200 uppercase tracking-widest truncate" id="viewer-twi-checklist">Вид работ</span>
+                    </div>
+                    <span class="text-sm font-black truncate leading-tight" id="viewer-twi-title">Название Инструкции</span>
                 </div>
-                <button onclick="closeNodeViewer()"
-                    class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center font-black active:scale-90 shrink-0">✕</button>
+                <div class="flex gap-2 shrink-0">
+                    <button id="btn-print-twi" onclick="printCurrentTwi()" class="w-8 h-8 bg-white text-indigo-600 rounded-full flex items-center justify-center font-black active:scale-90 border border-indigo-400 shadow-sm hidden" title="Распечатать">🖨️</button>
+                    <button onclick="closeTwiViewer()" class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center font-black active:scale-90 border border-indigo-400">✕</button>
+                </div>
             </div>
 
             <div class="flex-1 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-slate-900" id="viewer-node-content">
