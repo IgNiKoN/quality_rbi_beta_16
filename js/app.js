@@ -5366,23 +5366,111 @@ async function deleteCustomDoc(id) {
 let customTwiCards = [];
 let twiStepCount = 0;
 let currentEditingTwiId = null;
-let currentTwiStepUploadId = null; // Для пошагового TWI
-let currentTwiType = 'INSPECTOR'; // Глобальный стейт (INSPECTOR, WORKER, PDF)
+let currentTwiStepUploadId = null;
+let currentTwiType = 'INSPECTOR'; 
 
-// Загрузка TWI карт при старте
+// === 1. ВШИТЫЕ СИСТЕМНЫЕ TWI КАРТЫ (ИХ НЕЛЬЗЯ УДАЛИТЬ) ===
+// Сюда ты можешь вставлять код карт, выгруженных через кнопку "В код (Экспорт)"
+const SYSTEM_TWI_CARDS = [
+    // Пример вшитой карты (PDF)
+    // {
+    //     id: "sys_twi_example_1",
+    //     title: "Инструкция по технике безопасности",
+    //     checklistKey: "HOME",
+    //     checklistName: "Базовые требования",
+    //     type: "PDF",
+    //     itemId: "ALL",
+    //     pdfName: "TB.pdf",
+    //     pdfSize: "1.2 MB",
+    //     pdfData: "data:application/pdf;base64,JVBERi0xLjQK..." // Огромная строка Base64
+    // }
+];
+
+// Загрузка TWI карт при старте и слияние с системными
 document.addEventListener("DOMContentLoaded", async () => {
     try {
+        let loadedCards = [];
         const storedTwi = await dbGet(STORES.SETTINGS, 'custom_twi_cards');
         if (storedTwi && storedTwi.data) {
-            // Адаптация старых карт (у которых нет type)
-            customTwiCards = storedTwi.data.map(card => {
-                if (!card.type) card.type = 'WORKER'; // Старые считаем пошаговыми
+            loadedCards = storedTwi.data.map(card => {
+                if (!card.type) card.type = 'WORKER'; 
                 return card;
             });
         }
+        
+        // СЛИЯНИЕ БАЗ: Системные + Пользовательские
+        // Фильтруем пользовательские, чтобы они случайно не задублировали системные (по ID)
+        const systemIds = SYSTEM_TWI_CARDS.map(c => c.id);
+        const filteredUserCards = loadedCards.filter(c => !systemIds.includes(c.id));
+        
+        customTwiCards = [...SYSTEM_TWI_CARDS, ...filteredUserCards];
+
     } catch (e) { console.error("Ошибка загрузки TWI", e); }
 });
 
+// Анимация меню управления TWI
+function toggleTwiManagePanel() {
+    const body = document.getElementById('twi-manage-body');
+    const icon = document.getElementById('twi-manage-toggle-icon');
+    if (!body || !icon) return;
+    if (body.style.maxHeight === '0px' || !body.style.maxHeight) {
+        body.style.maxHeight = '200px';
+        body.style.opacity = '1';
+        body.style.marginTop = '12px';
+        icon.style.transform = 'rotate(0deg)';
+    } else {
+        body.style.maxHeight = '0px';
+        body.style.opacity = '0';
+        body.style.marginTop = '0px';
+        icon.style.transform = 'rotate(-90deg)';
+    }
+}
+
+// ЭКСПОРТ (ВЫГРУЗКА В JSON)
+function exportTwiJson() {
+    // Выгружаем ТОЛЬКО пользовательские карты (системные и так уже в коде)
+    const userCardsToExport = customTwiCards.filter(c => !c.id.startsWith('sys_'));
+    if (userCardsToExport.length === 0) return showToast('Нет пользовательских карт для экспорта');
+    
+    const dataStr = JSON.stringify(userCardsToExport, null, 4);
+    downloadFile(dataStr, `RBI_TWI_Cards_${new Date().toLocaleDateString('ru-RU')}.json`, 'application/json');
+    showToast("✅ JSON-файл скачан!");
+}
+
+// ИМПОРТ (ЗАГРУЗКА ИЗ JSON)
+function processTwiImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!Array.isArray(data)) throw new Error("Неверный формат");
+            
+            let addedCount = 0;
+            for(const item of data) {
+                // Если карты с таким ID еще нет, добавляем
+                if(!customTwiCards.find(x => x.id === item.id)) {
+                    customTwiCards.push(item);
+                    addedCount++;
+                }
+            }
+            
+            // Сохраняем в базу (опять же, только пользовательские)
+            const userCardsToSave = customTwiCards.filter(c => !c.id.startsWith('sys_'));
+            await dbPut(STORES.SETTINGS, { key: 'custom_twi_cards', data: userCardsToSave });
+            
+            showToast(`✅ Импорт завершен! Добавлено карт: ${addedCount}`);
+            renderTwiList();
+        } catch (err) { 
+            console.error(err);
+            alert("Ошибка импорта. Проверьте формат файла."); 
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+}
 // 1. РЕНДЕР СПИСКА TWI КАРТ (С бейджиками типов)
 function renderTwiList() {
     const container = document.getElementById('twi-cards-container');
@@ -5779,10 +5867,14 @@ async function saveTwiCard() {
 
 // 6. УДАЛЕНИЕ КАРТЫ
 async function deleteTwiCard(id) {
+    if (id.startsWith('sys_')) {
+        return showToast("⚠️ Системные инструкции удалить нельзя!");
+    }
     if (!confirm('Удалить эту инструкцию безвозвратно?')) return;
     customTwiCards = customTwiCards.filter(c => c.id !== id);
     try {
-        await dbPut(STORES.SETTINGS, { key: 'custom_twi_cards', data: customTwiCards });
+        const userCardsToSave = customTwiCards.filter(c => !c.id.startsWith('sys_'));
+        await dbPut(STORES.SETTINGS, { key: 'custom_twi_cards', data: userCardsToSave });
         showToast("🗑️ Инструкция удалена");
         renderTwiList();
     } catch (e) { showToast("❌ Ошибка удаления"); }
