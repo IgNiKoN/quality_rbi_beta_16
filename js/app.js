@@ -6001,26 +6001,35 @@ function openNodeViewer(nodeId) {
     const node = SYSTEM_NODES.find(n => n.id === nodeId);
     if (!node) return;
 
-    document.getElementById('viewer-node-title').innerText = node.title;
-    document.getElementById('viewer-node-desc').innerText = node.desc;
-    document.getElementById('viewer-node-img').src = node.img;
+    // Безопасно заполняем текстовые поля
+    const titleEl = document.getElementById('viewer-node-title');
+    if (titleEl) titleEl.innerText = node.title;
 
-    // Безопасный рендер бейджика категории
-    const catEl = document.getElementById('viewer-twi-badge'); // Используем тот же ID, что и у TWI
-    if(catEl) {
-        catEl.innerText = node.category;
-        catEl.className = 'bg-indigo-500 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest shadow-sm';
+    const descEl = document.getElementById('viewer-node-desc');
+    if (descEl) descEl.innerText = node.desc;
+
+    const imgEl = document.getElementById('viewer-node-img');
+    if (imgEl) imgEl.src = node.img;
+
+    const catEl = document.getElementById('viewer-node-category');
+    if (catEl) catEl.innerText = node.category;
+
+    const badgeEl = document.getElementById('viewer-node-badge');
+    if (badgeEl) {
+        badgeEl.innerText = 'УЗЕЛ';
+        badgeEl.className = 'bg-indigo-500 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest shadow-sm';
     }
-    const checkEl = document.getElementById('viewer-twi-checklist');
-    if(checkEl) checkEl.innerText = 'Технический Узел';
 
+    // Таблица материалов
     const matTbody = document.getElementById('viewer-node-materials');
-    matTbody.innerHTML = node.materials.map(m => `
-        <tr class="border-b border-slate-100 dark:border-slate-700">
-            <td class="p-2 font-medium text-slate-700 dark:text-slate-300 text-[11px]">${m.name}</td>
-            <td class="p-2 text-right font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap text-[11px]">${m.qty}</td>
-        </tr>
-    `).join('');
+    if (matTbody) {
+        matTbody.innerHTML = node.materials.map(m => `
+            <tr class="border-b border-slate-100 dark:border-slate-700">
+                <td class="p-2 font-medium text-slate-700 dark:text-slate-300 text-[11px]">${m.name}</td>
+                <td class="p-2 text-right font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap text-[11px]">${m.qty}</td>
+            </tr>
+        `).join('');
+    }
 
     // Ищем привязанную TWI карту ко ВСЕМУ чек-листу
     const linkedTwi = customTwiCards.find(c => c.checklistKey === node.linkedTwiChecklistKey && (c.itemId === 'ALL' || !c.itemId));
@@ -6028,17 +6037,23 @@ function openNodeViewer(nodeId) {
         ? `<button onclick="closeNodeViewer(); setTimeout(()=>openTwiViewer('${linkedTwi.id}'), 300)" class="bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-900/30 dark:border-orange-800 dark:text-orange-400 py-3 rounded-xl text-[10px] font-bold uppercase shadow-sm active:scale-95 flex items-center justify-center gap-1.5"><span>🛠️</span> TWI Монтажа</button>`
         : `<div class="bg-slate-50 text-slate-400 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 py-3 rounded-xl text-[10px] font-bold uppercase flex items-center justify-center gap-1.5 opacity-70"><span>🚫</span> Нет TWI</div>`;
 
-    document.getElementById('viewer-node-links').innerHTML = `
-        <button onclick="closeNodeViewer(); setTimeout(()=>findAndOpenND('${node.linkedDoc}'), 300)" class="bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400 py-3 rounded-xl text-[10px] font-bold uppercase shadow-sm active:scale-95 flex items-center justify-center gap-1.5">
-            <span>📚</span> Норматив
-        </button>
-        ${twiBtnHtml}
-    `;
+    const linksEl = document.getElementById('viewer-node-links');
+    if (linksEl) {
+        linksEl.innerHTML = `
+            <button onclick="closeNodeViewer(); setTimeout(()=>findAndOpenND('${node.linkedDoc}'), 300)" class="bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400 py-3 rounded-xl text-[10px] font-bold uppercase shadow-sm active:scale-95 flex items-center justify-center gap-1.5">
+                <span>📚</span> Норматив
+            </button>
+            ${twiBtnHtml}
+        `;
+    }
 
+    // Показываем окно
     const overlay = document.getElementById('node-viewer-overlay');
-    overlay.style.display = 'flex';
-    document.body.classList.add('modal-open');
-    setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+    if (overlay) {
+        overlay.style.display = 'flex';
+        document.body.classList.add('modal-open');
+        setTimeout(() => overlay.classList.remove('opacity-0'), 10);
+    }
 }
 
 function closeNodeViewer() {
