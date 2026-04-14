@@ -11,6 +11,13 @@ let currentChecklist = [];
 let currentPhotoId = null;
 let chartInstances = {};
 let customExpertConclusions = {};
+// Состояние мульти-фильтров
+let activeMultiFilters = {
+    history: { project: [], contractor: [], inspector: [] },
+    analytics: { project: [], contractor: [], inspector: [], template: [] }
+};
+let currentFilterContext = ''; // 'history' или 'analytics'
+let currentFilterType = '';    // 'project', 'contractor' и т.д.
 
 // Переменные зума фото
 let currentZoom = 1;
@@ -160,7 +167,161 @@ async function restoreSession() {
     } catch (e) {
         console.error('Ошибка восстановления:', e);
     }
+    updateDatalists();
     updateAllDynamicFilters();
+}
+// === МУЛЬТИ-ФИЛЬТРЫ (ЛОГИКА МОДАЛКИ) ===
+// === МУЛЬТИ-ФИЛЬТРЫ (ЛОГИКА МОДАЛКИ) ===
+function openMultiFilterModal(type, title, context) {
+    currentFilterType = type;
+    currentFilterContext = context;
+    document.getElementById('multi-filter-title').innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+        ${title}
+    `;
+    document.getElementById('multi-filter-search').value = '';
+
+    let field = '';
+    if (type === 'project') field = 'projectName';
+    if (type === 'contractor') field = 'contractorName';
+    if (type === 'inspector') field = 'inspectorName';
+    if (type === 'template') field = 'templateKey';
+
+    const uniqueValues = [...new Set(contractorArray.map(i => i[field]).filter(Boolean))].sort();
+    const currentSelected = activeMultiFilters[context][type] || [];
+    const listEl = document.getElementById('multi-filter-list');
+    
+    if (uniqueValues.length === 0) {
+        listEl.innerHTML = `<div class="p-8 text-center flex flex-col items-center justify-center gap-2 text-slate-400 dark:text-slate-500"><svg class="w-8 h-8 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg><span class="text-xs font-bold uppercase tracking-wider">Нет данных</span></div>`;
+    } else {
+        listEl.innerHTML = uniqueValues.map(val => {
+            const isChecked = currentSelected.length === 0 || currentSelected.includes(val);
+            let displayVal = val;
+            if (type === 'template') {
+                const sample = contractorArray.find(i => i[field] === val);
+                displayVal = sample ? sample.templateTitle : val;
+            }
+            
+            return `
+            <label class="filter-item-label flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl cursor-pointer border border-slate-200 dark:border-slate-700 shadow-sm active:scale-[0.98] transition-all hover:border-indigo-300 dark:hover:border-indigo-600">
+                <input type="checkbox" value="${val}" class="filter-modal-cb w-5 h-5 accent-indigo-600 rounded cursor-pointer" ${isChecked ? 'checked' : ''}>
+                <span class="text-[13px] font-bold text-slate-700 dark:text-slate-200 filter-item-text truncate flex-1 leading-none pt-0.5">${displayVal}</span>
+            </label>`;
+        }).join('');
+    }
+
+    const overlay = document.getElementById('multi-filter-modal-overlay');
+    const content = document.getElementById('multi-filter-modal-content');
+    
+    overlay.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    
+    // Плавное появление (снимаем классы, прячущие контент)
+    setTimeout(() => {
+        overlay.classList.remove('opacity-0');
+        content.classList.remove('translate-y-full', 'sm:translate-y-4', 'sm:scale-95');
+    }, 10);
+}
+
+function closeMultiFilterModal() {
+    const overlay = document.getElementById('multi-filter-modal-overlay');
+    const content = document.getElementById('multi-filter-modal-content');
+    
+    // Плавное исчезновение
+    overlay.classList.add('opacity-0');
+    content.classList.add('translate-y-full', 'sm:translate-y-4', 'sm:scale-95');
+    
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }, 300);
+}
+
+function closeMultiFilterModal() {
+    const overlay = document.getElementById('multi-filter-modal-overlay');
+    const content = document.getElementById('multi-filter-modal-content');
+    content.classList.add('translate-y-full');
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }, 300);
+}
+
+function filterMultiModalList() {
+    const term = document.getElementById('multi-filter-search').value.toLowerCase();
+    const labels = document.querySelectorAll('.filter-item-label');
+    labels.forEach(label => {
+        const text = label.querySelector('.filter-item-text').innerText.toLowerCase();
+        label.style.display = text.includes(term) ? 'flex' : 'none';
+    });
+}
+
+function selectAllMultiFilter() {
+    const checkboxes = document.querySelectorAll('.filter-modal-cb');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+}
+
+function applyMultiFilter() {
+    const checkboxes = document.querySelectorAll('.filter-modal-cb');
+    const total = checkboxes.length;
+    const checkedValues = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+
+    // Если выбраны все или не выбран ни один -> сбрасываем фильтр (означает "Все")
+    if (checkedValues.length === total || checkedValues.length === 0) {
+        activeMultiFilters[currentFilterContext][currentFilterType] = [];
+    } else {
+        activeMultiFilters[currentFilterContext][currentFilterType] = checkedValues;
+    }
+
+    updateFilterButtonLabels();
+    closeMultiFilterModal();
+
+    // Запускаем рендер нужной вкладки
+    if (currentFilterContext === 'history') {
+        applyHistoryFilters();
+    } else {
+        renderCurrentAnalyticsTab();
+    }
+}
+
+function updateFilterButtonLabels() {
+    const updateBtn = (btnId, arr, defaultText) => {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        const textEl = btn.querySelector('.truncate');
+        if (arr.length === 0) {
+            textEl.innerText = defaultText;
+            textEl.classList.remove('text-indigo-600', 'font-black');
+        } else if (arr.length === 1) {
+            // Если выбран 1, показываем его имя (для шаблона придется искать имя)
+            let display = arr[0];
+            if (btnId.includes('template')) {
+                const sample = contractorArray.find(i => i.templateKey === arr[0]);
+                if (sample) display = sample.templateTitle;
+            }
+            textEl.innerText = display;
+            textEl.classList.add('text-indigo-600', 'font-black');
+        } else {
+            textEl.innerText = `Выбрано: ${arr.length}`;
+            textEl.classList.add('text-indigo-600', 'font-black');
+        }
+    };
+
+    updateBtn('btn-hist-project', activeMultiFilters.history.project, 'Все объекты');
+    updateBtn('btn-hist-contractor', activeMultiFilters.history.contractor, 'Все подрядчики');
+    updateBtn('btn-hist-inspector', activeMultiFilters.history.inspector, 'Все инспекторы');
+
+    updateBtn('btn-ana-project', activeMultiFilters.analytics.project, 'Все объекты');
+    updateBtn('btn-ana-contractor', activeMultiFilters.analytics.contractor, 'Все подрядчики');
+    updateBtn('btn-ana-inspector', activeMultiFilters.analytics.inspector, 'Все инспекторы');
+    updateBtn('btn-ana-template', activeMultiFilters.analytics.template, 'Все виды работ');
+}
+
+// Заглушка, чтобы не ломать старый код при загрузке
+function updateAllDynamicFilters() {
+    // Просто обновляем надписи на кнопках на случай сброса
+    updateFilterButtonLabels();
 }
 
 // === УВЕДОМЛЕНИЯ И МОДАЛКИ (v15 100% совместимость) ===
@@ -315,11 +476,37 @@ function updateFabButton(tabId) {
     }
 }
 
+// === КОНТЕКСТНЫЙ ЭКСПОРТ PDF (С ЛОУДЕРОМ) ===
 function handleFabDownload() {
-    const fab = document.getElementById('fab-download-btn');
-    const context = fab?.dataset.context || 'pdf';
-    if (context === 'rating') exportRatingPdf();
-    else exportPdfReport();
+    const data = getFilteredAnalyticsData();
+    if(data.length === 0) return showToast('Нет данных для выгрузки PDF');
+
+    const loader = document.getElementById('global-loader');
+    const loaderText = document.getElementById('global-loader-text');
+    
+    // Включаем Лоудер
+    loaderText.innerText = "Подготовка данных...";
+    loader.style.display = 'flex';
+    setTimeout(() => loader.classList.remove('opacity-0'), 10);
+
+    // Даем браузеру отрисовать лоудер, прежде чем заблокируем поток тяжелым рендером PDF
+    setTimeout(() => {
+        loaderText.innerText = "Формирование отчета...";
+        
+        try {
+            if (currentActiveAnalyticsTab === 'sub-rating') exportPdfRating(data);
+            else if (currentActiveAnalyticsTab === 'sub-engineering') exportPdfEngineering(data);
+            else if (currentActiveAnalyticsTab === 'sub-onepager') exportPdfOnePager(data);
+            else if (currentActiveAnalyticsTab === 'sub-data') exportPdfData(data);
+        } catch (e) {
+            console.error("Ошибка при генерации PDF:", e);
+            showToast("❌ Ошибка при формировании PDF");
+        } finally {
+            // Выключаем лоудер независимо от результата
+            loader.classList.add('opacity-0');
+            setTimeout(() => loader.style.display = 'none', 300);
+        }
+    }, 100);
 }
 // === СВОРАЧИВАЕМ МИНИДАШБОРД ===
 function toggleDashboardExpand() {
@@ -607,7 +794,7 @@ function findAndOpenND(normText) {
     const searchString = match ? match[0] : normText.substring(0, 15);
 
     const modal = document.getElementById('modal-overlay');
-    document.getElementById('modal-icon').innerHTML = `<div class="text-4xl mb-2 flex justify-center">📚</div>`;
+    document.getElementById('modal-icon').innerHTML = `<div class="w-14 h-14 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-[14px] flex items-center justify-center border border-blue-100 dark:border-blue-800 mx-auto"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></div>`;
     document.getElementById('modal-title').innerText = "Нормативное требование";
     
     document.getElementById('modal-body').innerHTML = `
@@ -644,15 +831,14 @@ function switchToNdSearch(searchString) {
     }, 150);
 }
 
-// === 2. ОТКРЫТИЕ УНИВЕРСАЛЬНОЙ ЧИТАЛКИ ИНСТРУКЦИЙ ===
+// === 2. ОТКРЫТИЕ УНИВЕРСАЛЬНОЙ ЧИТАЛКИ ИНСТРУКЦИЙ (БЕЗ ЭМОДЗИ) ===
 function openTwiViewer(twiId) {
     const card = customTwiCards.find(c => c.id === twiId);
     if (!card) return showToast('Ошибка: Инструкция не найдена');
-    // Сохраняем ID открытой карты для печати
-    document.getElementById('twi-viewer-overlay').dataset.currentTwiId = twiId;
-    document.getElementById('btn-print-twi').classList.remove('hidden'); // Показываем кнопку печати
+    
+    const overlayElement = document.getElementById('twi-viewer-overlay');
+    if (overlayElement) overlayElement.dataset.currentTwiId = twiId;
 
-    // Настраиваем шапку
     document.getElementById('viewer-twi-checklist').innerText = card.checklistName;
     document.getElementById('viewer-twi-title').innerText = card.title;
     
@@ -661,13 +847,10 @@ function openTwiViewer(twiId) {
     const footer = document.getElementById('viewer-twi-footer');
     const content = document.getElementById('viewer-twi-content');
     
-    // Очищаем старый контент (особенно важно для iframe)
     content.innerHTML = '';
-    content.classList.remove('p-0'); // Сброс паддингов
+    content.classList.remove('p-0'); 
 
-    // === ЛОГИКА РЕНДЕРА ПО ТИПАМ ===
-    
-    // ТИП 1: КАРТА ИНСПЕКТОРА (Правильно / Неправильно)
+    // === ТИП 1: КАРТА ИНСПЕКТОРА (Правильно / Неправильно) ===
     if (card.type === 'INSPECTOR') {
         badgeEl.innerText = 'Технадзор';
         badgeEl.className = 'bg-blue-500 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest shadow-sm';
@@ -676,21 +859,20 @@ function openTwiViewer(twiId) {
         content.classList.remove('p-0');
 
         let photoGoodHtml = card.photoGood ? `
-            <div class="relative rounded-xl overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer active:scale-95 transition-transform" onclick="openPhotoViewer('${card.photoGood}')">
-                <div class="absolute top-0 left-0 w-full bg-gradient-to-b from-green-600/80 to-transparent p-2 text-white font-black text-[10px] uppercase tracking-widest drop-shadow-md">✅ Правильно</div>
+            <div class="relative rounded-xl overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer active:scale-95 transition-transform bg-white dark:bg-slate-800" onclick="openPhotoViewer('${card.photoGood}')">
+                <div class="absolute top-0 left-0 w-full bg-gradient-to-b from-green-600/90 to-transparent p-2 text-white font-black text-[10px] uppercase tracking-widest drop-shadow-md flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg> Правильно</div>
                 <img src="${card.photoGood}" class="w-full h-48 object-cover">
-            </div>` : `<div class="h-48 rounded-xl border-2 border-dashed border-green-300 flex items-center justify-center bg-green-50"><span class="text-green-600 font-bold text-[10px] uppercase">Нет эталонного фото</span></div>`;
+            </div>` : `<div class="h-48 rounded-xl border-2 border-dashed border-green-300 flex flex-col items-center justify-center bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-500"><svg class="w-6 h-6 mb-1 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg><span class="font-bold text-[9px] uppercase">Нет фото эталона</span></div>`;
 
         let photoBadHtml = card.photoBad ? `
-            <div class="relative rounded-xl overflow-hidden shadow-sm border-2 border-red-500 cursor-pointer active:scale-95 transition-transform" onclick="openPhotoViewer('${card.photoBad}')">
-                <div class="absolute top-0 left-0 w-full bg-gradient-to-b from-red-600/80 to-transparent p-2 text-white font-black text-[10px] uppercase tracking-widest drop-shadow-md">❌ Брак</div>
+            <div class="relative rounded-xl overflow-hidden shadow-sm border-2 border-red-500 cursor-pointer active:scale-95 transition-transform bg-white dark:bg-slate-800" onclick="openPhotoViewer('${card.photoBad}')">
+                <div class="absolute top-0 left-0 w-full bg-gradient-to-b from-red-600/90 to-transparent p-2 text-white font-black text-[10px] uppercase tracking-widest drop-shadow-md flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg> Брак</div>
                 <img src="${card.photoBad}" class="w-full h-48 object-cover">
-            </div>` : `<div class="h-48 rounded-xl border-2 border-dashed border-red-300 flex items-center justify-center bg-red-50"><span class="text-red-600 font-bold text-[10px] uppercase">Нет фото брака</span></div>`;
+            </div>` : `<div class="h-48 rounded-xl border-2 border-dashed border-red-300 flex flex-col items-center justify-center bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-500"><svg class="w-6 h-6 mb-1 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg><span class="font-bold text-[9px] uppercase">Нет фото брака</span></div>`;
 
-        // Ищем текст норматива, чтобы вывести его для справки
         let normText = 'Норматив не указан';
-        const flatList = getFlatList(currentChecklist.length > 0 ? currentChecklist : []); // Защита, если смотрим из Справочника
-        const itemInfo = flatList.find(i => i.id === card.itemId);
+        const flatList = getFlatList(currentChecklist.length > 0 ? currentChecklist : []);
+        const itemInfo = flatList.find(i => i.id == card.itemId);
         if (itemInfo) normText = itemInfo.t || normText;
 
         content.innerHTML = `
@@ -699,31 +881,28 @@ function openTwiViewer(twiId) {
                     ${photoGoodHtml}
                     ${photoBadHtml}
                 </div>
-                
                 <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
                     <div class="flex items-center gap-2 mb-2 border-b border-slate-100 dark:border-slate-700 pb-2">
-                        <span class="w-6 h-6 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded flex items-center justify-center text-sm font-black">!</span>
+                        <span class="w-6 h-6 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded flex items-center justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg></span>
                         <h4 class="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Почему это важно (Риски)</h4>
                     </div>
                     <div class="text-[12px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">${card.whyImportant || 'Обоснование не заполнено'}</div>
                 </div>
-
                 <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
                     <div class="flex items-center gap-2 mb-2 border-b border-slate-100 dark:border-slate-700 pb-2">
-                        <span class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded flex items-center justify-center text-sm font-black">🔧</span>
+                        <span class="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded flex items-center justify-center"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></span>
                         <h4 class="text-[11px] font-black text-slate-800 dark:text-white uppercase tracking-wider">Как проверять (Методика)</h4>
                     </div>
                     <div class="text-[12px] font-medium text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">${card.howToCheck || 'Методика не заполнена'}</div>
                     <div class="mt-3 pt-3 border-t border-dashed border-slate-200 dark:border-slate-700">
-                        <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Справочно (Допуск из СНиП):</div>
+                        <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Справочно (СНиП / ГОСТ):</div>
                         <div class="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-slate-900 p-2 rounded border border-slate-100 dark:border-slate-800">${normText}</div>
                     </div>
                 </div>
             </div>
         `;
     } 
-    
-    // ТИП 2: ПОШАГОВЫЙ TWI РАБОЧЕГО
+    // === ТИП 2: ПОШАГОВЫЙ TWI РАБОЧЕГО ===
     else if (card.type === 'WORKER') {
         badgeEl.innerText = 'Инструкция';
         badgeEl.className = 'bg-orange-500 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest shadow-sm';
@@ -739,9 +918,9 @@ function openTwiViewer(twiId) {
         if (card.steps && card.steps.length > 0) {
             card.steps.forEach(step => {
                 const photoHtml = step.photo ? `
-                    <div class="mt-3 w-full rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm" onclick="openPhotoViewer('${step.photo}')">
-                        <img src="${step.photo}" class="w-full h-40 object-cover active:scale-95 transition-transform origin-center">
-                        <div class="bg-slate-100 dark:bg-slate-800 text-[9px] text-slate-500 text-center py-1 font-bold uppercase tracking-wider">Нажмите, чтобы увеличить</div>
+                    <div class="mt-3 w-full rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm relative group" onclick="openPhotoViewer('${step.photo}')">
+                        <img src="${step.photo}" class="w-full h-40 object-cover active:scale-95 transition-transform origin-center cursor-pointer">
+                        <div class="absolute bottom-2 right-2 bg-black/60 text-white text-[9px] font-bold uppercase px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg> Увеличить</div>
                     </div>
                 ` : '';
 
@@ -750,7 +929,7 @@ function openTwiViewer(twiId) {
                         <div class="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
                         <div class="flex justify-between items-start mb-2">
                             <div class="font-black text-orange-600 dark:text-orange-400 text-[11px] uppercase tracking-wider bg-orange-50 dark:bg-orange-900/30 px-2 py-1 rounded">Шаг ${step.order}</div>
-                            ${step.time ? `<div class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">⏱️ ${step.time} мин</div>` : ''}
+                            ${step.time ? `<div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ${step.time} мин</div>` : ''}
                         </div>
                         <div class="text-[13px] font-bold text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">${step.text}</div>
                         ${photoHtml}
@@ -763,9 +942,7 @@ function openTwiViewer(twiId) {
         stepsHtml += '</div>';
         content.innerHTML = stepsHtml;
     } 
-    
-    // ТИП 3: ВНЕШНИЙ PDF-ДОКУМЕНТ
-    // ТИП 3: ВНЕШНИЙ PDF-ДОКУМЕНТ
+    // === ТИП 3: ВНЕШНИЙ PDF-ДОКУМЕНТ ===
     else if (card.type === 'PDF') {
         badgeEl.innerText = 'PDF-Файл';
         badgeEl.className = 'bg-red-500 text-white px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest shadow-sm';
@@ -784,60 +961,137 @@ function openTwiViewer(twiId) {
                 const blob = new Blob([byteArray], {type: 'application/pdf'});
                 const blobUrl = URL.createObjectURL(blob);
 
-                // Окно просмотра с iframe и кнопкой скачивания внизу
                 content.innerHTML = `
                     <div class="w-full h-full flex flex-col relative bg-slate-100 dark:bg-slate-900">
                         <iframe src="${blobUrl}#toolbar=0" class="w-full flex-1 border-none bg-white dark:bg-slate-800" style="min-height: 60vh;"></iframe>
-                        
                         <div class="p-3 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-10">
                             <div class="min-w-0 pr-3">
                                 <div class="text-[11px] font-black text-slate-800 dark:text-white truncate">${card.pdfName}</div>
                                 <div class="text-[9px] font-bold text-slate-500">${card.pdfSize}</div>
                             </div>
-                            <a href="${blobUrl}" target="_blank" download="${card.pdfName}" class="bg-red-600 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md active:scale-95 transition-transform flex items-center gap-2 shrink-0">
-                                📥 Скачать / Открыть
+                            <a href="${blobUrl}" target="_blank" download="${card.pdfName}" class="bg-red-600 text-white px-4 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-md active:scale-95 transition-transform flex items-center gap-1.5 shrink-0">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Скачать
                             </a>
                         </div>
                     </div>
                 `;
                 content.dataset.blobUrl = blobUrl;
-
             } catch (err) {
                 console.error(err);
-                content.innerHTML = `<div class="flex flex-col items-center justify-center h-full p-6 text-center"><div class="text-4xl mb-4">⚠️</div><div class="text-sm font-bold text-slate-500">Не удалось открыть PDF.<br>Возможно, файл поврежден.</div></div>`;
+                content.innerHTML = `<div class="flex flex-col items-center justify-center h-full p-6 text-center"><svg class="w-12 h-12 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg><div class="text-sm font-bold text-slate-500">Не удалось открыть PDF.<br>Возможно, файл поврежден.</div></div>`;
             }
         } else {
-            content.innerHTML = `<div class="flex flex-col items-center justify-center h-full p-6 text-center"><div class="text-4xl mb-4">📄</div><div class="text-sm font-bold text-slate-500">PDF файл отсутствует.</div></div>`;
+            content.innerHTML = `<div class="flex flex-col items-center justify-center h-full p-6 text-center"><svg class="w-12 h-12 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg><div class="text-sm font-bold text-slate-500">PDF файл отсутствует.</div></div>`;
         }
     }
 
-    // === АНИМАЦИЯ ОТКРЫТИЯ ===
     const overlay = document.getElementById('twi-viewer-overlay');
     overlay.style.display = 'flex';
     document.body.classList.add('modal-open');
-    
-    // Плавное появление (Fade In)
-    setTimeout(() => {
-        overlay.classList.remove('opacity-0');
-    }, 10);
+    setTimeout(() => { overlay.classList.remove('opacity-0'); }, 10);
 }
 
 function closeTwiViewer() {
     const overlay = document.getElementById('twi-viewer-overlay');
     const content = document.getElementById('viewer-twi-content');
     
-    // Очищаем память, если открывали PDF (предотвращает утечки ОЗУ)
     if (content.dataset.blobUrl) {
         URL.revokeObjectURL(content.dataset.blobUrl);
         content.dataset.blobUrl = '';
     }
 
     overlay.classList.add('opacity-0');
-    
     setTimeout(() => {
         overlay.style.display = 'none';
         document.body.classList.remove('modal-open');
-        content.innerHTML = ''; // Полная очистка DOM-узла
+        content.innerHTML = ''; 
+    }, 300);
+}
+
+// === МЕНЮ СПРАВКИ В КАРТОЧКЕ ДЕФЕКТА (БЕЗ ЭМОДЗИ) ===
+function openItemHelpMenu(id, event) {
+    if (event) event.stopPropagation();
+
+    const flat = getFlatList(currentChecklist);
+    const itemData = flat.find(x => x.id === id);
+    if (!itemData) return;
+
+    document.getElementById('help-modal-title').innerText = itemData.n;
+
+    const inspectorCard = customTwiCards.find(c => c.type === 'INSPECTOR' && String(c.itemId) === String(id));
+    const generalCards = customTwiCards.filter(c => 
+        (c.type === 'WORKER' || c.type === 'PDF') && 
+        c.checklistKey === currentTemplateKey && 
+        (String(c.itemId) === String(id) || c.itemId === 'ALL' || !c.itemId)
+    );
+
+    const listContainer = document.getElementById('help-modal-list');
+    let html = '';
+
+    if (inspectorCard) {
+        html += `
+            <div class="bg-white dark:bg-slate-800 border-2 border-blue-500 rounded-xl p-3 shadow-md flex items-center justify-between cursor-pointer active:scale-95 transition-transform mb-4" 
+                 onclick="closeItemHelpMenu(); setTimeout(() => openTwiViewer('${inspectorCard.id}'), 300)">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-0.5">Карта Технадзора</div>
+                        <div class="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Эталон и примеры брака</div>
+                    </div>
+                </div>
+                <div class="text-blue-500 font-black"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg></div>
+            </div>
+        `;
+    }
+
+    if (generalCards.length > 0) {
+        html += `<div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 pl-1 border-b border-slate-200 dark:border-slate-700 pb-2 mt-2">Инструкции к виду работ</div>`;
+        
+        generalCards.forEach(c => {
+            const isPdf = c.type === 'PDF';
+            const iconSvg = isPdf 
+                ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>' 
+                : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>';
+            
+            const colorClass = isPdf ? 'text-red-500 bg-red-50 dark:bg-red-900/30' : 'text-orange-500 bg-orange-50 dark:bg-orange-900/30';
+            const typeName = isPdf ? 'Внешний PDF-Регламент' : 'Пошаговое руководство (TWI)';
+            
+            html += `
+                <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm flex items-center justify-between cursor-pointer active:scale-95 transition-transform" 
+                     onclick="closeItemHelpMenu(); setTimeout(() => openTwiViewer('${c.id}'), 300)">
+                    <div class="flex items-center gap-3 min-w-0 pr-2">
+                        <div class="w-10 h-10 ${colorClass} rounded-lg flex items-center justify-center shrink-0">${iconSvg}</div>
+                        <div class="min-w-0">
+                            <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">${typeName}</div>
+                            <div class="text-[12px] font-bold text-slate-800 dark:text-white leading-tight truncate">${c.title}</div>
+                        </div>
+                    </div>
+                    <div class="text-slate-400 shrink-0"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"></path></svg></div>
+                </div>
+            `;
+        });
+    }
+
+    listContainer.innerHTML = html;
+
+    const overlay = document.getElementById('item-help-modal-overlay');
+    const content = document.getElementById('item-help-modal-content');
+    
+    overlay.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    setTimeout(() => { content.classList.remove('translate-y-full'); }, 10);
+}
+
+function closeItemHelpMenu() {
+    const overlay = document.getElementById('item-help-modal-overlay');
+    const content = document.getElementById('item-help-modal-content');
+    
+    content.classList.add('translate-y-full');
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        document.body.classList.remove('modal-open');
     }, 300);
 }
 
@@ -933,8 +1187,102 @@ function closeItemHelpMenu() {
 }
 
 // === ВКЛАДКА: ИСТОРИЯ (С ФИЛЬТРАМИ v16.0) ===
-function applyHistoryFilters() {
-    renderHistoryTab();
+function renderHistoryTab() {
+    const listDiv = document.getElementById('history-list'); 
+    const emptyMsg = document.getElementById('hist-empty-msg');
+    const countEl = document.getElementById('hist-count-total');
+    if(!listDiv) return;
+
+    if (contractorArray.length === 0) { 
+        listDiv.innerHTML = ''; 
+        if(emptyMsg) emptyMsg.style.display = 'block'; 
+        if(countEl) countEl.innerText = '0';
+        return; 
+    }
+    if(emptyMsg) emptyMsg.style.display = 'none';
+
+    const fSearch = document.getElementById('hist-search-text')?.value.toLowerCase() || '';
+    const fPeriod = document.getElementById('hist-filter-period')?.value || 'ALL';
+    const fPhoto = document.getElementById('hist-filter-photo')?.checked;
+    const fB3 = document.getElementById('hist-filter-b3')?.checked;
+
+    const fProj = activeMultiFilters.history.project;
+    const fContr = activeMultiFilters.history.contractor;
+    const fInsp = activeMultiFilters.history.inspector;
+
+    let filteredArr = contractorArray;
+    const now = new Date();
+    
+    if (fSearch) {
+        filteredArr = filteredArr.filter(i => 
+            (i.location && i.location.toLowerCase().includes(fSearch)) ||
+            (i.projectName && i.projectName.toLowerCase().includes(fSearch)) ||
+            (i.inspectorName && i.inspectorName.toLowerCase().includes(fSearch)) ||
+            (i.contractorName && i.contractorName.toLowerCase().includes(fSearch))
+        );
+    }
+    
+    // МУЛЬТИФИЛЬТРЫ
+    if (fProj.length > 0) filteredArr = filteredArr.filter(i => fProj.includes(i.projectName));
+    if (fContr.length > 0) filteredArr = filteredArr.filter(i => fContr.includes(i.contractorName));
+    if (fInsp.length > 0) filteredArr = filteredArr.filter(i => fInsp.includes(i.inspectorName));
+    
+    // ПЕРИОД И ЧЕКБОКСЫ
+    if (fPeriod === 'DAY') filteredArr = filteredArr.filter(i => new Date(i.date).toDateString() === now.toDateString());
+    else if (fPeriod === 'WEEK') { const w = new Date(); w.setDate(now.getDate()-7); filteredArr = filteredArr.filter(i => new Date(i.date) >= w); }
+    else if (fPeriod === 'MONTH') { const m = new Date(); m.setDate(now.getDate()-30); filteredArr = filteredArr.filter(i => new Date(i.date) >= m); }
+
+    if (fPhoto) filteredArr = filteredArr.filter(i => i.photos && Object.keys(i.photos).length > 0);
+    if (fB3) filteredArr = filteredArr.filter(i => i.metrics && i.metrics.n_B3_fail > 0);
+
+    if(countEl) countEl.innerText = filteredArr.length;
+
+    if (filteredArr.length === 0) {
+        listDiv.innerHTML = `<div class="text-sm text-slate-500 text-center bg-slate-50 dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700">По заданным фильтрам проверок не найдено.</div>`;
+        return;
+    }
+
+    const grouped = {};
+    filteredArr.forEach(item => {
+        const cName = item.contractorName || 'Не указан'; 
+        const tTitle = item.templateTitle || 'Неизвестный вид работ';
+        if (!grouped[cName]) grouped[cName] = {}; 
+        if (!grouped[cName][tTitle]) grouped[cName][tTitle] = [];
+        grouped[cName][tTitle].push(item);
+    });
+
+    let html = '';
+    let groupIndex = 0;
+    for (let cName in grouped) {
+        const safeGroupName = `hist-group-${groupIndex++}`;
+        html += `<div class="font-black text-slate-700 dark:text-slate-300 text-xs mt-4 mb-2 uppercase tracking-tight pl-2 border-l-4 border-indigo-500 cursor-pointer flex justify-between items-center" onclick="document.getElementById('${safeGroupName}').classList.toggle('hidden')">
+            <span>🏗️ ${cName}</span><span class="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">СВЕРНУТЬ</span>
+        </div><div id="${safeGroupName}" class="transition-all duration-300 origin-top">`; 
+        
+        for (let tTitle in grouped[cName]) {
+            html += `<div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-2 ml-2 mt-2">${tTitle} (${grouped[cName][tTitle].length} изд.)</div>`;
+            const reversed = [...grouped[cName][tTitle]].sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            html += reversed.map((item) => {
+                const photoIcon = (item.photos && Object.keys(item.photos).length > 0) ? `📸` : '';
+                return `
+                <div class="flex items-center gap-2 mb-2">
+                    <input type="checkbox" class="hist-checkbox w-5 h-5 accent-indigo-600 rounded shrink-0" value="${item.id}">
+                    <div class="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm cursor-pointer hover:border-indigo-300 transition-colors active:scale-[0.98]" onclick="showHistoryDetail(${item.id})">
+                        <div class="flex justify-between items-start mb-1">
+                            <div>
+                                <div class="text-[11px] font-bold text-slate-800 dark:text-white">${item.location} <span class="text-[10px] ml-1">${photoIcon}</span></div>
+                                <div class="text-[9px] text-slate-400 mt-0.5">${new Date(item.date).toLocaleString('ru-RU')} | Инсп: ${item.inspectorName || 'Не указан'}</div>
+                            </div>
+                            <span class="status-tag ${item.metrics.statusCls}">${item.metrics.final}%</span>
+                        </div>
+                    </div>
+                </div>`
+            }).join('');
+        }
+        html += `</div>`; 
+    }
+    listDiv.innerHTML = html;
 }
 // --- УМНОЕ ОБНОВЛЕНИЕ ФИЛЬТРОВ (ЧТОБЫ НЕ СБРАСЫВАЛСЯ ВЫБОР) ---
 function populateSelect(id, values, defaultText) {
@@ -971,6 +1319,17 @@ function updateAllDynamicFilters() {
         targetTmpl.innerHTML = opts;
         if(Array.from(targetTmpl.options).some(o => o.value === currentTmpl)) targetTmpl.value = currentTmpl;
     }
+}
+function applyHistoryFilters() {
+    // Обновление лейбла кнопки времени
+    const periodSelect = document.getElementById('hist-filter-period');
+    const periodLabel = document.getElementById('btn-hist-period-label');
+    if (periodSelect && periodLabel) {
+        periodLabel.querySelector('.truncate').innerText = periodSelect.options[periodSelect.selectedIndex].text;
+    }
+    
+    // Запуск фильтрации и отрисовки
+    renderHistoryTab();
 }
 
 function renderHistoryTab() {
@@ -1406,13 +1765,13 @@ function updateGroupCounters() {
                 const stageMetrics = getProductMetrics(stageState, [g]);
                 const f = stageMetrics.final;
                 
-                // Красим в соответствии с УрК
+                // Тонкий iOS-стиль (border вместо border-2, font-bold вместо font-black)
                 if (f < 70 || stageMetrics.isDanger) {
-                    navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-black uppercase rounded-xl border-2 transition-all shadow-sm bg-red-50 text-red-700 border-red-400 dark:bg-red-900/30 dark:border-red-600 dark:text-red-300`;
+                    navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-bold uppercase rounded-xl border transition-all shadow-sm bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400 active:scale-95`;
                 } else if (f < 85) {
-                    navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-black uppercase rounded-xl border-2 transition-all shadow-sm bg-yellow-50 text-yellow-800 border-yellow-400 dark:bg-yellow-900/30 dark:border-yellow-600 dark:text-yellow-300`;
+                    navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-bold uppercase rounded-xl border transition-all shadow-sm bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/30 dark:border-orange-800 dark:text-orange-400 active:scale-95`;
                 } else {
-                    navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-black uppercase rounded-xl border-2 transition-all shadow-sm bg-green-50 text-green-800 border-green-400 dark:bg-green-900/30 dark:border-green-600 dark:text-green-300`;
+                    navBtnEl.className = `inline-block px-3 py-2 mr-2 text-[10px] font-bold uppercase rounded-xl border transition-all shadow-sm bg-green-50 text-green-600 border-green-200 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400 active:scale-95`;
                 }
             }
         }
@@ -1481,13 +1840,13 @@ function updateCardDOM(id, itemData = null) {
         `;
     }
 
-    // === ОСНОВНЫЕ КНОПКИ (OK / FAIL) ===
+    // === ОСНОВНЫЕ КНОПКИ (OK / FAIL) iOS Style ===
     let mainBtnsHtml = `
         <button onclick="toggleOk(${id})" class="btn-status ${okActive ? 'bg-green-500 text-white border-green-500' : ''} !w-11 !h-11 shrink-0 shadow-sm transition-transform active:scale-90">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M20 6L9 17l-5-5"/></svg>
         </button>
         <button onclick="toggleFail(${id})" class="btn-status ${failActive ? 'bg-red-500 text-white border-red-500' : ''} !w-11 !h-11 shrink-0 shadow-sm transition-transform active:scale-90">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
     `;
 
@@ -1498,14 +1857,14 @@ function updateCardDOM(id, itemData = null) {
         let hasComment = details[id]?.comment && details[id].comment.trim() !== "";
         
         let commBtn = hasComment ? 
-            `<div class="relative shrink-0"><button onclick="toggleCommentField(${id})" class="btn-status text-indigo-600 bg-indigo-100 border-indigo-300 dark:bg-indigo-900 dark:text-indigo-300 !w-10 !h-10 !rounded-md shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button><div onclick="deleteComment(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white z-10">✕</div></div>` : 
-            `<button onclick="toggleCommentField(${id})" class="btn-status !w-10 !h-10 !rounded-md shrink-0 shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button>`;
+            `<div class="relative shrink-0"><button onclick="toggleCommentField(${id})" class="btn-status text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800 !w-11 !h-11 !rounded-[12px] shadow-sm"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button><div onclick="deleteComment(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white z-10">✕</div></div>` : 
+            `<button onclick="toggleCommentField(${id})" class="btn-status !w-11 !h-11 !rounded-[12px] shrink-0 shadow-sm"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg></button>`;
         
         let photoBtn = photos[id] ? 
-            `<div class="relative shrink-0"><img src="${photos[id]}" class="photo-thumb !w-10 !h-10 !rounded-md border-2 border-indigo-200 shadow-sm object-cover" onclick="openPhotoViewer('${photos[id]}')"><div onclick="removePhoto(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white z-10">✕</div></div>` : 
-            `<button onclick="triggerPhotoInput(${id})" class="btn-status !w-10 !h-10 !rounded-md shrink-0 shadow-sm"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></circle></svg></button>`;
+            `<div class="relative shrink-0"><img src="${photos[id]}" class="photo-thumb !w-11 !h-11 !rounded-[12px] border border-indigo-200 dark:border-indigo-800 shadow-sm object-cover" onclick="openPhotoViewer('${photos[id]}')"><div onclick="removePhoto(${id}, event)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[12px] font-bold cursor-pointer shadow-md border border-white z-10">✕</div></div>` : 
+            `<button onclick="triggerPhotoInput(${id})" class="btn-status !w-11 !h-11 !rounded-[12px] shrink-0 shadow-sm"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><circle cx="12" cy="13" r="3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></circle></svg></button>`;
 
-        let escBtn = (i.w === 2) ? `<button onclick="toggleEscalation(${id})" class="btn-status ${isEscalated ? 'bg-red-600 text-white border-red-600' : 'text-orange-500 bg-orange-50 border-orange-200'} !w-10 !h-10 !rounded-md transition-all shrink-0 shadow-sm"><span class="text-[12px] font-black">>1.5</span></button>` : '';
+        let escBtn = (i.w === 2) ? `<button onclick="toggleEscalation(${id})" class="btn-status ${isEscalated ? 'bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400' : 'text-orange-500 bg-orange-50 border-orange-200 dark:bg-orange-900/30 dark:border-orange-800 dark:text-orange-400'} !w-11 !h-11 !rounded-[12px] transition-all shrink-0 shadow-sm"><span class="text-[13px] font-bold">>1.5</span></button>` : '';
 
         let visualIndicatorHtml = isEscalated ? `<div class="text-[10px] font-black text-white bg-red-600 px-2 py-0.5 rounded w-fit mt-1 shadow-sm">Дефект учтен как B3</div>` : '';
         let commentBlockHtml = hasComment ? `<div class="mt-2 text-[12px] font-semibold text-slate-700 dark:text-slate-300 italic bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-red-100 dark:border-red-800 shadow-sm leading-snug break-words w-full">💬 ${details[id].comment}</div>` : '';
@@ -1759,6 +2118,22 @@ function saveProductToArray() {
         window.scrollTo({ top: 0, behavior: 'smooth' }); 
         return;
     }
+    // --- ЗАЩИТА ОТ ДУБЛИКАТОВ ---
+    const locVal = locInput.value.trim();
+    const projVal = projInput.value.trim();
+    const contrVal = contrInput.value.trim();
+
+    const isDuplicate = contractorArray.some(item => 
+        item.projectName === projVal &&
+        item.contractorName === contrVal &&
+        item.templateKey === currentTemplateKey &&
+        item.location === locVal
+    );
+
+    if (isDuplicate) {
+        return showToast('⚠️ Проверка с такой локацией уже существует в Истории!');
+    }
+    // ----------------------------
 
     let mergedState = {};
     let mergedDetails = {};
@@ -1826,8 +2201,35 @@ function saveProductToArray() {
     
     window.scrollTo({ top: 0, behavior: "smooth" });
     showToast(`✅ Сохранено в Историю!`);
+    
+    // ИСПРАВЛЕНИЕ БАГА: Принудительно обновляем память полей и фильтры сразу после сохранения!
+    updateDatalists();
+    updateAllDynamicFilters();
+    
     render(); 
     updateUI();
+}
+// === ОБНОВЛЕНИЕ ПАМЯТИ ПОЛЕЙ ВВОДА (АВТОКОМПЛИТ) ===
+function updateDatalists() {
+    if (!contractorArray || contractorArray.length === 0) return;
+    
+    // Получаем последние 15 уникальных значений для каждого поля
+    const getTopRecent = (field) => {
+        const sorted = [...contractorArray].sort((a,b) => new Date(b.date) - new Date(a.date));
+        return [...new Set(sorted.map(i => i[field]).filter(Boolean))].slice(0, 15);
+    };
+
+    const buildOptions = (arr) => arr.map(v => `<option value="${v}">`).join('');
+
+    const dlProj = document.getElementById('dl-projects');
+    const dlInsp = document.getElementById('dl-inspectors');
+    const dlContr = document.getElementById('dl-contractors');
+    const dlLoc = document.getElementById('dl-locations');
+
+    if(dlProj) dlProj.innerHTML = buildOptions(getTopRecent('projectName'));
+    if(dlInsp) dlInsp.innerHTML = buildOptions(getTopRecent('inspectorName'));
+    if(dlContr) dlContr.innerHTML = buildOptions(getTopRecent('contractorName'));
+    if(dlLoc) dlLoc.innerHTML = buildOptions(getTopRecent('location'));
 }
 
 function resetChecklist() {
@@ -1920,10 +2322,35 @@ function renderAnalyticsTab() {
 }
 
 // === ИМПОРТ И ЭКСПОРТ ДАННЫХ (v16.0) ===
+// === ИМПОРТ И ЭКСПОРТ ДАННЫХ (ЕДИНЫЙ СУПЕР-БЭКАП) ===
+
+// === ИМПОРТ И ЭКСПОРТ ДАННЫХ (ЕДИНЫЙ СУПЕР-БЭКАП) ===
+
 function handleDataExport(type) {
     if (type === 'json') {
-        const data = JSON.stringify(contractorArray);
-        downloadFile(data, `rbi_backup_${new Date().toLocaleDateString()}.json`, 'application/json');
+        showToast("⚙️ Сборка полной базы данных...");
+        
+        // Отделяем только пользовательские документы, чтобы не дублировать системные
+        const userDocsToExport = customDocs.filter(d => !String(d.id).startsWith('sys_'));
+
+        // Собираем АБСОЛЮТНО ВСЁ в один гигантский объект
+        const fullBackup = {
+            type: "RBI_FULL_BACKUP",
+            version: "16.3",
+            timestamp: new Date().toISOString(),
+            data: {
+                history: contractorArray,
+                templates: userTemplates,
+                twi: customTwiCards,
+                docs: userDocsToExport, // <-- ДОБАВЛЕНО: База НД
+                expert: customExpertConclusions
+            }
+        };
+        
+        const dataStr = JSON.stringify(fullBackup);
+        downloadFile(dataStr, `rbi_full_backup_${new Date().toLocaleDateString('ru-RU')}.json`, 'application/json');
+        showToast("✅ Полный бэкап скачан!");
+        
     } else if (type === 'csv') {
         const csv = exportToCSV(contractorArray);
         if(csv) downloadFile(csv, `rbi_report_${new Date().toLocaleDateString()}.csv`, 'text/csv');
@@ -1931,51 +2358,121 @@ function handleDataExport(type) {
     }
 }
 
-function triggerDataImport() { document.getElementById('db-import-input').click(); }
+function triggerDataImport() { 
+    document.getElementById('db-import-input').click(); 
+}
 
 function processDataImport(event) {
     const file = event.target.files[0];
     if (!file) return;
+    
+    showToast("⚙️ Чтение файла и слияние баз...");
     const reader = new FileReader();
     
     reader.onload = async (e) => {
         try {
-            const data = JSON.parse(e.target.result);
-            if (!Array.isArray(data)) throw new Error("Неверный формат бэкапа");
-            
-            let addedCount = 0;
-            
-            for(const item of data) {
-                // Если в текущей базе нет проверки с таким ID, добавляем её
-                if(!contractorArray.find(x => x.id === item.id)) {
-                    contractorArray.push(item);
-                    await dbPut(STORES.HISTORY, item);
-                    addedCount++;
+            const parsed = JSON.parse(e.target.result);
+            let addedHist = 0, addedTmpl = 0, addedTwi = 0, addedDocs = 0;
+
+            // 1. ЕСЛИ ЭТО НОВЫЙ СУПЕР-БЭКАП (Сборка всего)
+            if (parsed.type === "RBI_FULL_BACKUP" && parsed.data) {
+                
+                // А. СЛИЯНИЕ ИСТОРИИ ПРОВЕРОК
+                if (parsed.data.history && Array.isArray(parsed.data.history)) {
+                    for(const item of parsed.data.history) {
+                        if(!contractorArray.find(x => x.id === item.id)) {
+                            contractorArray.push(item);
+                            await dbPut(STORES.HISTORY, item);
+                            addedHist++;
+                        }
+                    }
+                    contractorArray.sort((a, b) => new Date(b.date) - new Date(a.date));
                 }
+                
+                // Б. СЛИЯНИЕ ЧЕК-ЛИСТОВ (Добавляем только те, которых нет)
+                if (parsed.data.templates) {
+                    for(const key in parsed.data.templates) {
+                        if(!userTemplates[key]) { 
+                            userTemplates[key] = parsed.data.templates[key];
+                            await dbPut(STORES.TEMPLATES, { slug: key, data: parsed.data.templates[key] });
+                            addedTmpl++;
+                        }
+                    }
+                }
+
+                // В. СЛИЯНИЕ TWI КАРТ И ПРАВИЛ
+                if (parsed.data.twi && Array.isArray(parsed.data.twi)) {
+                    for(const item of parsed.data.twi) {
+                        if(!customTwiCards.find(x => x.id === item.id)) {
+                            customTwiCards.push(item);
+                            addedTwi++;
+                        }
+                    }
+                    const userCardsToSave = customTwiCards.filter(c => !String(c.id).startsWith('sys_'));
+                    await dbPut(STORES.SETTINGS, { key: 'custom_twi_cards', data: userCardsToSave });
+                }
+
+                // Г. СЛИЯНИЕ БАЗЫ НОРМАТИВНЫХ ДОКУМЕНТОВ (НД)
+                if (parsed.data.docs && Array.isArray(parsed.data.docs)) {
+                    for(const item of parsed.data.docs) {
+                        if(!customDocs.find(x => x.id === item.id)) {
+                            customDocs.push(item);
+                            addedDocs++;
+                        }
+                    }
+                    // Сохраняем объединенный массив пользовательских документов
+                    const userDocsToSave = customDocs.filter(d => !String(d.id).startsWith('sys_'));
+                    await dbPut(STORES.SETTINGS, { key: 'custom_docs', data: userDocsToSave });
+                }
+
+                // Д. СЛИЯНИЕ ЭКСПЕРТНЫХ ЗАКЛЮЧЕНИЙ (Тексты ИИ)
+                if (parsed.data.expert) {
+                    customExpertConclusions = { ...customExpertConclusions, ...parsed.data.expert };
+                    scheduleSessionSave(); // Записываем в хранилище сессии
+                }
+
+                showToast(`✅ Базы слиты!\nПроверок: +${addedHist} | Шаблонов: +${addedTmpl}\nTWI: +${addedTwi} | Нормативов: +${addedDocs}`);
+
+            } 
+            // 2. ЕСЛИ ЭТО СТАРЫЙ БЭКАП (Только массив истории) - обратная совместимость
+            else if (Array.isArray(parsed)) {
+                for(const item of parsed) {
+                    if(!contractorArray.find(x => x.id === item.id)) {
+                        contractorArray.push(item);
+                        await dbPut(STORES.HISTORY, item);
+                        addedHist++;
+                    }
+                }
+                contractorArray.sort((a, b) => new Date(b.date) - new Date(a.date));
+                showToast(`✅ История объединена! Добавлено: ${addedHist} шт.`);
+            } else {
+                throw new Error("Неизвестный формат файла");
             }
             
-            // Обязательно сортируем весь массив по дате (свежие сверху)
-            contractorArray.sort((a, b) => new Date(b.date) - new Date(a.date));
+            // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ВЕСЬ ИНТЕРФЕЙС
             updateAllDynamicFilters();
-            showToast(`База объединена! Добавлено новых: ${addedCount} шт.`);
+            renderSelector(); // Обновит списки чек-листов в шапке
+            renderSettingsTab(); // Обновит список шаблонов в настройках
             
-            // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ИНТЕРФЕЙС В ЗАВИСИМОСТИ ОТ ОТКРЫТОЙ ВКЛАДКИ
             if (document.getElementById('tab-history').classList.contains('active')) {
                 renderHistoryTab();
             } else if (document.getElementById('tab-analytics').classList.contains('active')) {
-                // Если мы на вкладке Аналитика -> База, обновляем фильтры и саму таблицу
-                if (typeof updateAnalyticsFilters === 'function') updateAnalyticsFilters();
-                if (typeof renderCurrentAnalyticsTab === 'function') renderCurrentAnalyticsTab();
+                updateAnalyticsFilters(); 
+                renderCurrentAnalyticsTab();
+            } else if (document.getElementById('tab-reference').classList.contains('active')) {
+                const activeSub = document.querySelector('.ref-sub-section:not(.hidden)');
+                if (activeSub && activeSub.id === 'ref-sub-checklists') renderReferenceTab();
+                else if (activeSub && activeSub.id === 'ref-sub-twi') renderTwiList();
+                else if (activeSub && activeSub.id === 'ref-sub-docs') renderDocsList(); // <-- Рендерим базу НД
             }
             
         } catch (err) { 
             console.error(err);
-            alert("Ошибка файла бэкапа. Проверьте формат файла."); 
+            alert("Ошибка файла бэкапа. Проверьте формат."); 
         }
     };
     
     reader.readAsText(file);
-    // Сбрасываем input, чтобы можно было загрузить тот же файл еще раз, если нужно
     event.target.value = '';
 }
 
@@ -2246,16 +2743,17 @@ function startDemoMode(silent = false) {
 
     const demoPhotoGood = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23dcfce7'/><path d='M150 150 L190 190 L270 100' stroke='%2316a34a' stroke-width='20' fill='none'/><text x='200' y='260' font-family='Arial' font-size='20' font-weight='bold' fill='%23166534' text-anchor='middle'>ЭТАЛОН (ПРАВИЛЬНО)</text></svg>";
     const demoPhotoBad = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23fee2e2'/><path d='M130 100 L270 200 M130 200 L270 100' stroke='%23dc2626' stroke-width='20' fill='none'/><text x='200' y='260' font-family='Arial' font-size='20' font-weight='bold' fill='%23991b1b' text-anchor='middle'>БРАК (НЕПРАВИЛЬНО)</text></svg>";
-    // Пустой PDF-файл (Base64) для демонстрации
-    const demoPdf = "data:application/pdf;base64,JVBERi0xLjQKJcOkwsgKMSAwIG9iago8PAovVGl0bGUgKP7/AEQAZQBtAG8AIABQAEQARikKLUNyZWF0b3IgKP7/AEQAZQBtAG8pCi9Qcm9kdWNlciAo/v8ARABlAG0AbykKLUNyZWF0aW9uRGF0ZSAoRDoyMDI0MDEwMTAwMDAwMFopCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9UeXBlIC9DYXRhbG9nCi9QYWdlcyAzIDAgUgo+PgplbmRvYmoKMyAwIG9iago8PAovVHlwZSAvUGFnZXMKL0NvdW50IDEKL0tpZHMgWyA0IDAgUiBdCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9UeXBlIC9QYWdlCi9QYXJlbnQgMyAwIFIKL1Jlc291cmNlcyA8PAovRm9udCA8PAovRjEgNSAwIFIKPj4KPj4KL01lZGlhQm94IFsgMCAwIDU5NS4yOCA4NDEuODkgXQovQ29udGVudHMgNiAwIFIKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iago2IDAgb2JqCjw8Ci9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCjcwIDcwMCBUZAovRjEgMjQgVGYKKERlbW8gUERGIERvY3VtZW50KSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA3CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMTQxIDAwMDAwIG4gCjAwMDAwMDAxOTAgMDAwMDAgbiAKMDAwMDAwMDI0NyAwMDAwMCBuIAowMDAwMDAwMzU1IDAwMDAwIG4gCjAwMDAwMDA0NDMgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA3Ci9Sb290IDIgMCBSCi9JbmZvIDEgMCBSCj4+CnN0YXJ0eHJlZgo1MzgKJSVFT0YK";
+    const demoPdf = "data:application/pdf;base64,JVBERi0xLjQKJcOkwsgKMSAwIG9iago8PAovVGl0bGUgKP7/AEQAZQBtAG8AIABQAEQARikKLUNyZWF0b3IgKP7/AEQAZQBtAG8pCi9Qcm9kdWNlciAo/v8ARABlAG0AbykKLUNyZWF0aW9uRGF0ZSAoRDoyMDI0MDEwMTAwMDAwMFopCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9UeXBlIC9DYXRhbG9nCi9QYWdlcyAzIDAgUgo+PgplbmRvYmoKMyAwIG9iago8PAovVHlwZSAvUGFnZXMKL0NvdW50IDEKL0tpZHMgWyA0IDAgUiBdCj4+CmVuZG9ibjQgMCBvYmoKPDwKL1R5cGUgL0QKL1BhcmVudCAzIDAgUgovUmVzb3VyY2VzIDw8Ci9Gb250IDw8Ci9GMSA1IDAgUgo+Pgo+PgovTWVkaWFCb3ggWyAwIDAgNTk1LjI4IDg0MS44OSBdCi9Db250ZW50cyA2IDAgUgo+PgplbmRvYmoKNSAwIG9iago8PAovVHlwZSAvRm9udAovU3VidHlwZSAvVHlwZTUKL0Jhc2VGb250IC9IZWx2ZXRpY2EKPj4KZW5kb2JqCjYgMCBvYmoKPDwKL0xlbmd0aCA0NAo+PgpzdHJlYW0KQlQKNzAgNzAwIFRkCi9GMSAyNCBUZgooRGVtbyBQREYgRG9jdW1lbnQpIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDcKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDE1IDAwMDAwIG4gCjAwMDAwMDAxNDEgMDAwMDAgbiAKMDAwMDAwMDE5MCAwMDAwMCBuIAowMDAwMDAwMjQ3IDAwMDAwIG4gCjAwMDAwMDAzNTUgMDAwMDAgbiAKMDAwMDAwMDQ0MyAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDcKL1Jvb3QgMiAwIFIKL0luZm8gMSAwIFIKPj4Kc3RhcnR4cmVmCjUzOAolJUVPRgo=";
 
+    // ИСПРАВЛЕНИЕ: Четкая привязка itemId в демо-картах
     customTwiCards = [
         {
-            id: "demo_twi_1", title: "Контроль шага арматуры", checklistKey: "sys_armature", checklistName: "Арматурные работы", type: "INSPECTOR", itemId: 204,
+            id: "demo_twi_1", title: "Контроль шага арматуры", checklistKey: "sys_armature", checklistName: "Арматурные работы", type: "INSPECTOR", itemId: "204", // 204 - это ID пункта "Отклонение в расстоянии"
             whyImportant: "Снижение несущей способности пилона. При заливке бетоном вибратор не пройдет между стержнями.",
             howToCheck: "Приложить рулетку от оси до оси стержня. Допуск ±10 мм.", photoGood: demoPhotoGood, photoBad: demoPhotoBad
         },
         {
+            // Эта карта привязана ко всему чек-листу Фасадов
             id: "demo_twi_2", title: "Монтаж стартового кронштейна", checklistKey: "sys_nvf_facade", checklistName: "Навесной вентилируемый фасад", type: "WORKER", itemId: "ALL", totalTime: 15,
             steps: [
                 {order: 1, text: "Разметить оси установки по нивелиру.", time: 5, photo: null},
@@ -2264,6 +2762,7 @@ function startDemoMode(silent = false) {
             ]
         },
         {
+            // Эта карта привязана ко всему чек-листу Арматуры
             id: "demo_twi_3", title: "Техкарта: Укладка бетона", checklistKey: "sys_armature", checklistName: "Арматурные работы", type: "PDF", itemId: "ALL", pdfData: demoPdf, pdfName: "tech_carta.pdf", pdfSize: "0.5 MB"
         }
     ];
@@ -2492,8 +2991,7 @@ function showProductMath() {
     const title = document.getElementById('modal-title');
     const body = document.getElementById('modal-body');
     
-    document.getElementById('modal-icon').innerHTML = `<div class="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center font-black text-2xl">∑</div>`;
-    title.innerText = "Расчет УрК Изделия";
+    document.getElementById('modal-icon').innerHTML = `<div class="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-[14px] flex items-center justify-center border border-indigo-100 dark:border-indigo-800 mx-auto"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="8" y="8" width="8" height="2"></rect><line x1="8" y1="14" x2="8.01" y2="14"></line><line x1="12" y1="14" x2="12.01" y2="14"></line><line x1="16" y1="14" x2="16.01" y2="14"></line></svg></div>`;
     
     if (!p) {
         body.innerHTML = "<p>Заполните хотя бы один пункт для отображения оценки.</p>";
@@ -2536,33 +3034,49 @@ function showContractorDetails() {
     const body = document.getElementById('modal-body');
 
     if (filteredArr.length < 7) {
-        body.innerHTML = `<p class="bg-yellow-50 text-yellow-800 p-4 rounded-xl border border-yellow-200 font-bold leading-snug">Собрано: <b class="text-lg">${filteredArr.length}</b> изд.<br><br>Для расчета УрК Подрядчика требуется минимум <b>7</b> проверок.</p>`;
+        body.innerHTML = `<p class="bg-yellow-50 text-yellow-800 p-4 rounded-xl border border-yellow-200 font-bold leading-snug">Собрано: <b class="text-lg">${filteredArr.length}</b> изд.<br><br>Для расчета УрК Подрядчика и достоверной аналитики требуется минимум <b>7</b> проверок.</p>`;
     } else {
         const c = getContractorMetrics(filteredArr, userTemplates);
         body.innerHTML = `
             <div class="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800 mb-5 shadow-sm">
-                <div class="text-[10px] uppercase font-bold text-indigo-500 mb-2">Формула УрК Подрядчика</div>
-                <div class="text-[11px] font-black text-indigo-900 dark:text-indigo-300 font-mono bg-white dark:bg-slate-800 p-2 rounded border border-indigo-100 dark:border-slate-700 text-center shadow-inner">УрК = База × Ks × Kcrit</div>
-                <div class="flex items-center justify-between mt-3 border-t border-indigo-100 dark:border-indigo-800 pt-3">
-                    <div class="text-4xl font-black text-indigo-700 dark:text-indigo-400">${c.finalC}%</div>
+                <div class="text-[10px] uppercase font-bold text-indigo-500 mb-2 flex justify-between items-center">
+                    <span>УрК Подрядчика</span>
+                    <span class="text-[9px] font-bold ${c.confCls} px-2 py-0.5 rounded border uppercase">${c.confStatus}</span>
+                </div>
+                <div class="flex items-center justify-between mt-1">
+                    <div class="text-5xl font-black text-indigo-700 dark:text-indigo-400">${c.finalC}%</div>
                     <div class="text-right">
-                        <span class="${c.confCls} block mb-1 w-fit ml-auto">${c.confStatus}</span>
-                        <span class="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-1 rounded uppercase block w-fit ml-auto">${c.statusTxt}</span>
+                        <span class="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-1 rounded uppercase block w-fit ml-auto border border-indigo-200">${c.statusTxt}</span>
                     </div>
                 </div>
             </div>
-            <ul class="text-[13px] space-y-3 mb-5">
+            
+            <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Штрафные коэффициенты</div>
+            <ul class="text-[13px] space-y-3 mb-5 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
                 <li class="flex justify-between items-center border-b border-[var(--card-border)] pb-2">
                     <span class="leading-snug"><b>Системный брак (Ks)</b><br><span class="text-[10px] text-[var(--text-muted)] mt-0.5">Повтор дефекта в ${c.maxFailRate.toFixed(1)}%</span></span>
                     <span class="font-black text-lg ${c.ks < 1 ? 'text-red-500' : 'text-green-600'}">${c.ks.toFixed(2)}</span>
                 </li>
-                <li class="flex justify-between items-center border-b border-[var(--card-border)] pb-2">
+                <li class="flex justify-between items-center pb-1">
                     <span class="leading-snug"><b>Критичность (Kcrit)</b><br><span class="text-[10px] text-[var(--text-muted)] mt-0.5">Доля изделий с B3: ${c.rateB3.toFixed(1)}%</span></span>
                     <span class="font-black text-lg ${c.kcritC < 1 ? 'text-red-500' : 'text-green-600'}">${c.kcritC.toFixed(2)}</span>
                 </li>
             </ul>
+
+            <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Качество процесса</div>
+            <div class="grid grid-cols-2 gap-2 mb-5">
+                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] p-3 rounded-xl shadow-sm text-center">
+                    <div class="text-[9px] text-[var(--text-muted)] font-bold uppercase mb-1">Индекс стабильности</div>
+                    <div class="text-2xl font-black ${c.stabilityIndex < 70 ? 'text-orange-500' : 'text-green-600'}">${c.stabilityIndex}/100</div>
+                </div>
+                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] p-3 rounded-xl shadow-sm text-center">
+                    <div class="text-[9px] text-[var(--text-muted)] font-bold uppercase mb-1">Волатильность (скачки)</div>
+                    <div class="text-2xl font-black ${c.volatility > 15 ? 'text-red-500' : 'text-blue-500'}">${c.volatility.toFixed(1)}</div>
+                </div>
+            </div>
+
             <div class="text-[11px] font-bold text-red-700 mt-2 bg-red-50 p-3 rounded-xl border border-red-200 shadow-sm leading-snug">
-                <span class="uppercase text-[9px] block mb-1 text-red-400">Основание</span>${c.reason}
+                <span class="uppercase text-[9px] block mb-1 text-red-400">Основание / Вывод</span>${c.reason}
             </div>`;
     }
     document.body.classList.add('modal-open'); modal.style.display = 'flex';
@@ -2682,7 +3196,14 @@ function switchAnalyticsSubTab(tabId, btnElement) {
     }
 }
 function toggleDateRange() {
-    const period = document.getElementById('global-filter-period')?.value;
+    const select = document.getElementById('global-filter-period');
+    const period = select?.value;
+    const label = document.getElementById('btn-ana-period-label');
+    
+    if (select && label) {
+        label.querySelector('.truncate').innerText = select.options[select.selectedIndex].text;
+    }
+
     const rangeBlock = document.getElementById('custom-date-range');
     if (!rangeBlock) return;
     
@@ -2697,10 +3218,11 @@ function toggleDateRange() {
 // Фильтрация данных для всех вкладок аналитики
 function getFilteredAnalyticsData() {
     const selPeriod = document.getElementById('global-filter-period')?.value || 'ALL';
-    const selTmpl = document.getElementById('global-filter-template')?.value || 'ALL';
-    const selProj = document.getElementById('global-filter-project')?.value || 'ALL';
-    const selContr = document.getElementById('global-filter-contractor')?.value || 'ALL';
-    const selInsp = document.getElementById('global-filter-inspector')?.value || 'ALL';
+    
+    const fProj = activeMultiFilters.analytics.project;
+    const fContr = activeMultiFilters.analytics.contractor;
+    const fInsp = activeMultiFilters.analytics.inspector;
+    const fTmpl = activeMultiFilters.analytics.template;
     
     let arr = contractorArray;
     const now = new Date();
@@ -2730,11 +3252,11 @@ function getFilteredAnalyticsData() {
         }
     }
 
-    // ОСТАЛЬНЫЕ ФИЛЬТРЫ
-    if(selProj !== "ALL") arr = arr.filter(i => i.projectName === selProj);
-    if(selContr !== "ALL") arr = arr.filter(i => i.contractorName === selContr);
-    if(selTmpl !== "ALL") arr = arr.filter(i => i.templateKey === selTmpl);
-    if(selInsp !== "ALL") arr = arr.filter(i => i.inspectorName === selInsp);
+    // МУЛЬТИФИЛЬТРЫ
+    if (fProj.length > 0) arr = arr.filter(i => fProj.includes(i.projectName));
+    if (fContr.length > 0) arr = arr.filter(i => fContr.includes(i.contractorName));
+    if (fInsp.length > 0) arr = arr.filter(i => fInsp.includes(i.inspectorName));
+    if (fTmpl.length > 0) arr = arr.filter(i => fTmpl.includes(i.templateKey));
     
     return arr;
 }
@@ -2762,7 +3284,7 @@ function renderRatingSubTab(data) {
     const ratingData = [];
     for(let cName in grouped) { const metrics = getContractorMetrics(grouped[cName], userTemplates); if (metrics) ratingData.push({ name: cName, metrics: metrics, raw: grouped[cName] }); }
     
-    if (ratingData.length === 0) { container.innerHTML = '<p class="p-6 text-center text-slate-500 text-sm">Мало данных. Для расчета рейтинга нужно мин. 3 изделия.</p>'; return; }
+    if (ratingData.length === 0) { container.innerHTML = '<p class="p-6 text-center text-slate-500 text-sm">Мало данных. Для расчета рейтинга нужно мин. 7 изделия.</p>'; return; }
 
     ratingData.sort((a,b) => b.metrics.finalC - a.metrics.finalC);
 
@@ -3106,10 +3628,12 @@ function saveChartFilters(type) {
 
 
 // === ПОДВКЛАДКА 2: ИНСТРУМЕНТ ИНЖЕНЕРА (УМНЫЙ ПОМОЩНИК И АНАЛИЗ) ===
+// === ПОДВКЛАДКА 2: ИНСТРУМЕНТ ИНЖЕНЕРА (УМНЫЙ ПОМОЩНИК И АНАЛИЗ) ===
 function renderEngineeringSubTab(data) {
     const container = document.getElementById('engineering-content-container');
     if(data.length === 0) { container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">Нет данных по выбранным фильтрам</div>`; return; }
 
+    // --- ЧАСТЬ 1: ГЛОБАЛЬНЫЙ АНАЛИЗ (НОВЫЙ ПОДХОД) ---
     const causesCount = {}; 
     let tB1 = 0, tB2 = 0, tB3 = 0, tOk = 0;
     const stageData = {}; 
@@ -3208,7 +3732,6 @@ function renderEngineeringSubTab(data) {
 
     let html = '<div class="mx-1 space-y-4">';
 
-    // ВОТ ЗДЕСЬ СРАБАТЫВАЕТ ТОГГЛ ИЗ НАСТРОЕК ДЛЯ ИИ
     if (appSettings.anaEngAi) {
         html += `
         <div class="bg-[var(--card-bg)] border border-indigo-200 rounded-xl shadow-sm relative overflow-hidden">
@@ -3221,14 +3744,12 @@ function renderEngineeringSubTab(data) {
         </div>`;
     }
 
-    // ВОТ ЗДЕСЬ СРАБАТЫВАЕТ ТОГГЛ ДЛЯ ГАЛЕРЕИ ФОТО
     if (appSettings.anaEngPhotos) {
         html += renderPhotoGallery(topCriticalPhotos, "Критические дефекты (B3)", "text-red-600", "bg-red-50");
         html += renderPhotoGallery(topSystemicPhotos, "Системные отклонения (B2)", "text-orange-600", "bg-orange-50");
     }
 
     html += `
-        <!-- ГРАФИКИ ТРЕНДОВ С НЕЗАВИСИМЫМИ ФИЛЬТРАМИ -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
                 <div class="flex justify-between items-center mb-2">
@@ -3252,7 +3773,6 @@ function renderEngineeringSubTab(data) {
             </div>
         </div>`;
 
-    // ВОТ ЗДЕСЬ СРАБАТЫВАЕТ ТОГГЛ ДЛЯ ПАРЕТО
     if (appSettings.anaEngPareto) {
         html += `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -3278,12 +3798,126 @@ function renderEngineeringSubTab(data) {
     }
 
     html += `
-        <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm mt-4">
+        <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm mt-4 mb-8">
             <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Детализация по этапам</div>
             <div class="overflow-x-auto"><table class="w-full text-left whitespace-nowrap"><thead class="bg-[var(--hover-bg)] text-[10px] text-[var(--text-muted)] border-b border-[var(--card-border)]"><tr><th class="p-2">Этап контроля</th><th class="p-2 text-center">Проверок</th><th class="p-2 text-center">УрК</th></tr></thead><tbody class="divide-y divide-[var(--card-border)]">${stagesHtml}</tbody></table></div>
-        </div>
-    </div>`;
+        </div>`;
 
+    // --- ЧАСТЬ 2: ДЕТАЛИЗАЦИЯ ПО ПОДРЯДЧИКАМ (СТАРЫЙ ПОДХОД) ---
+    html += `<div class="text-center font-black text-slate-400 dark:text-slate-500 uppercase mt-10 mb-4 tracking-widest text-[11px] flex items-center justify-center gap-2"><span class="w-8 h-px bg-slate-300 dark:bg-slate-600"></span> Детализация подрядчиков <span class="w-8 h-px bg-slate-300 dark:bg-slate-600"></span></div>`;
+
+    let chartConfigs = [];
+    let blocksToProcess = [];
+    const uniqueCs = [...new Set(data.map(i => i.contractorName))];
+    
+    uniqueCs.forEach(cName => {
+        const cData = data.filter(i => i.contractorName === cName);
+        const uniqueTs = [...new Set(cData.map(i => i.templateKey))];
+        uniqueTs.forEach(tKey => {
+            blocksToProcess.push({ contractor: cName, template: cData.find(i => i.templateKey === tKey).templateTitle, data: cData.filter(i => i.templateKey === tKey) });
+        });
+    });
+
+    blocksToProcess.forEach((block, index) => {
+        const filteredArray = block.data;
+        const safeNameId = block.contractor.replace(/\W/g, '_') + '_' + index;
+        const labels = filteredArray.map((_, i) => `#${i+1}`);
+        const dataUrk = filteredArray.map(item => item.metrics.final);
+
+        let failCounts = {}, localCritList = [], allPhotos = [];
+        const tKey = filteredArray[0].templateKey; const type = tKey.split('_')[0]; const key = tKey.replace(type + '_', '');
+        const refChecklist = type === 'sys' && SYSTEM_TEMPLATES[key] ? SYSTEM_TEMPLATES[key].groups : (userTemplates[key] ? userTemplates[key].groups : currentChecklist);
+        const flatList = getFlatList(refChecklist);
+        flatList.forEach(i => failCounts[i.id] = { count: 0, n: i.n, w: i.w, photo: null });
+
+        filteredArray.forEach((unit) => {
+            flatList.forEach(i => {
+                const s = unit.state[i.id];
+                if (s === 'fail' || s === 'fail_escalated') {
+                    failCounts[i.id].count++;
+                    let photoTag = '';
+                    if (unit.photos && unit.photos[i.id]) {
+                        failCounts[i.id].photo = unit.photos[i.id];
+                        photoTag = `<img src="${unit.photos[i.id]}" class="w-10 h-10 rounded object-cover border border-slate-200 shrink-0 cursor-pointer active:scale-90" onclick="openPhotoViewer('${unit.photos[i.id]}')" />`;
+                        allPhotos.push({ src: unit.photos[i.id], loc: unit.location, date: new Date(unit.date).toLocaleDateString('ru-RU') });
+                    }
+                    if (i.w === 3 || s === 'fail_escalated') {
+                        localCritList.push(`<div class="flex flex-col min-[380px]:flex-row min-[380px]:items-center justify-between border-b border-red-100 dark:border-red-800 pb-2 mb-2 gap-2"><div class="text-[11px] text-red-700 dark:text-red-400 font-bold leading-snug break-words w-full"><span class="text-red-400 dark:text-red-500 block text-[9px] mb-0.5">[${new Date(unit.date).toLocaleDateString()}] ${unit.location}</span>${i.n}</div><div class="self-start min-[380px]:self-center">${photoTag}</div></div>`);
+                    }
+                }
+            });
+        });
+
+        const sortedFails = Object.values(failCounts).filter(x => x.count > 0).sort((a, b) => b.count - a.count).slice(0, 5);
+        
+        let topDefectsHtml = sortedFails.length > 0 ? sortedFails.map(f => `
+            <div class="flex flex-col min-[450px]:flex-row items-start min-[450px]:items-center gap-2 mb-3 border-b border-slate-100 dark:border-slate-700 pb-2">
+                <div class="flex-1 w-full min-w-0 leading-snug">
+                    <span class="weight-tag wt-${f.w} shrink-0">B${f.w}</span> 
+                    <span class="text-[11px] text-slate-700 dark:text-slate-300 font-bold break-words">${f.n}</span>
+                </div>
+                <div class="flex items-center gap-2 self-start min-[450px]:self-end shrink-0">
+                    <div class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-black">${f.count} раз</div>
+                    ${f.photo ? `<img src="${f.photo}" class="w-10 h-10 rounded object-cover border border-slate-200 dark:border-slate-600 cursor-pointer active:scale-90" onclick="openPhotoViewer('${f.photo}')"/>` : ''}
+                </div>
+            </div>`).join('') : `<p class="text-xs text-slate-400 p-2 text-center">Дефектов не найдено</p>`;
+        
+        let critDefectsHtml = localCritList.length > 0 ? localCritList.join('') : `<p class="text-[11px] text-red-400 p-2 font-bold text-center">Критических дефектов нет.</p>`;
+        
+        let galleryHtml = allPhotos.length > 0 ? `<div class="grid grid-cols-3 gap-2">${allPhotos.slice(-6).reverse().map(p => `<div class="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm cursor-pointer active:scale-95" onclick="openPhotoViewer('${p.src}')"><img src="${p.src}" class="w-full h-20 object-cover" /><div class="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-bold p-1 truncate backdrop-blur-sm">${p.loc}</div></div>`).join('')}</div>` : `<p class="text-xs text-slate-400 text-center py-6">Нет прикрепленных фотографий.</p>`;
+
+        let cMetricsHtml = "";
+        if (filteredArray.length >= 7) {
+            const cM = getContractorMetrics(filteredArray, userTemplates);
+            if (cM) {
+                let cColor = cM.isRedZone ? 'text-red-600' : (cM.finalC < 85 ? 'text-orange-500' : 'text-green-600');
+                const expertData = getExpertConclusion(cM, block.contractor, block.template, filteredArray.length, safeNameId, customExpertConclusions);
+                
+                cMetricsHtml = `
+                <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 min-[400px]:p-4 shadow-sm">
+                    <div class="flex flex-col min-[380px]:flex-row items-start min-[380px]:items-center justify-between mb-3 border-b border-slate-200 dark:border-slate-700 pb-2 gap-2">
+                        <div class="text-[11px] font-bold text-slate-500 uppercase">УрК Подрядчика</div>
+                        <div class="status-tag ${cM.statusCls} !text-[9px] w-fit">${cM.statusTxt}</div>
+                    </div>
+                    <div class="flex items-end justify-between">
+                        <div class="text-4xl min-[400px]:text-5xl font-black ${cColor} leading-none tracking-tighter">${cM.finalC}%</div>
+                        <div class="text-right text-[10px] text-slate-500 font-bold bg-white dark:bg-slate-800 p-1.5 rounded border border-slate-200 dark:border-slate-700 shadow-inner">
+                            <div class="mb-0.5">База: <span class="text-slate-800 dark:text-slate-300">${cM.baseUrkContrPerc}%</span></div>
+                            <div>Ks: <span class="text-slate-800 dark:text-slate-300">${cM.ks.toFixed(2)}</span> | Kcrit: <span class="text-slate-800 dark:text-slate-300">${cM.kcritC.toFixed(2)}</span></div>
+                        </div>
+                    </div>
+                </div>
+                ${expertData.uiHtml}
+                `;
+            }
+        } else {
+            cMetricsHtml = `<div class="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-500 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800 font-bold text-[10px] mb-6 shadow-sm leading-snug">Собрано ${filteredArray.length} изд. Для расчета УрК нужно минимум 7.</div>`;
+        }
+
+        html += `
+            <div class="mb-6 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl overflow-hidden shadow-sm">
+                <div class="bg-slate-800 text-white p-3 font-black text-sm uppercase tracking-wider flex flex-col min-[450px]:flex-row justify-between items-start min-[450px]:items-center gap-2">
+                    <span class="break-words leading-tight w-full">🏗️ ${block.contractor}</span>
+                    <span class="text-[10px] font-bold text-slate-300 bg-slate-700 px-2 py-1 rounded shrink-0 border border-slate-600">Выборка: ${filteredArray.length}</span>
+                </div>
+                <div class="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-3 min-[400px]:px-4 py-2 text-[10px] min-[400px]:text-xs font-bold text-slate-600 dark:text-slate-400 uppercase break-words leading-snug">${block.template}</div>
+                <div class="p-3 min-[400px]:p-4">
+                    ${cMetricsHtml}
+                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">График качества по проверкам</div>
+                    <div style="height: 160px; position: relative;" class="mb-6"><canvas id="chart_ui_${safeNameId}"></canvas></div>
+                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">Топ-5 повторяющихся (B2)</div>
+                    <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 mb-6 shadow-sm">${topDefectsHtml}</div>
+                    <div class="text-[11px] font-bold text-red-500 uppercase mb-2">Критические дефекты (B3 / >1.5x)</div>
+                    <div class="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/50 rounded-xl p-3 mb-6 shadow-sm">${critDefectsHtml}</div>
+                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">Фотоотчет (Последние)</div>
+                    <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 mb-2 shadow-sm">${galleryHtml}</div>
+                </div>
+            </div>
+        `;
+        chartConfigs.push({ id: `chart_ui_${safeNameId}`, type: 'line', labels: labels, data: dataUrk });
+    });
+
+    html += '</div>';
     container.innerHTML = html;
 
     // Отрисовка графиков
@@ -3304,6 +3938,26 @@ function renderEngineeringSubTab(data) {
         const ctxPie = document.getElementById('chart_eng_doughnut').getContext('2d');
         chartInstances['chart_eng_doughnut'] = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['B1', 'B2', 'B3'], datasets: [{ data: [tB1, tB2, tB3], backgroundColor: ['#3b82f6', '#f97316', '#ef4444'], borderWidth: 0 }] }, options: { animation: false, responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } } } } });
     }
+
+    // Отрисовка графиков подрядчиков
+    chartConfigs.forEach(cfg => {
+        const ctx = document.getElementById(cfg.id).getContext('2d');
+        chartInstances[cfg.id] = new Chart(ctx, {
+            type: 'line', 
+            data: { labels: cfg.labels, datasets: [{ data: cfg.data, borderColor: '#4f46e5', backgroundColor: '#4f46e5', tension: 0.3, borderWidth: 2, pointRadius: 3 }] },
+            options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { display: false } } },
+            plugins: [{ 
+                id: 'targetZone', 
+                beforeDraw: (chart) => {
+                    const { ctx, chartArea: { left, right }, scales: { y } } = chart; 
+                    ctx.save();
+                    ctx.fillStyle = 'rgba(34, 197, 94, 0.08)'; ctx.fillRect(left, y.getPixelForValue(100), right - left, y.getPixelForValue(85) - y.getPixelForValue(100));
+                    ctx.fillStyle = 'rgba(234, 179, 8, 0.08)'; ctx.fillRect(left, y.getPixelForValue(85), right - left, y.getPixelForValue(70) - y.getPixelForValue(85));
+                    ctx.restore();
+                }
+            }]
+        });
+    });
 }
 
 // === ПОДВКЛАДКА 3: ДАШБОРД РУКОВОДИТЕЛЯ (PDCA: CHECK & ACT) ===
@@ -3430,6 +4084,14 @@ function renderOnePagerSubTab(data) {
         </select>
     `;
 
+    // 4. ТЕКСТ PDCA (С ВОЗМОЖНОСТЬЮ РЕДАКТИРОВАНИЯ)
+    const pdcaKey = 'global_onepager_pdca';
+    const defaultPdcaText = `СТАТУС: ${globalUrk < 70 ? 'Процесс вне контроля (<70%). Идет накопление брака, требуются жесткие меры.' : (globalUrk < 85 ? 'Условный допуск (70-84%). Есть системные ошибки, запрет на финишную приемку.' : 'Целевая зона (>=85%). Процесс стабилен, качество высокое.')}\n\nДИРЕКТИВА: ${globalUrk < 70 || sumB3 > 0 ? `Приостановить работы аутсайдера (${worst ? worst.name : 'н/д'}). Выдать предписание на демонтаж/исправление брака. Ограничить оплату КС-2.` : 'Работы выполняются в соответствии с регламентом. Продолжить СМР в текущем режиме.'}`;
+    
+    let rawPdcaText = customExpertConclusions[pdcaKey] || defaultPdcaText;
+    let uiPdcaText = rawPdcaText.replace(/\n/g, '<br>').replace(/(СТАТУС:|ДИРЕКТИВА:)/g, '<b>$1</b>');
+
+
     // ================= ГЕНЕРАЦИЯ HTML ДЛЯ ИНТЕРФЕЙСА =================
     let html = `
         <div class="text-center border-b border-[var(--card-border)] pb-3 mb-4">
@@ -3519,15 +4181,19 @@ function renderOnePagerSubTab(data) {
                 </div>
                 ` : ''}
 
-                <!-- Управленческое решение (PDCA) -->
-                <div class="${globalUrk < 85 || sumB3 > 0 ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'} border-2 rounded-xl p-3 shadow-sm flex-none">
-                    <h3 class="margin-0 mb-2 font-black text-[10px] min-[400px]:text-[11px] ${globalUrk < 85 || sumB3 > 0 ? 'text-orange-800 dark:text-orange-500' : 'text-green-800 dark:text-green-500'} uppercase border-b ${globalUrk < 85 || sumB3 > 0 ? 'border-orange-200 dark:border-orange-800' : 'border-green-200 dark:border-green-800'} pb-2">
-                        🎯 Управленческое Решение и Риски
-                    </h3>
+                <!-- Управленческое решение (PDCA) С КНОПКОЙ РЕДАКТИРОВАНИЯ -->
+                <div class="${globalUrk < 85 || sumB3 > 0 ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'} border-2 rounded-xl p-3 shadow-sm flex-none relative">
+                    <div class="flex justify-between items-center border-b ${globalUrk < 85 || sumB3 > 0 ? 'border-orange-200 dark:border-orange-800' : 'border-green-200 dark:border-green-800'} pb-2 mb-2">
+                        <h3 class="margin-0 font-black text-[10px] min-[400px]:text-[11px] ${globalUrk < 85 || sumB3 > 0 ? 'text-orange-800 dark:text-orange-500' : 'text-green-800 dark:text-green-500'} uppercase">
+                            🎯 Управленческое Решение
+                        </h3>
+                        <button onclick="editExpertText('${pdcaKey}', 'hidden_pdca_text')" class="text-[9px] font-bold bg-white/50 border border-black/10 px-2 py-1 rounded shadow-sm active:scale-95 text-slate-700">✏️ Изменить</button>
+                    </div>
+                    <textarea id="hidden_pdca_text" class="hidden">${rawPdcaText}</textarea>
+                    
                     <div class="text-[10px] min-[400px]:text-[11px] line-height-relaxed text-slate-800 dark:text-slate-200 flex flex-col gap-2">
-                        ${sumB3 > 0 ? `<div class="text-red-600 dark:text-red-400"><b>🚨 КРИТИЧЕСКИЙ РИСК:</b> Выявлено <b>${sumB3}</b> инцидентов B3. Продолжение работ без устранения грозит финансовыми потерями.</div>` : ''}
-                        <div><b>📉 СТАТУС:</b> ${globalUrk < 70 ? 'Процесс вне контроля (<70%). Идет накопление брака, требуются жесткие меры.' : (globalUrk < 85 ? 'Условный допуск (70-84%). Есть системные ошибки, запрет на финишную приемку.' : 'Целевая зона (>=85%). Процесс стабилен, качество высокое.')}</div>
-                        <div class="bg-white dark:bg-slate-800 p-2 rounded-lg border border-[var(--card-border)] mt-1"><b>🔨 ДИРЕКТИВА:</b> ${globalUrk < 70 || sumB3 > 0 ? `Приостановить работы аутсайдера (<b>${worst ? worst.name : 'н/д'}</b>). Выдать предписание на немедленный демонтаж/исправление брака. Ограничить оплату КС-2.` : 'Работы выполняются в соответствии с регламентом. Продолжить СМР в текущем режиме.'}</div>
+                        ${sumB3 > 0 && !customExpertConclusions[pdcaKey] ? `<div class="text-red-600 dark:text-red-400"><b>🚨 КРИТИЧЕСКИЙ РИСК:</b> Выявлено <b>${sumB3}</b> инцидентов B3. Продолжение работ без устранения грозит финансовыми потерями.</div>` : ''}
+                        <div class="whitespace-pre-wrap">${uiPdcaText}</div>
                     </div>
                 </div>
 
@@ -3582,31 +4248,53 @@ function renderDataSubTab(data) {
 }
 
 // === РЕЙТИНГ ПОДРЯДЧИКОВ ===
+// === РЕЙТИНГ ПОДРЯДЧИКОВ ===
 function renderRatingTab() {
     const listDiv = document.getElementById('rating-list'); 
     const emptyMsg = document.getElementById('rating-empty-msg');
     if(!listDiv) return;
 
-    const selTmpl = document.getElementById('rating-template-select')?.value || 'ALL'; 
-    const selPeriod = document.getElementById('rating-period-select')?.value || 'ALL';
+    // Сбор фильтров из глобальной памяти
+    const selTmpl = activeMultiFilters.analytics.template; 
+    const selContr = activeMultiFilters.analytics.contractor;
+    const selPeriod = document.getElementById('global-filter-period')?.value || 'ALL';
     
-    let filteredArr = contractorArray; const now = new Date();
+    let filteredArr = contractorArray; 
+    const now = new Date();
+    
+    // Фильтрация по времени
     if (selPeriod === 'DAY') filteredArr = filteredArr.filter(i => new Date(i.date).toDateString() === now.toDateString());
     else if (selPeriod === 'MONTH') { const m = new Date(); m.setDate(now.getDate() - 30); filteredArr = filteredArr.filter(i => new Date(i.date) >= m); } 
     else if (selPeriod === 'WEEK') { const w = new Date(); w.setDate(now.getDate() - 7); filteredArr = filteredArr.filter(i => new Date(i.date) >= w); }
-    if (selTmpl !== "ALL") filteredArr = filteredArr.filter(i => i.templateKey === selTmpl);
+    
+    // Фильтрация по мультивыбору
+    if (selTmpl.length > 0) filteredArr = filteredArr.filter(i => selTmpl.includes(i.templateKey));
+    if (selContr.length > 0) filteredArr = filteredArr.filter(i => selContr.includes(i.contractorName));
 
     if (filteredArr.length === 0) { listDiv.innerHTML = ''; emptyMsg.style.display = 'block'; return; }
     emptyMsg.style.display = 'none';
 
+    // Группируем по подрядчикам
     const grouped = {};
-    filteredArr.forEach(item => { const cName = item.contractorName || 'Не указан'; if(!grouped[cName]) grouped[cName] = []; grouped[cName].push(item); });
+    filteredArr.forEach(item => { 
+        const cName = item.contractorName || 'Не указан'; 
+        if(!grouped[cName]) grouped[cName] = []; 
+        grouped[cName].push(item); 
+    });
     
     const ratingData = [];
-    for(let cName in grouped) { const metrics = getContractorMetrics(grouped[cName], userTemplates); if (metrics) ratingData.push({ name: cName, metrics: metrics }); }
+    for(let cName in grouped) { 
+        // Считаем метрики (только если > 3 проверок)
+        const metrics = getContractorMetrics(grouped[cName], userTemplates); 
+        if (metrics) ratingData.push({ name: cName, metrics: metrics }); 
+    }
     
-    if (ratingData.length === 0) { listDiv.innerHTML = '<p class="text-sm text-[var(--text-muted)] text-center bg-[var(--card-bg)] border border-[var(--card-border)] p-6 rounded-xl">Для рейтинга нужно мин. 7 проверок по одному виду работ.</p>'; return; }
+    if (ratingData.length === 0) { 
+        listDiv.innerHTML = '<p class="text-sm text-[var(--text-muted)] text-center bg-[var(--card-bg)] border border-[var(--card-border)] p-6 rounded-xl shadow-sm">Недостаточно данных. Для рейтинга нужно минимум 3 проверки по одному виду работ.</p>'; 
+        return; 
+    }
 
+    // Сортировка: сначала по УрК, затем по Стабильности, затем по отсутствию B3
     ratingData.sort((a,b) => {
         if (b.metrics.finalC !== a.metrics.finalC) return b.metrics.finalC - a.metrics.finalC;
         if (b.metrics.stabilityIndex !== a.metrics.stabilityIndex) return b.metrics.stabilityIndex - a.metrics.stabilityIndex;
@@ -3614,31 +4302,48 @@ function renderRatingTab() {
     });
 
     listDiv.innerHTML = ratingData.map((r, index) => {
-        const isGold = index === 0; const isSilver = index === 1; const isBronze = index === 2;
-        const rankClass = isGold ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white' : (isSilver ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-white' : (isBronze ? 'bg-gradient-to-br from-orange-400 to-orange-700 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'));
+        const isGold = index === 0; 
+        const isSilver = index === 1; 
+        const isBronze = index === 2;
+        const rankClass = isGold ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white border-yellow-500' : (isSilver ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-white border-slate-400' : (isBronze ? 'bg-gradient-to-br from-orange-400 to-orange-700 text-white border-orange-600' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700'));
         
         return `
-        <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-4 mb-3 shadow-sm relative overflow-hidden">
-            ${isGold ? '<div class="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[8px] font-black px-2 py-1 rounded-bl-lg uppercase">Лидер</div>' : ''}
+        <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-4 mb-4 shadow-sm relative overflow-hidden">
+            ${isGold ? '<div class="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[8px] font-black px-3 py-1 rounded-bl-lg uppercase shadow-sm z-10">🏆 Лидер</div>' : ''}
+            
             <div class="flex items-start gap-3 border-b border-[var(--card-border)] pb-3 mb-3">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center font-black text-lg shadow-md shrink-0 ${rankClass}">${index + 1}</div>
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-xl shadow-inner shrink-0 border ${rankClass}">${index + 1}</div>
                 <div class="flex-1 min-w-0">
-                    <div class="text-sm font-black leading-tight truncate">${r.name}</div>
-                    <span class="${r.metrics.confCls} mt-1 inline-block">${r.metrics.confStatus}</span>
+                    <div class="text-[14px] font-black leading-tight truncate text-slate-800 dark:text-white">${r.name}</div>
+                    <span class="${r.metrics.confCls} mt-1 inline-block px-1.5 py-0.5 rounded border text-[8px] uppercase tracking-wide">${r.metrics.confStatus} (Выборка: ${r.metrics.count})</span>
                 </div>
                 <div class="text-right shrink-0">
-                    <div class="text-3xl font-black leading-none">${r.metrics.finalC}%</div>
-                    <span class="${r.metrics.riskCls} text-[10px] uppercase block mt-1">${r.metrics.riskStatus}</span>
+                    <div class="text-3xl font-black leading-none ${r.metrics.finalC < 70 ? 'text-red-600' : (r.metrics.finalC < 85 ? 'text-orange-500' : 'text-green-600')}">${r.metrics.finalC}%</div>
+                    <span class="${r.metrics.riskCls} text-[9px] uppercase block mt-1 font-bold">${r.metrics.riskStatus}</span>
                 </div>
             </div>
-            <div class="grid grid-cols-2 gap-2 text-[11px] font-bold mb-3 pb-3 border-b border-[var(--card-border)]">
-                <div><span class="text-[var(--text-muted)]">Выборка:</span> ${r.metrics.count} шт.</div>
-                <div><span class="text-[var(--text-muted)]">Доля B3:</span> ${r.metrics.rateB3.toFixed(1)}%</div>
-                <div><span class="text-[var(--text-muted)]">Индекс стаб.:</span> ${r.metrics.stabilityIndex}</div>
-                <div><span class="text-[var(--text-muted)]">Волатильность:</span> ${r.metrics.volatility.toFixed(1)}</div>
+
+            <div class="grid grid-cols-2 gap-2 text-[10px] font-bold mb-3 pb-3 border-b border-[var(--card-border)]">
+                <div class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)] flex justify-between items-center">
+                    <span class="text-[var(--text-muted)]">Доля B3:</span> 
+                    <span class="${r.metrics.rateB3 > 0 ? 'text-red-600' : 'text-green-600'}">${r.metrics.rateB3.toFixed(1)}%</span>
+                </div>
+                <div class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)] flex justify-between items-center">
+                    <span class="text-[var(--text-muted)]">Повтор B2:</span> 
+                    <span class="${r.metrics.maxFailRate >= 20 ? 'text-orange-600' : 'text-slate-700 dark:text-slate-300'}">${r.metrics.maxFailRate.toFixed(1)}%</span>
+                </div>
+                <div class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)] flex justify-between items-center">
+                    <span class="text-[var(--text-muted)]">Индекс стаб.:</span> 
+                    <span class="${r.metrics.stabilityIndex < 70 ? 'text-orange-600' : 'text-slate-700 dark:text-slate-300'}">${r.metrics.stabilityIndex}/100</span>
+                </div>
+                <div class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)] flex justify-between items-center">
+                    <span class="text-[var(--text-muted)]">Волатильность:</span> 
+                    <span class="${r.metrics.volatility > 15 ? 'text-red-600' : 'text-slate-700 dark:text-slate-300'}">${r.metrics.volatility.toFixed(1)}</span>
+                </div>
             </div>
-            <div class="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-900/50 leading-snug">
-                <span class="text-[var(--text-muted)] block mb-0.5">Основание:</span> ${r.metrics.reason}
+
+            <div class="text-[10px] font-bold ${r.metrics.finalC < 70 || r.metrics.n_изделий_с_B3 > 0 ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20' : (r.metrics.finalC < 85 ? 'bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-900/20' : 'bg-green-50 text-green-800 border-green-200 dark:bg-green-900/20')} p-2.5 rounded-lg border shadow-sm leading-snug">
+                <span class="uppercase text-[9px] block mb-0.5 opacity-70">Основание:</span> ${r.metrics.reason}
             </div>
         </div>`;
     }).join('');
@@ -4372,71 +5077,65 @@ function printPdfShell(title, content) {
     printWindow.document.open(); printWindow.document.write(html); printWindow.document.close();
 }
 // === ОКНО "О ПРИЛОЖЕНИИ" ===
+// === ОКНО "О ПРИЛОЖЕНИИ" ===
 function showAboutApp() {
     const modal = document.getElementById('modal-overlay');
-    document.getElementById('modal-icon').innerHTML = `<div class="text-4xl mb-2 flex justify-center">🏛️</div>`;
-    document.getElementById('modal-title').innerText = "RBI Quality Pro (v.16.2)";
+    document.getElementById('modal-icon').innerHTML = `<div class="w-14 h-14 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-[14px] flex items-center justify-center border border-slate-200 dark:border-slate-700 mx-auto"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></div>`;
+    document.getElementById('modal-title').innerText = "RBI Quality v.16.0";
     
     document.getElementById('modal-body').innerHTML = `
         <div class="space-y-4 text-[12px] leading-relaxed text-slate-700 dark:text-slate-300">
             
             <div class="text-center font-bold text-indigo-600 dark:text-indigo-400 mb-2">
-                Система управления качеством на основе данных (Data-Driven Quality)
+                Система управления качеством на основе данных <br> (Data-Driven Quality)
             </div>
 
             <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 p-4 rounded-xl shadow-sm">
-                <h4 class="font-black text-indigo-800 dark:text-indigo-300 mb-2 uppercase tracking-wider flex items-center gap-1.5"><span class="text-lg">⚙️</span> Архитектура PWA</h4>
-                <p class="mb-2">Приложение построено по технологии <b>Progressive Web App</b>. Это значит, что оно работает в браузере, но ведет себя как нативное приложение.</p>
-                <ul class="list-disc pl-4 space-y-1 text-[11px] text-indigo-900 dark:text-indigo-200">
-                    <li><b>Офлайн ядро (Offline-First):</b> Все данные, PDF-файлы и фото сохраняются во встроенной БД браузера (IndexedDB). Подключение к интернету на стройке не требуется.</li>
-                    <li><b>Локальные вычисления:</b> Вся математика дашбордов и генерация PDF происходит процессором вашего телефона, обеспечивая мгновенный отклик.</li>
+                <h4 class="font-black text-indigo-800 dark:text-indigo-300 mb-2 uppercase tracking-wider flex items-center gap-1.5"><span class="text-lg"></span> Архитектура и Безопасность</h4>
+                <p class="mb-2">Приложение построено по технологии <b>PWA (Progressive Web App)</b> и работает полностью автономно.</p>
+                <ul class="list-disc pl-4 space-y-1.5 text-[11px] text-indigo-900 dark:text-indigo-200 mb-3">
+                    <li><b>Offline-First:</b> Приложение является "клиентским контейнером". Все проверки, фотографии, PDF-файлы и созданные справочники сохраняются <b>исключительно в изолированной базе данных (IndexedDB) вашего устройства</b>.</li>
+                    <li><b>Локальные вычисления:</b> Вся сложная математика, генерация аналитики и сборка PDF-отчетов происходит за счет процессора вашего телефона/ПК. Данные не передаются на сторонние серверы для обработки.</li>
                 </ul>
+                <div class="bg-white/60 dark:bg-indigo-950/50 p-2.5 rounded-lg border border-indigo-200 dark:border-indigo-700/50 text-[10px] font-bold leading-snug text-indigo-800 dark:text-indigo-300">
+                    🔒 <b>О размещении на GitHub:</b> Так как это моя личная разработка, приложение базируется на публичном бесплатном сервисе GitHub Pages и не планируется к переносу на иные коммерческие серверы. Это абсолютно безопасно для корпоративного использования, так как сервер отдает только программный "каркас" (HTML/CSS/JS). Демо-данные и встроенные чек-листы скомпилированы из открытых источников (ГОСТ, СП). Реальные коммерческие данные со строек <b>никогда не покидают ваше устройство</b>.
+                </div>
             </div>
 
             <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl shadow-sm">
                 <h4 class="font-black text-slate-800 dark:text-white mb-3 uppercase tracking-wider flex items-center gap-1.5"><span class="text-lg">📊</span> Функциональные модули</h4>
                 
-                <div class="space-y-3">
+                <div class="space-y-3 text-[11px]">
                     <div>
-                        <b class="text-slate-900 dark:text-white">1. Модуль Осмотра:</b> 
-                        Жестко алгоритмизированный процесс. Классификатор дефектов разделен на B1 (мелкий), B2 (значимый), B3 (критический). Внедрено правило <b>Эскалации >1.5х</b>, которое переводит B2 в B3 при сильном отклонении.
+                        <b class="text-slate-900 dark:text-white text-[12px]">1. Модуль Осмотра:</b><br>
+                        Алгоритмизированный процесс фиксации дефектов (B1/B2/B3). Внедрено жесткое правило <b>Эскалации >1.5х</b> (перевод значимого брака в критический при грубом превышении допуска).
                     </div>
                     <div class="border-t border-slate-100 dark:border-slate-700 pt-2">
-                        <b class="text-slate-900 dark:text-white">2. Математика УрК (Уровень Качества):</b> 
-                        Оценка идет не "на глаз", а по формулам.<br>
-                        • <i>УрК Изделия</i>: Базовый балл умножается на штрафы за концентрацию (Kc) и критичность (Kcrit).<br>
-                        • <i>УрК Подрядчика</i>: Штрафует за повторяемость (системный брак) и волатильность (нестабильность от раза к разу).
+                        <b class="text-slate-900 dark:text-white text-[12px]">2. Математика УрК (Уровень Качества):</b><br>
+                        Многофакторная оценка качества. Применяются штрафы за концентрацию (Kc) и критичность (Kcrit). Для оценки подрядчиков рассчитываются Индекс стабильности и Волатильность (скачки качества).
                     </div>
                     <div class="border-t border-slate-100 dark:border-slate-700 pt-2">
-                        <b class="text-slate-900 dark:text-white">3. Аналитика и BI:</b> 
-                        Встроенный Business Intelligence. Строит тренды (динамику качества во времени), диаграммы Парето (корневые причины брака), сравнительные рейтинги подрядчиков и сводный One-Pager для Руководителя проекта.
+                        <b class="text-slate-900 dark:text-white text-[12px]">3. BI Аналитика и Отчеты:</b><br>
+                        Динамические графики Трендов, диаграммы Парето для поиска корневых причин брака. Автоматическая генерация управленческого решения (PDCA) и выгрузка готового презентационного отчета (One-Pager) в формат PDF (А3).
                     </div>
                     <div class="border-t border-slate-100 dark:border-slate-700 pt-2">
-                        <b class="text-slate-900 dark:text-white">4. Интегрированная База Знаний:</b> 
-                        Модуль TWI (Training Within Industry). Прямо из карточки дефекта по кнопке "Справка" инженер переходит к эталону монтажа. Устраняется разрыв между СНиПами и реальной стройкой.
+                        <b class="text-slate-900 dark:text-white text-[12px]">4. Интегрированная База Знаний:</b><br>
+                        Модуль визуальных стандартов TWI (Training Within Industry) и библиотека Технических узлов. Справочники намертво привязаны к чек-листам для обучения прямо на стройплощадке.
                     </div>
                 </div>
             </div>
 
-            <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 p-4 rounded-xl shadow-sm">
-                <h4 class="font-black text-emerald-800 dark:text-emerald-400 mb-2 uppercase tracking-wider flex items-center gap-1.5"><span class="text-lg">🎯</span> Управленческая ценность (PDCA)</h4>
-                <p class="text-[11px] text-emerald-900 dark:text-emerald-200">
-                    Система меняет парадигму с "поиска и исправления дефектов" на их <b>предотвращение</b>.<br>
-                    Жесткие пороги (<b>Стоп-работы при УрК < 70%</b> или наличии дефекта <b>B3</b>) не позволяют "дефектному хвосту" дойти до этапа сдачи объекта клиенту. Управленческие решения принимаются на основе сухих цифр, исключая человеческий фактор.
-                </p>
-            </div>
-
             <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 p-4 rounded-xl shadow-sm">
-                <h4 class="font-black text-amber-800 dark:text-amber-400 mb-2 uppercase tracking-wider flex items-center gap-1.5"><span class="text-lg">🚀</span> Дальнейшее развитие (Roadmap)</h4>
+                <h4 class="font-black text-amber-800 dark:text-amber-400 mb-2 uppercase tracking-wider flex items-center gap-1.5"><span class="text-lg">🚀</span> Ближайшее развитие (Roadmap)</h4>
                 <ul class="list-disc pl-4 text-[11px] text-amber-900 dark:text-amber-200 space-y-1.5">
-                    <li>Внедрение <b>AI DeepSeek</b> для автогенерации писем-предписаний подрядчикам на основе собранных данных.</li>
-                    <li>Live-синхронизация локальной базы с облачным сервером для совместной работы отдела контроля качества.</li>
-                    <li>Интеграция с графиком производства работ (ГПР) для корреляции качества и сроков.</li>
+                    <li><b>Завершение Beta-тестирования:</b> Обкатка приложения на реальных строительных объектах, выявление и исправление "плавающих" багов.</li>
+                    <li><b>Глубокая оптимизация:</b> Ускорение рендеринга интерфейса при огромных массивах данных, улучшение алгоритмов сжатия загружаемых фотографий.</li>
+                    <li><b>Наполнение Базы Знаний:</b> Масштабная оцифровка нормативной документации (СП, ГОСТ), создание системных чек-листов, библиотеки узлов и эталонных TWI-карт для всех основных видов СМР.</li>
                 </ul>
             </div>
             
             <div class="text-center text-[9px] text-slate-400 uppercase tracking-widest font-black mt-6 border-t border-slate-200 dark:border-slate-700 pt-4">
-                Спроектировано и разработано для Строительного Контроля
+                Спроектировано и разработано для профессионального управления качеством<br>
             </div>
         </div>
     `;
@@ -4497,9 +5196,15 @@ let tutOverlay, tutHighlightBox, tutTooltip, tutText, tutStepNum, tutNextBtn;
 const tutorialSteps = [
     // --- 1. ВКЛАДКА ОСМОТР ---
     {
-        text: "Добро пожаловать в <b>RBI Quality!</b> 👋<br><br>Я загрузил для вас <b>Демо-данные</b>, чтобы показать приложение в действии.<br><br>Здесь в шапке мы выбираем вид работ и заполняем данные объекта.",
-        targetId: "header-data-block",
+        // ИСПРАВЛЕНИЕ: Новый первый шаг туториала (Селектор чек-листов)
+        text: "Добро пожаловать в <b>RBI Quality!</b> 👋<br><br>Я загрузил для вас <b>Демо-данные</b>, чтобы показать приложение в действии.<br><br>Самый первый шаг инженера на стройке — выбрать <b>вид работ</b>, который он собирается проверять. Это делается здесь.",
+        targetSelector: ".header-top-row .relative.flex", // Это селектор кнопки "📋 Чек-лист ▼"
         action: () => { switchTab('tab-audit'); window.scrollTo({top: 0, behavior: 'smooth'}); }
+    },
+    {
+        text: "Затем мы заполняем шапку: <b>Объект, Проверяющий, Подрядчик и Локация</b>.<br><br><i>Лайфхак: система запоминает 15 последних вводов, чтобы вам не приходилось каждый раз печатать одно и то же.</i>",
+        targetId: "header-data-block",
+        action: () => { }
     },
     {
         text: "Это <b>Умный Дашборд</b>. Он в реальном времени считает <b>УрК</b> (Уровень Качества). Если нажать на него, откроется формула с учетом всех штрафов (за критичность и системный брак).",
@@ -4515,7 +5220,7 @@ const tutorialSteps = [
         }
     },
     {
-        text: "В Демо-режиме мы уже зафиксировали брак в этом пункте. Справа появилась панель управления дефектом. Здесь можно загрузить фото дефекта, оставить коментарий или выбрать причину дефекта из списка, а в случае если отклонение превышает норму более чем в 1,5 раза, можно эскалировать дефект до В3 и система учтет его как критический",
+        text: "В Демо-режиме мы уже зафиксировали брак в этом пункте. Справа появилась панель управления дефектом. Здесь можно загрузить фото дефекта, оставить коментарий или выбрать причину дефекта из списка. А желтая кнопка <b>>1.5</b> эскалирует дефект до критического (B3).",
         targetId: "card_wrapper_204",
         action: () => {
             const el = document.getElementById('card_wrapper_204');
@@ -4534,7 +5239,7 @@ const tutorialSteps = [
         action: () => { switchTab('tab-history'); }
     },
     {
-        text: "В Истории хранятся все инспекции. Умная липкая панель позволяет фильтровать акты по подрядчикам, датам и наличию дефектов B3.",
+        text: "В Истории хранятся все инспекции. Умная липкая панель позволяет фильтровать акты по объектам, подрядчикам, датам и наличию дефектов B3.",
         targetId: "hist-sticky-panel",
         action: () => { window.scrollTo({top: 0, behavior: 'smooth'}); }
     },
@@ -4581,7 +5286,7 @@ const tutorialSteps = [
     },
     {
         text: "В <b>TWI Картах</b> создаются визуальные стандарты. Мы уже добавили пару демо-карт для примера.",
-        targetId: "twi-search-input", // ЮВЕЛИРНЫЙ ПРИЦЕЛ: выделяем только маленькую строку поиска!
+        targetSelector: "#ref-sub-twi .bg-\\[var\\(--card-border\\)\\]\\/80",
         action: () => { 
             const btns = document.querySelectorAll('#reference-subtabs-block .sub-tab-btn');
             if(btns[2]) switchReferenceSubTab('ref-sub-twi', btns[2]); 
@@ -4589,17 +5294,17 @@ const tutorialSteps = [
     },
     {
         text: "Давайте откроем <b>Конструктор TWI</b>. Здесь вы собираете инструкцию и жестко привязываете её к конкретному пункту чек-листа.",
-        targetSelector: "button[onclick='openTwiConstructor()']", // ЮВЕЛИРНЫЙ ПРИЦЕЛ: только на кнопку "Создать"
+        targetSelector: "button[onclick='openTwiConstructor()']",
         action: () => { openTwiConstructor(); window.scrollTo({top: 0, behavior: 'smooth'}); }
     },
     {
         text: "Вы можете создать 3 типа карт:<br>🕵️‍♂️ <b>Технадзор</b> (Фото Правильно/Брак)<br>🛠 <b>TWI Рабочего</b> (Пошаговый алгоритм)<br>📄 <b>PDF</b> (Готовый регламент).",
-        targetId: "twi-type-btn-worker", // ЮВЕЛИРНЫЙ ПРИЦЕЛ: только на центральную вкладку типов
+        targetId: "twi-type-btn-worker",
         action: () => { }
     },
     {
-        text: "А если вы или ваш подрядчик забудете, как именно считаются проценты и штрафы — загляните в новую вкладку <b>FAQ / Логика</b>. Там всё разложено по полочкам.",
-        targetSelector: "#ref-sub-faq .text-center", // ЮВЕЛИРНЫЙ ПРИЦЕЛ: выделяем только заголовок с иконкой 📊, а не весь огромный текст
+        text: "А если вы забудете, как именно считаются проценты — загляните в обновленную вкладку <b>FAQ / Логика</b>.<br><br>Это полноценный учебник: от формул штрафов до философии управления качеством и работы в офлайне.",
+        targetSelector: "#ref-sub-faq .text-center", 
         action: () => { 
             closeTwiConstructor(); 
             setTimeout(() => { 
@@ -4619,13 +5324,21 @@ const tutorialSteps = [
         }
     },
     {
-        text: "Меняйте масштаб шрифтов, темную тему, свайпы, подключайте AI DeepSeek и управляйте памятью.<br><br>🚀 <b>Обучение завершено! Можете продолжить изучать демо-режим.</b>",
+        text: "Меняйте масштаб шрифтов, темную тему, свайпы, отображение графиков, управляйте памятью.<br><br>🚀 <b>Обучение завершено! Можете продолжить изучать демо-режим.</b>",
         targetSelector: "#tab-settings .bg-\\[var\\(--card-bg\\)\\]", 
         action: () => { window.scrollTo({top: 0, behavior: 'smooth'}); },
         isEnd: true
     }
 ];
-
+// === БЫСТРЫЙ ПЕРЕХОД В FAQ С ГЛАВНОГО ЭКРАНА ===
+function goToFAQ() {
+    switchTab('tab-reference');
+    setTimeout(() => {
+        const btns = document.querySelectorAll('#reference-subtabs-block .sub-tab-btn');
+        if(btns[4]) switchReferenceSubTab('ref-sub-faq', btns[4]);
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }, 150);
+}
 function startInteractiveTutorial() {
     // 1. Включаем демо-режим тихо (silent = true), если он еще не включен
     if (!isDemoMode && typeof startDemoMode === 'function') {
@@ -5096,67 +5809,64 @@ function stripHtmlTags(str) {
     return text.replace(/<\/?[^>]+(>|$)/g, "");
 }
 
-function exportAllTemplatesExcel() {
-    showToast("⚙️ Формирование Excel-книги...");
+function exportAllTemplatesJson() {
+    showToast("⚙️ Формирование кода для templates.js...");
     
-    try {
-        // Создаем новую Excel-книгу
-        const wb = XLSX.utils.book_new();
-        
-        // Объединяем системные и загруженные/созданные пользователем чек-листы
-        const allTemplates = { ...SYSTEM_TEMPLATES, ...userTemplates };
-        
-        for (let key in allTemplates) {
-            const tmpl = allTemplates[key];
-            
-            // Заголовки таблицы (строго как в инструкции для импорта)
-            const ws_data = [
-                ['Название этапа (Группы)', 'Название дефекта/пункта', 'Категория (1, 2 или 3)', 'Текст норматива / ГОСТ']
-            ];
+    // Объединяем системные и пользовательские чек-листы
+    const allTemplates = { ...SYSTEM_TEMPLATES, ...userTemplates };
+    
+    // Вспомогательная функция очистки HTML для формирования чистого кода
+    function cleanForCode(str) {
+        if (!str) return "";
+        // Убираем HTML теги, но сохраняем переносы строк как \n
+        let text = str.replace(/<br\s*[\/]?>/gi, "\\n");
+        text = text.replace(/<\/?[^>]+(>|$)/g, ""); 
+        // Экранируем двойные кавычки
+        return text.replace(/"/g, '\\"');
+    }
 
-            // Перебираем группы и пункты
-            if (tmpl.groups && Array.isArray(tmpl.groups)) {
-                tmpl.groups.forEach(g => {
-                    const groupTitle = g.group || g.title || "Без названия";
-                    if (g.items && Array.isArray(g.items)) {
-                        g.items.forEach(i => {
-                            ws_data.push([
-                                groupTitle,
-                                i.n || "",
-                                i.w || 2,
-                                stripHtmlTags(i.t || "") // Очищаем от HTML
-                            ]);
-                        });
-                    }
-                });
-            }
+    // Начинаем собирать строку, которая выглядит в точности как файл templates.js
+    let jsCode = "/* Сгенерировано из RBI Quality */\n\n";
+    jsCode += "const SYSTEM_TEMPLATES = {\n";
 
-            // Создаем лист из массива данных
-            const ws = XLSX.utils.aoa_to_sheet(ws_data);
-            
-            // Настраиваем ширину колонок для красоты в Excel
-            ws['!cols'] = [
-                { wch: 30 }, // Группа
-                { wch: 50 }, // Дефект
-                { wch: 20 }, // Категория
-                { wch: 70 }  // Норматив
-            ];
+    const templateKeys = Object.keys(allTemplates);
+    
+    templateKeys.forEach((tKey, tIndex) => {
+        const tmpl = allTemplates[tKey];
+        jsCode += `    "${tKey}": {\n`;
+        jsCode += `        title: "${tmpl.title}",\n`;
+        jsCode += `        templateVersion: "${tmpl.templateVersion || '1.0'}",\n`;
+        jsCode += `        groups: [\n`;
 
-            // Имя листа в Excel (макс. 31 символ, убираем спецсимволы, чтобы Excel не ругался)
-            let sheetName = (tmpl.title || key).replace(/[\\/?*\[\]:]/g, '').substring(0, 31);
-            
-            // Добавляем лист в книгу
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        if (tmpl.groups && Array.isArray(tmpl.groups)) {
+            tmpl.groups.forEach((g, gIdx) => {
+                jsCode += `            { group: "${g.group || g.title}", items: [\n`;
+                
+                if (g.items && Array.isArray(g.items)) {
+                    g.items.forEach((i, iIdx) => {
+                        const comma = iIdx < g.items.length - 1 ? ',' : '';
+                        const cleanT = cleanForCode(i.t);
+                        const cleanN = (i.n || "").replace(/"/g, '\\"');
+                        
+                        // Оборачиваем текст норматива обратно в функцию formatNorms!
+                        jsCode += `                { id: ${i.id}, n: "${cleanN}", w: ${i.w}, t: formatNorms("${cleanT}") }${comma}\n`;
+                    });
+                }
+                
+                const gComma = gIdx < tmpl.groups.length - 1 ? ',' : '';
+                jsCode += `            ]}${gComma}\n`;
+            });
         }
 
-        // Скачиваем готовый файл
-        XLSX.writeFile(wb, `RBI_Checklists_${new Date().toLocaleDateString('ru-RU')}.xlsx`);
-        showToast("✅ Excel-файл со всеми чек-листами скачан!");
-        
-    } catch (error) {
-        console.error(error);
-        showToast("❌ Ошибка при формировании Excel");
-    }
+        const tComma = tIndex < templateKeys.length - 1 ? ',' : '';
+        jsCode += `        ]\n    }${tComma}\n`;
+    });
+
+    jsCode += "};\n";
+
+    // Скачиваем файл как .js
+    downloadFile(jsCode, `rbi_templates_code_${new Date().toLocaleDateString('ru-RU')}.js`, 'application/javascript');
+    showToast("✅ Готовый код для templates.js скачан!");
 }
 
 function exportAllTemplatesJson() {

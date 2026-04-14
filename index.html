@@ -48,126 +48,108 @@
 
     <!-- === ТОСТЫ И УВЕДОМЛЕНИЯ === -->
     <div id="toast-container"></div>
+    <!-- === ЛОУДЕР (ГЛОБАЛЬНЫЙ) === -->
+    <div id="global-loader" class="fixed inset-0 bg-slate-900/80 z-[9999] hidden flex-col items-center justify-center backdrop-blur-md transition-opacity duration-300 opacity-0">
+        <svg class="animate-spin h-10 w-10 text-white mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <div id="global-loader-text" class="text-white font-black text-[12px] uppercase tracking-widest animate-pulse">Формирование PDF...</div>
+    </div>
     <!-- === МОДАЛКА ВЫБОРА ИСТОЧНИКА ФОТО === -->
     <div id="photo-source-modal" class="fixed inset-0 bg-slate-900/70 z-[3000] hidden items-center justify-center p-4 backdrop-blur-sm" onclick="this.style.display='none'">
         <div class="bg-[var(--card-bg)] w-full max-w-xs p-6 rounded-2xl shadow-2xl flex flex-col gap-3" onclick="event.stopPropagation()">
             <div class="font-black text-center text-[14px] uppercase tracking-tight mb-2 text-slate-800 dark:text-white">Добавить фото</div>
-            <button onclick="document.getElementById('photo-input-camera').click(); document.getElementById('photo-source-modal').style.display='none';" class="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold text-[12px] uppercase shadow-md flex items-center justify-center gap-2 active:scale-95">
-                📷 Сделать снимок
+            <button onclick="document.getElementById('photo-input-camera').click(); document.getElementById('photo-source-modal').style.display='none';" class="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-[12px] uppercase shadow-md flex items-center justify-center gap-2 active:scale-95">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"></path></svg>
+                Сделать снимок
             </button>
-            <button onclick="document.getElementById('photo-input-gallery').click(); document.getElementById('photo-source-modal').style.display='none';" class="w-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 py-4 rounded-xl font-bold text-[12px] uppercase shadow-sm flex items-center justify-center gap-2 active:scale-95 border border-slate-200 dark:border-slate-700">
-                🖼️ Из галереи
+            <button onclick="document.getElementById('photo-input-gallery').click(); document.getElementById('photo-source-modal').style.display='none';" class="w-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 py-3.5 rounded-xl font-bold text-[12px] uppercase shadow-sm flex items-center justify-center gap-2 active:scale-95 border border-slate-200 dark:border-slate-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path></svg>
+                Из галереи
             </button>
-            <button onclick="document.getElementById('photo-source-modal').style.display='none'" class="w-full mt-2 text-slate-400 py-2 font-bold text-[10px] uppercase active:scale-95">Отмена</button>
+            <button onclick="document.getElementById('photo-source-modal').style.display='none'" class="w-full mt-1 text-slate-400 py-2 font-bold text-[10px] uppercase active:scale-95">Отмена</button>
         </div>
     </div>
+    
     <!-- === ФОТОРЕДАКТОР (РИСОВАНИЕ СТРЕЛОК) === -->
     <div id="photo-editor-overlay" class="fixed inset-0 bg-slate-900 z-[2500] hidden flex-col">
         <div class="flex justify-between items-center p-4 bg-slate-900 text-white border-b border-slate-700">
-            <button onclick="cancelPhotoEditor()"
-                class="text-sm font-bold text-slate-400 active:scale-95">Отмена</button>
-            <div class="text-[12px] font-black uppercase tracking-widest text-indigo-400 flex items-center gap-1">🖌️
-                Укажите дефект</div>
-            <button onclick="saveEditedPhoto()"
-                class="text-sm font-bold text-green-400 active:scale-95">Сохранить</button>
+            <button onclick="cancelPhotoEditor()" class="text-sm font-bold text-slate-400 active:scale-95">Отмена</button>
+            <div class="text-[12px] font-black uppercase tracking-widest text-indigo-400 flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                Укажите дефект
+            </div>
+            <button onclick="saveEditedPhoto()" class="text-sm font-bold text-green-400 active:scale-95">Сохранить</button>
         </div>
-        <div class="flex-1 relative overflow-hidden flex items-center justify-center bg-black"
-            id="editor-canvas-container">
+        <div class="flex-1 relative overflow-hidden flex items-center justify-center bg-black" id="editor-canvas-container">
             <canvas id="drawing-canvas" class="touch-none max-w-full max-h-full object-contain"></canvas>
         </div>
         <div class="p-4 bg-slate-900 border-t border-slate-700 flex justify-center">
-            <button onclick="clearPhotoEditor()"
-                class="bg-slate-800 text-slate-300 border border-slate-600 px-6 py-3 rounded-xl font-bold text-[11px] uppercase tracking-wider active:scale-95 flex items-center gap-2 shadow-md">
-                🗑️ Очистить рисунок
+            <button onclick="clearPhotoEditor()" class="bg-slate-800 text-slate-300 border border-slate-600 px-6 py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-wider active:scale-95 flex items-center gap-2 shadow-md">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                Очистить рисунок
             </button>
         </div>
     </div>
 
     <!-- === МОДАЛКА ДОБАВЛЕНИЯ НОРМАТИВА (НД) === -->
-    <div id="add-doc-modal-overlay"
-        class="fixed inset-0 bg-slate-900/80 z-[2000] hidden items-center justify-center p-4 backdrop-blur-sm"
-        onclick="closeAddDocModal()">
-        <div class="bg-[var(--card-bg)] w-full max-w-md p-6 rounded-2xl shadow-2xl transition-transform border border-[var(--card-border)]"
-            onclick="event.stopPropagation()">
-            <div class="font-black text-[13px] uppercase tracking-tight mb-4 border-b border-[var(--card-border)] pb-3">
-                ➕ Добавить Норматив</div>
+    <div id="add-doc-modal-overlay" class="fixed inset-0 bg-slate-900/80 z-[2000] hidden items-center justify-center p-4 backdrop-blur-sm" onclick="closeAddDocModal()">
+        <div class="bg-[var(--card-bg)] w-full max-w-md p-6 rounded-2xl shadow-2xl transition-transform border border-[var(--card-border)]" onclick="event.stopPropagation()">
+            <div class="font-black text-[13px] uppercase tracking-tight mb-4 border-b border-[var(--card-border)] pb-3 flex items-center gap-2 text-slate-800 dark:text-white">
+                <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                Добавить Норматив
+            </div>
 
             <div class="space-y-4 mb-6">
                 <div>
-                    <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Тип документа
-                        *</label>
-                    <select id="new-doc-type" class="input-base">
-                        <option value="СП">СП (Свод Правил)</option>
-                        <option value="ГОСТ">ГОСТ</option>
-                        <option value="ПРОЕКТ">Проект / РД</option>
-                        <option value="ТУ">ТУ / Регламент</option>
-                        <option value="ИНСТРУКЦИЯ">Инструкция</option>
-                    </select>
+                    <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Тип документа *</label>
+                    <select id="new-doc-type" class="input-base"><option value="СП">СП (Свод Правил)</option><option value="ГОСТ">ГОСТ</option><option value="ПРОЕКТ">Проект / РД</option><option value="ТУ">ТУ / Регламент</option><option value="ИНСТРУКЦИЯ">Инструкция</option></select>
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Шифр /
-                        Обозначение *</label>
+                    <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Шифр / Обозначение *</label>
                     <input type="text" id="new-doc-code" class="input-base" placeholder="Например: СТО-12345-2024">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Название
-                        документа *</label>
-                    <textarea id="new-doc-title" class="input-base h-20 resize-none"
-                        placeholder="Полное наименование документа..."></textarea>
+                    <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Название документа *</label>
+                    <textarea id="new-doc-title" class="input-base h-20 resize-none" placeholder="Полное наименование документа..."></textarea>
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Ссылка на файл
-                        (Опционально)</label>
+                    <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Ссылка на файл (Опционально)</label>
                     <input type="url" id="new-doc-link" class="input-base" placeholder="https://...">
-                    <div class="text-[9px] text-slate-400 mt-1">Вставьте ссылку на облако (Яндекс.Диск, Google Drive)
-                    </div>
+                    <div class="text-[9px] text-slate-400 mt-1">Вставьте ссылку на облако (Яндекс.Диск, Google Drive)</div>
                 </div>
             </div>
 
             <div class="flex gap-2">
-                <button onclick="closeAddDocModal()"
-                    class="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold text-[11px] uppercase shadow-sm active:scale-95 dark:bg-slate-800 dark:text-slate-300">Отмена</button>
-                <button onclick="saveCustomDoc()"
-                    class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95">Сохранить</button>
+                <button onclick="closeAddDocModal()" class="flex-1 bg-slate-100 text-slate-600 py-3.5 rounded-xl font-bold text-[11px] uppercase shadow-sm active:scale-95 dark:bg-slate-800 dark:text-slate-300">Отмена</button>
+                <button onclick="saveCustomDoc()" class="flex-1 bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95">Сохранить</button>
             </div>
         </div>
     </div>
 
     <!-- === КОНСТРУКТОР ШАБЛОНОВ === -->
-    <div id="template-builder-overlay"
-        class="fixed inset-0 bg-slate-900/80 z-[2000] hidden items-start justify-center p-2 sm:p-4 backdrop-blur-sm overflow-y-auto"
-        onclick="closeTemplateBuilder()">
-        <div class="bg-[var(--card-bg)] w-full max-w-2xl mt-4 mb-10 rounded-2xl shadow-2xl transition-transform flex flex-col overflow-hidden border border-[var(--card-border)]"
-            onclick="event.stopPropagation()">
-            <div
-                class="p-4 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center sticky top-0 z-10 dark:bg-indigo-900/30 dark:border-indigo-800">
-                <h3
-                    class="font-black text-[13px] uppercase tracking-tight text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
-                    🛠️ Конструктор чек-листа</h3>
-                <div class="w-8 h-8 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center cursor-pointer shadow-sm text-slate-500"
-                    onclick="closeTemplateBuilder()">✕</div>
+    <div id="template-builder-overlay" class="fixed inset-0 bg-slate-900/80 z-[2000] hidden items-start justify-center p-2 sm:p-4 backdrop-blur-sm overflow-y-auto" onclick="closeTemplateBuilder()">
+        <div class="bg-[var(--card-bg)] w-full max-w-2xl mt-4 mb-10 rounded-2xl shadow-2xl transition-transform flex flex-col overflow-hidden border border-[var(--card-border)]" onclick="event.stopPropagation()">
+            <div class="p-4 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center sticky top-0 z-10 dark:bg-indigo-900/30 dark:border-indigo-800">
+                <h3 class="font-black text-[13px] uppercase tracking-tight text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Конструктор чек-листа
+                </h3>
+                <div class="w-8 h-8 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center cursor-pointer shadow-sm text-slate-500" onclick="closeTemplateBuilder()"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></div>
             </div>
             <div class="p-4 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar" id="builder-container">
                 <div>
-                    <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Название
-                        чек-листа *</label>
-                    <input type="text" id="builder-title" class="input-base text-sm"
-                        placeholder="Например: Монтаж окон ПВХ">
+                    <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Название чек-листа *</label>
+                    <input type="text" id="builder-title" class="input-base text-sm" placeholder="Например: Монтаж окон ПВХ">
                 </div>
-                <div id="builder-groups" class="space-y-4">
-                    <!-- Сюда будут добавляться этапы -->
-                </div>
-                <button onclick="addBuilderGroup()"
-                    class="w-full bg-[var(--hover-bg)] border border-dashed border-[var(--card-border)] text-[var(--text-muted)] py-4 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2 transition-colors hover:border-indigo-300 hover:text-indigo-600">
-                    ➕ Добавить этап контроля (Группу)
+                <div id="builder-groups" class="space-y-4"></div>
+                <button onclick="addBuilderGroup()" class="w-full bg-[var(--hover-bg)] border border-dashed border-[var(--card-border)] text-[var(--text-muted)] py-4 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2 transition-colors hover:border-indigo-300 hover:text-indigo-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"></path></svg> Добавить этап контроля (Группу)
                 </button>
             </div>
             <div class="p-4 border-t border-[var(--card-border)] bg-slate-50 dark:bg-slate-900 flex gap-2">
-                <button onclick="closeTemplateBuilder()"
-                    class="flex-1 bg-white border border-[var(--card-border)] text-slate-600 py-3 rounded-xl font-bold text-[11px] uppercase shadow-sm active:scale-95 dark:bg-slate-800 dark:text-slate-300">Отмена</button>
-                <button onclick="saveCustomTemplate()"
-                    class="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95">💾
-                    Сохранить шаблон</button>
+                <button onclick="closeTemplateBuilder()" class="flex-1 bg-white border border-[var(--card-border)] text-slate-600 py-3.5 rounded-xl font-bold text-[11px] uppercase shadow-sm active:scale-95 dark:bg-slate-800 dark:text-slate-300">Отмена</button>
+                <button onclick="saveCustomTemplate()" class="flex-1 bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95 flex justify-center items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg> Сохранить шаблон
+                </button>
             </div>
         </div>
     </div>
@@ -176,105 +158,70 @@
     <div id="modal-overlay" class="modal-overlay" onclick="closeModal()">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div id="modal-icon" class="mb-4"></div>
-            <div id="modal-title"
-                class="text-xl font-black uppercase mb-4 leading-tight tracking-tight border-b border-slate-100 pb-2">
-            </div>
+            <div id="modal-title" class="text-lg font-black uppercase mb-4 leading-tight tracking-tight border-b border-slate-100 dark:border-slate-700 pb-2 text-slate-800 dark:text-white"></div>
             <div id="modal-body" class="text-sm leading-relaxed space-y-3"></div>
-            <button onclick="closeModal()"
-                class="w-full mt-6 bg-indigo-600 text-white py-3 rounded-xl font-bold text-xs uppercase tracking-widest active:scale-95">Закрыть</button>
+            <button onclick="closeModal()" class="w-full mt-6 bg-indigo-600 text-white py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest active:scale-95 shadow-md">Закрыть</button>
         </div>
     </div>
 
     <!-- === МОДАЛКА ПРОСМОТРА ФОТО === -->
-    <div id="photo-viewer-overlay" class="fixed inset-0 bg-black/90 z-[2000] flex-col items-center justify-center"
-        style="display:none;" onclick="this.style.display='none'">
-        <div class="absolute top-5 right-5 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center font-bold text-xl"
-            onclick="this.parentElement.style.display='none'">✕</div>
-        <img id="photo-viewer-img" src="" class="max-w-full max-h-[80vh] object-contain transition-transform"
-            onclick="event.stopPropagation()">
+    <div id="photo-viewer-overlay" class="fixed inset-0 bg-black/90 z-[2000] flex-col items-center justify-center" style="display:none;" onclick="this.style.display='none'">
+        <div class="absolute top-5 right-5 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center active:scale-90 transition-transform" onclick="this.parentElement.style.display='none'">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </div>
+        <img id="photo-viewer-img" src="" class="max-w-full max-h-[80vh] object-contain transition-transform" onclick="event.stopPropagation()">
     </div>
 
     <!-- === МОДАЛКА РЕДАКТОРА ЗАКЛЮЧЕНИЯ ИИ === -->
-    <div id="expert-modal-overlay"
-        class="fixed inset-0 bg-slate-900/70 z-[1600] hidden items-center justify-center p-4 backdrop-blur-sm"
-        onclick="cancelExpertEdit()">
-        <div class="bg-[var(--card-bg)] w-full max-w-2xl p-6 rounded-2xl shadow-2xl transition-transform"
-            id="expert-modal-content" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-4 border-b border-[var(--card-border)] pb-3">
-                <h3 class="font-black text-[13px] uppercase tracking-tight">✏️ Редактировать заключение</h3>
-                <div class="w-8 h-8 bg-[var(--hover-bg)] rounded-full flex items-center justify-center cursor-pointer"
-                    onclick="cancelExpertEdit()">✕</div>
+    <div id="expert-modal-overlay" class="fixed inset-0 bg-slate-900/70 z-[1600] hidden items-center justify-center p-4 backdrop-blur-sm" onclick="cancelExpertEdit()">
+        <div class="bg-[var(--card-bg)] w-full max-w-2xl p-6 rounded-2xl shadow-2xl transition-transform" id="expert-modal-content" onclick="event.stopPropagation()">
+            <div class="flex justify-between items-center mb-4 border-b border-[var(--card-border)] pb-3 text-slate-800 dark:text-white">
+                <h3 class="font-black text-[13px] uppercase tracking-tight flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg> 
+                    Редактировать заключение
+                </h3>
+                <div class="w-8 h-8 bg-[var(--hover-bg)] rounded-full flex items-center justify-center cursor-pointer text-slate-500" onclick="cancelExpertEdit()"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg></div>
             </div>
             <!-- КНОПКИ ГЕНЕРАТОРА СЦЕНАРИЕВ -->
             <div class="flex gap-2 mb-3 overflow-x-auto no-scrollbar pb-2 border-b border-[var(--card-border)]">
-                <button onclick="generateSmartComment('standard')"
-                    class="shrink-0 bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-indigo-200 active:scale-95">🤖
-                    Базовый</button>
-                <button onclick="generateSmartComment('strict')"
-                    class="shrink-0 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-red-200 active:scale-95">⚡
-                    Претензия</button>
-                <button onclick="generateSmartComment('tech')"
-                    class="shrink-0 bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-slate-300 active:scale-95">🛠
-                    Тех.аудит</button>
-                <button onclick="generateSmartComment('boss')"
-                    class="shrink-0 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-amber-200 active:scale-95">💼
-                    Руководству</button>
-                <button onclick="generateSmartComment('action_plan')"
-                    class="shrink-0 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-blue-200 active:scale-95">📝
-                    План действий</button>
-                <button onclick="generateSmartComment('finance')"
-                    class="shrink-0 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-[10px] font-bold border border-emerald-200 active:scale-95">💰
-                    Договорной</button>
+                <button onclick="generateSmartComment('standard')" class="shrink-0 flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-3 py-2 rounded-lg text-[10px] font-bold border border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400 active:scale-95"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> Базовый</button>
+                <button onclick="generateSmartComment('strict')" class="shrink-0 flex items-center gap-1.5 bg-red-50 text-red-700 px-3 py-2 rounded-lg text-[10px] font-bold border border-red-200 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400 active:scale-95"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> Претензия</button>
+                <button onclick="generateSmartComment('tech')" class="shrink-0 flex items-center gap-1.5 bg-slate-100 text-slate-700 px-3 py-2 rounded-lg text-[10px] font-bold border border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 active:scale-95"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> Тех.аудит</button>
+                <button onclick="generateSmartComment('boss')" class="shrink-0 flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-2 rounded-lg text-[10px] font-bold border border-amber-200 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-400 active:scale-95"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg> Руководству</button>
+                <button onclick="generateSmartComment('action_plan')" class="shrink-0 flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-2 rounded-lg text-[10px] font-bold border border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400 active:scale-95"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg> План действий</button>
             </div>
-            <textarea id="modal-expert-input"
-                class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-xl p-3 text-[12px] outline-none h-[50vh] resize-none"></textarea>
+            <textarea id="modal-expert-input" class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-xl p-4 text-[12px] outline-none h-[50vh] resize-none text-slate-800 dark:text-slate-200"></textarea>
             <div class="flex gap-2 mt-4">
-                <button onclick="resetExpertEdit()"
-                    class="bg-red-50 text-red-600 px-3 py-3 rounded-xl font-bold text-[10px] uppercase">Сброс к
-                    ИИ</button>
-                <button onclick="saveExpertEdit()"
-                    class="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase">Сохранить
-                    правки</button>
+                <button onclick="resetExpertEdit()" class="bg-red-50 text-red-600 border border-red-200 dark:bg-red-900/30 dark:border-red-800 px-4 py-3.5 rounded-xl font-bold text-[10px] uppercase active:scale-95">Сброс к ИИ</button>
+                <button onclick="saveExpertEdit()" class="flex-1 bg-indigo-600 text-white px-4 py-3.5 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95">Сохранить правки</button>
             </div>
         </div>
     </div>
+    
     <!-- === МОДАЛКА ПРИЧИНЫ И КОММЕНТАРИЯ === -->
-    <div id="comment-modal-overlay"
-        class="fixed inset-0 bg-slate-900/70 z-[1600] hidden items-center justify-center p-4 backdrop-blur-sm"
-        onclick="closeCommentModal()">
-        <div class="bg-[var(--card-bg)] w-full max-w-md p-6 rounded-2xl shadow-2xl transition-transform"
-            onclick="event.stopPropagation()">
-            <div class="font-black text-[13px] uppercase tracking-tight mb-4 border-b border-[var(--card-border)] pb-3">
-                📝 Детали дефекта</div>
-            <div class="mb-3">
-                <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Причина дефекта
-                    (Справочник)</label>
-                <select id="modal-cause-select" class="input-base w-full"></select>
+    <div id="comment-modal-overlay" class="fixed inset-0 bg-slate-900/70 z-[1600] hidden items-center justify-center p-4 backdrop-blur-sm" onclick="closeCommentModal()">
+        <div class="bg-[var(--card-bg)] w-full max-w-md p-6 rounded-2xl shadow-2xl transition-transform" onclick="event.stopPropagation()">
+            <div class="font-black text-[13px] uppercase tracking-tight mb-4 border-b border-[var(--card-border)] pb-3 flex items-center gap-2 text-slate-800 dark:text-white">
+                <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                Детали дефекта
             </div>
             <div class="mb-4">
-                <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1 block">Уточняющий
-                    комментарий</label>
-                <textarea id="modal-cause-comment"
-                    class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-xl p-3 text-[12px] outline-none h-24 resize-none"
-                    placeholder="Напишите детали (величину отклонения, размеры и т.д.)..."></textarea>
+                <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1.5 block">Причина дефекта (Справочник)</label>
+                <select id="modal-cause-select" class="input-base w-full"></select>
+            </div>
+            <div class="mb-5">
+                <label class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-1.5 block">Уточняющий комментарий</label>
+                <textarea id="modal-cause-comment" class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] rounded-xl p-3 text-[12px] outline-none h-24 resize-none text-slate-800 dark:text-slate-200" placeholder="Напишите детали (величину отклонения, размеры и т.д.)..."></textarea>
             </div>
             <div class="flex gap-2">
-                <button onclick="closeCommentModal()"
-                    class="bg-slate-100 text-slate-600 px-4 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95">Отмена</button>
-                <button onclick="saveCommentModal()"
-                    class="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95">Сохранить</button>
+                <button onclick="closeCommentModal()" class="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-4 py-3.5 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex-1">Отмена</button>
+                <button onclick="saveCommentModal()" class="flex-1 bg-indigo-600 text-white px-4 py-3.5 rounded-xl font-bold text-[11px] uppercase shadow-md active:scale-95">Сохранить</button>
             </div>
         </div>
     </div>
-
-    <!-- === МОДАЛКА ПРОСМОТРА ТЕХ. УЗЛА === -->
-    <div id="node-viewer-overlay"
-        class="fixed inset-0 bg-slate-900/90 z-[2500] hidden flex-col transition-opacity duration-300 opacity-0"
-        onclick="closeNodeViewer()">
-        <div class="bg-[var(--bg-main)] w-full h-full max-w-2xl mx-auto flex flex-col shadow-2xl overflow-hidden relative"
-            onclick="event.stopPropagation()">
-
-            <!-- Шапка читалки Узлов -->
+<!-- === МОДАЛКА ПРОСМОТРА ТЕХ. УЗЛА === -->
+    <div id="node-viewer-overlay" class="fixed inset-0 bg-slate-900/90 z-[2500] hidden flex-col transition-opacity duration-300 opacity-0" onclick="closeNodeViewer()">
+        <div class="bg-[var(--bg-main)] w-full h-full max-w-2xl mx-auto flex flex-col shadow-2xl overflow-hidden relative" onclick="event.stopPropagation()">
             <div class="bg-indigo-600 text-white p-4 flex justify-between items-center shadow-md z-10 sticky top-0 shrink-0">
                 <div class="flex flex-col min-w-0 pr-4">
                     <div class="flex items-center gap-2 mb-0.5">
@@ -283,151 +230,127 @@
                     </div>
                     <span class="text-sm font-black truncate leading-tight" id="viewer-node-title">Название Узла</span>
                 </div>
-                <div class="flex gap-2 shrink-0">
-                    <button onclick="closeNodeViewer()" class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center font-black active:scale-90 border border-indigo-400">✕</button>
-                </div>
+                <button onclick="closeNodeViewer()" class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center font-black active:scale-90 border border-indigo-400 shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
             </div>
-
             <div class="flex-1 overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-slate-900" id="viewer-node-content">
-                <!-- Картинка узла -->
-                <div class="w-full bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm relative"
-                    onclick="openPhotoViewer(document.getElementById('viewer-node-img').src)">
+                <div class="w-full bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm relative" onclick="openPhotoViewer(document.getElementById('viewer-node-img').src)">
                     <img id="viewer-node-img" src="" class="w-full h-64 object-contain p-2">
-                    <div
-                        class="absolute bottom-2 right-2 bg-black/60 text-white text-[9px] font-bold uppercase px-2 py-1 rounded backdrop-blur-sm">
-                        Увеличить 🔍</div>
-                </div>
-
-                <div class="p-4 space-y-4">
-                    <!-- Описание -->
-                    <div
-                        class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
-                        <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Описание</div>
-                        <div id="viewer-node-desc"
-                            class="text-[12px] font-medium leading-relaxed text-slate-700 dark:text-slate-300"></div>
+                    <div class="absolute bottom-2 right-2 bg-black/60 text-white text-[9px] font-bold uppercase px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg> Увеличить
                     </div>
-
-                    <!-- Спецификация (Материалы) -->
-                    <div
-                        class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-                        <div
-                            class="bg-slate-50 dark:bg-slate-900/50 p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-slate-700">
-                            📋 Спецификация материалов</div>
+                </div>
+                <div class="p-4 space-y-4">
+                    <div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+                        <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Описание</div>
+                        <div id="viewer-node-desc" class="text-[12px] font-medium leading-relaxed text-slate-700 dark:text-slate-300"></div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        <div class="bg-slate-50 dark:bg-slate-900/50 p-3 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg> Спецификация материалов
+                        </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left text-[11px]">
-                                <tbody id="viewer-node-materials"
-                                    class="divide-y divide-slate-100 dark:divide-slate-700">
-                                    <!-- Генерируется через JS -->
-                                </tbody>
+                                <tbody id="viewer-node-materials" class="divide-y divide-slate-100 dark:divide-slate-700"></tbody>
                             </table>
                         </div>
                     </div>
-
-                    <!-- Связи (НД и TWI) -->
-                    <div id="viewer-node-links" class="grid grid-cols-2 gap-2">
-                        <!-- Генерируется через JS -->
-                    </div>
+                    <div id="viewer-node-links" class="grid grid-cols-2 gap-2"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- === МОДАЛКА СПИСКА ИНСТРУКЦИЙ ДЛЯ ПУНКТА === -->
-    <div id="item-help-modal-overlay"
-        class="fixed inset-0 bg-slate-900/70 z-[2400] hidden items-end justify-center p-0 sm:p-4 backdrop-blur-sm"
-        onclick="closeItemHelpMenu()">
-        <div class="bg-[var(--card-bg)] w-full max-w-lg rounded-t-3xl sm:rounded-2xl shadow-2xl transition-transform transform translate-y-full flex flex-col max-h-[85vh]"
-            id="item-help-modal-content" onclick="event.stopPropagation()">
+    <div id="item-help-modal-overlay" class="fixed inset-0 bg-slate-900/70 z-[2400] hidden items-end justify-center p-0 sm:p-4 backdrop-blur-sm" onclick="closeItemHelpMenu()">
+        <div class="bg-[var(--card-bg)] w-full max-w-lg rounded-t-3xl sm:rounded-2xl shadow-2xl transition-transform transform translate-y-full flex flex-col max-h-[85vh]" id="item-help-modal-content" onclick="event.stopPropagation()">
             <div class="p-4 border-b border-[var(--card-border)] flex justify-between items-center shrink-0">
                 <div class="flex flex-col min-w-0 pr-4">
-                    <span class="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">Справка и
-                        Инструкции</span>
-                    <span class="text-[13px] font-bold text-slate-800 dark:text-white truncate leading-tight"
-                        id="help-modal-title">Название пункта</span>
+                    <span class="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1 flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Справка и Инструкции
+                    </span>
+                    <span class="text-[13px] font-bold text-slate-800 dark:text-white truncate leading-tight" id="help-modal-title">Название пункта</span>
                 </div>
-                <button onclick="closeItemHelpMenu()"
-                    class="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center font-black text-slate-500 active:scale-90 shrink-0">✕</button>
+                <button onclick="closeItemHelpMenu()" class="w-8 h-8 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-500 active:scale-90 shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
             </div>
-            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3 bg-slate-50 dark:bg-slate-900/50"
-                id="help-modal-list">
-                <!-- Сюда генерятся кнопки инструкций -->
-            </div>
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3 bg-slate-50 dark:bg-slate-900/50" id="help-modal-list"></div>
         </div>
     </div>
 
     <!-- === МОДАЛКА ПРОСМОТРА ИНСТРУКЦИЙ (УНИВЕРСАЛЬНАЯ ЧИТАЛКА) === -->
-    <div id="twi-viewer-overlay"
-        class="fixed inset-0 bg-slate-900/90 z-[2500] hidden flex-col transition-opacity duration-300 opacity-0"
-        onclick="closeTwiViewer()">
-        <div class="bg-[var(--bg-main)] w-full h-full max-w-2xl mx-auto flex flex-col shadow-2xl overflow-hidden relative"
-            onclick="event.stopPropagation()">
-
-            <!-- Шапка читалки -->
-            <div
-                class="bg-indigo-600 text-white p-4 flex justify-between items-center shadow-md z-10 sticky top-0 shrink-0">
+    <div id="twi-viewer-overlay" class="fixed inset-0 bg-slate-900/90 z-[2500] hidden flex-col transition-opacity duration-300 opacity-0" onclick="closeTwiViewer()">
+        <div class="bg-[var(--bg-main)] w-full h-full max-w-2xl mx-auto flex flex-col shadow-2xl overflow-hidden relative" onclick="event.stopPropagation()">
+            <div class="bg-indigo-600 text-white p-4 flex justify-between items-center shadow-md z-10 sticky top-0 shrink-0">
                 <div class="flex flex-col min-w-0 pr-4">
                     <div class="flex items-center gap-2 mb-0.5">
-                        <span
-                            class="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-white/30"
-                            id="viewer-twi-badge">ТИП</span>
-                        <span class="text-[10px] font-bold text-indigo-200 uppercase tracking-widest truncate"
-                            id="viewer-twi-checklist">Вид работ</span>
+                        <span class="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border border-white/30" id="viewer-twi-badge">ТИП</span>
+                        <span class="text-[10px] font-bold text-indigo-200 uppercase tracking-widest truncate" id="viewer-twi-checklist">Вид работ</span>
                     </div>
-                    <span class="text-sm font-black truncate leading-tight" id="viewer-twi-title">Название
-                        Инструкции</span>
+                    <span class="text-sm font-black truncate leading-tight" id="viewer-twi-title">Название Инструкции</span>
                 </div>
-                <button onclick="closeTwiViewer()"
-                    class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center font-black active:scale-90 shrink-0 border border-indigo-400">✕</button>
+                <button onclick="closeTwiViewer()" class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center active:scale-90 shrink-0 border border-indigo-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
             </div>
-
-            <!-- ИНФО-ПАНЕЛЬ (ТОЛЬКО ДЛЯ РАБОЧИХ TWI) -->
-            <div id="viewer-twi-info-panel"
-                class="hidden bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2.5 flex gap-4 text-[11px] font-bold text-slate-600 dark:text-slate-300 shadow-sm z-10 shrink-0">
-                <div class="flex items-center gap-1.5"><span class="text-lg">⏱️</span> <span id="viewer-twi-time">0
-                        мин</span></div>
-                <div class="flex items-center gap-1.5"><span class="text-lg">📝</span> <span
-                        id="viewer-twi-steps-count">0 шагов</span></div>
+            <div id="viewer-twi-info-panel" class="hidden bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex gap-6 text-[11px] font-bold text-slate-600 dark:text-slate-300 shadow-sm z-10 shrink-0">
+                <div class="flex items-center gap-1.5"><svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> <span id="viewer-twi-time">0 мин</span></div>
+                <div class="flex items-center gap-1.5"><svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg> <span id="viewer-twi-steps-count">0 шагов</span></div>
             </div>
-
-            <!-- ДИНАМИЧЕСКИЙ КОНТЕЙНЕР ДЛЯ КОНТЕНТА -->
-            <div class="flex-1 overflow-y-auto p-0 md:p-4 custom-scrollbar bg-slate-50 dark:bg-slate-900 relative"
-                id="viewer-twi-content">
-                <!-- Сюда генерируется контент (Шаги, PDF или Карточки Инспектора) -->
-            </div>
-
-            <!-- Кнопка "Понятно" внизу (Для TWI и Технадзора) -->
-            <div id="viewer-twi-footer"
-                class="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shrink-0">
-                <button onclick="closeTwiViewer()"
-                    class="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-[12px] uppercase tracking-widest active:scale-95 shadow-md">
+            <div class="flex-1 overflow-y-auto p-0 md:p-4 custom-scrollbar bg-slate-50 dark:bg-slate-900 relative" id="viewer-twi-content"></div>
+            <div id="viewer-twi-footer" class="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shrink-0">
+                <button onclick="closeTwiViewer()" class="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-[12px] uppercase tracking-widest active:scale-95 shadow-md flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
                     Прочитано. Понятно!
                 </button>
             </div>
         </div>
     </div>
-
     <!-- === ШАПКА === -->
     <header class="header-fixed" id="main-header">
         <div class="max-w-4xl mx-auto px-2 md:px-4 py-2" id="header-inner">
             <!-- СТРОКА 1: Логотип -->
             <div class="header-top-row flex items-center justify-between mb-1.5 header-collapsible">
-                <div
-                    class="text-indigo-600 dark:text-indigo-400 font-black text-[13px] uppercase tracking-tighter truncate">
-                    RBI Quality 16.0</div>
+                
+                <!-- ЛЕВАЯ ЧАСТЬ: Легкая iOS-иконка + Текст -->
+                <div class="flex items-center gap-2.5 min-w-0 pr-2">
+                    <!-- Иконка приложения (Светлое стекло + Тонкие линии) -->
+                    <div class="w-9 h-9 bg-white dark:bg-slate-800 rounded-[10px] shadow-[0_2px_10px_rgba(0,0,0,0.06)] border border-slate-100 dark:border-slate-700 flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                            <path d="M9 12l2 2 4-4"></path>
+                        </svg>
+                    </div>
+                    <!-- Блок с текстом -->
+                    <div class="flex flex-col justify-center min-w-0">
+                        <div class="text-slate-800 dark:text-white font-black text-[13px] uppercase tracking-tight truncate leading-none mb-1">
+                            RBI Quality <span class="text-indigo-600 dark:text-indigo-400 font-bold">16.0</span>
+                        </div>
+                        <div class="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest truncate leading-none">
+                            Dev. by Igor Kondratiev
+                        </div>
+                    </div>
+                </div>
 
-                <!-- ИСПРАВЛЕНО: Цвета селектора для темной темы -->
-                <div
-                    class="relative flex items-center bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 cursor-pointer">
-                    <span class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase">📋 Чек-лист
-                        ▼</span>
-                    <select id="checklist-selector" class="absolute inset-0 w-full h-full opacity-0"
-                        onchange="changeTemplate(this.value)">
+                <!-- ПРАВАЯ ЧАСТЬ: Селектор Чек-листа (Синхронизирован стиль линий) -->
+                <div class="relative flex items-center bg-indigo-50/80 dark:bg-indigo-900/30 px-3 h-8 rounded-[10px] border border-indigo-100 dark:border-indigo-800/50 cursor-pointer shrink-0 shadow-sm active:scale-95 transition-transform">
+                    <span class="text-[10px] font-bold text-indigo-700 dark:text-indigo-400 uppercase flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        Чек-лист ▾
+                    </span>
+                    <select id="checklist-selector" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="changeTemplate(this.value)">
                         <option value="" disabled selected>Выбрать...</option>
                         <option value="HOME">🏠 Главный экран</option>
                         <optgroup label="Системные" id="system-group"></optgroup>
                         <optgroup label="Загруженные" id="user-group"></optgroup>
                     </select>
                 </div>
+
             </div>
 
             <!-- СТРОКА 2: Двухуровневый Мини-дашборд -->
@@ -513,14 +436,20 @@
                     </div>
                 </div>
                 <div id="data-block-content" class="grid grid-cols-2 gap-1.5 header-collapsible bg-[var(--card-border)]/80 backdrop-blur-md p-2 rounded-xl border border-[var(--card-border)] shadow-sm">
-                    <input type="text" id="inp-project" class="input-base" placeholder="Объект *"
-                        oninput="scheduleSessionSave()">
-                    <input type="text" id="inp-inspector" class="input-base" placeholder="Проверяющий *"
-                        oninput="scheduleSessionSave()">
-                    <input type="text" id="inp-contractor" class="input-base" placeholder="Подрядчик *"
-                        oninput="scheduleSessionSave(); updateUI();">
-                    <input type="text" id="inp-location" class="input-base" placeholder="Корпус, этаж, оси"
-                        oninput="scheduleSessionSave(); updateUI();">
+                    <input type="text" id="inp-project" list="dl-projects" class="input-base" placeholder="Объект *" 
+                        oninput="scheduleSessionSave()" onchange="scheduleSessionSave()" onblur="scheduleSessionSave()">
+                    <input type="text" id="inp-inspector" list="dl-inspectors" class="input-base" placeholder="Проверяющий *" 
+                        oninput="scheduleSessionSave()" onchange="scheduleSessionSave()" onblur="scheduleSessionSave()">
+                    <input type="text" id="inp-contractor" list="dl-contractors" class="input-base" placeholder="Подрядчик *" 
+                        oninput="scheduleSessionSave(); updateUI();" onchange="scheduleSessionSave(); updateUI();" onblur="scheduleSessionSave(); updateUI();">
+                    <input type="text" id="inp-location" list="dl-locations" class="input-base" placeholder="Корпус, этаж, оси *" 
+                        oninput="scheduleSessionSave(); updateUI();" onchange="scheduleSessionSave(); updateUI();" onblur="scheduleSessionSave(); updateUI();">
+                    
+                    <!-- Скрытые списки для автозаполнения (Память вводов) -->
+                    <datalist id="dl-projects"></datalist>
+                    <datalist id="dl-inspectors"></datalist>
+                    <datalist id="dl-contractors"></datalist>
+                    <datalist id="dl-locations"></datalist>
                 </div>
             </div>
 
@@ -535,39 +464,44 @@
         <!-- ВКЛАДКА 1: ОСМОТР -->
         <div id="tab-audit" class="view-section active">
             <!-- Пустое состояние -->
-            <div id="empty-checklist-state" class="text-center py-10 bg-[var(--card-border)]/80 backdrop-blur-md border border-[var(--card-border)] rounded-2xl shadow-sm mb-6 mt-4">
-                <div class="text-5xl mb-4">👋</div>
-                <div class="text-lg font-black uppercase tracking-tight">Добро пожаловать!</div>
-                <div class="text-xs text-[var(--text-muted)] mt-2 mb-8">Выберите вариант для старта:</div>
+            <div id="empty-checklist-state" class="text-center py-10 ios-panel border border-slate-200/50 dark:border-slate-700/50 rounded-[20px] shadow-sm mb-6 mt-4">
+                
+                <div class="w-16 h-16 mx-auto bg-indigo-50 dark:bg-indigo-900/30 rounded-[16px] flex items-center justify-center mb-5 border border-indigo-100 dark:border-indigo-800">
+                    <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </div>
+                
+                <div class="text-lg font-black uppercase tracking-tight">Добро пожаловать</div>
+                <div class="text-xs text-[var(--text-muted)] mt-2 mb-8">Выберите вариант для старта работы:</div>
 
-                <div class="border-t border-[var(--card-border)] pt-6 px-6 space-y-5">
-                    <!-- Кнопка Интерактивное Обучение -->
-                    <div>
-                        <button onclick="startInteractiveTutorial()"
-                            class="w-full bg-gradient-to-r from-sky-600 to-indigo-600 text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-md active:scale-95 flex justify-center items-center gap-2">
-                            🎓 Интерактивное обучение
-                        </button>
-                        <div class="text-[10px] text-[var(--text-muted)] leading-tight mt-2 font-bold">Смотрите:
-                            приложение само покажет, как с ним работать.</div>
-                    </div>
-                    <!-- Кнопка ДЕМО -->
-                    <div>
-                        <button onclick="startDemoMode()"
-                            class="w-full bg-gradient-to-r from-sky-600 to-indigo-600 text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-md active:scale-95 flex justify-center items-center gap-2">
-                            🎮 Запустить Демо-режим
-                        </button>
-                        <div class="text-[10px] text-[var(--text-muted)] leading-tight mt-2">Приложение заполнится
-                            тестовыми подрядчиками (рейтинги, фото, графики). Все основные функции будут работать.</div>
-                    </div>
+                <div class="border-t border-[var(--card-border)] pt-6 px-6 space-y-4">
+                    
+                    <button onclick="startInteractiveTutorial()" class="w-full bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-50 dark:hover:bg-slate-700 transition-all border border-indigo-100 dark:border-indigo-800 shadow-sm active:scale-95 flex justify-center items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Обучение
+                    </button>
+                    
+                    <button onclick="startDemoMode()" class="w-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 flex justify-center items-center gap-2">
+                        <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 12h4"></path><path d="M8 10v4"></path><line x1="15" y1="13" x2="15.01" y2="13"></line><line x1="18" y1="11" x2="18.01" y2="11"></line></svg>
+                        Демо-режим
+                    </button>
 
-                    <!-- Кнопка РЕАЛЬНАЯ РАБОТА -->
-                    <div class="relative">
-                        <div
-                            class="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-all shadow-md active:scale-95 flex justify-center items-center gap-2">
-                            📋 Начать проверку
+                    <button onclick="goToFAQ()" class="w-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 flex justify-center items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                        База знаний
+                    </button>
+
+                    <div class="relative pt-4 mt-2">
+                        <div class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-[13px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md active:scale-95 flex justify-center items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                            Начать проверку
                         </div>
-                        <select id="fake-checklist-selector" onchange="changeTemplate(this.value)"
-                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                        <select id="fake-checklist-selector" onchange="changeTemplate(this.value)" class="absolute inset-x-0 bottom-0 w-full h-12 opacity-0 cursor-pointer">
                             <option value="" disabled selected>Выбрать чек-лист</option>
                             <optgroup label="Системные" id="fake-system-group"></optgroup>
                             <optgroup label="Загруженные" id="fake-user-group"></optgroup>
@@ -622,27 +556,21 @@
                             placeholder="Поиск..." oninput="applyHistoryFilters()">
                     </div>
 
-                    <!-- Новая сетка фильтров (2 строки) -->
+                    <!-- Мульти-фильтры (История) -->
                     <div class="grid grid-cols-2 gap-2 mb-2">
-                        <select id="hist-filter-project" class="input-base text-[10px] !py-1.5"
-                            onchange="applyHistoryFilters()">
-                            <option value="ALL">Все объекты</option>
-                        </select>
-                        <select id="hist-filter-contractor" class="input-base text-[10px] !py-1.5"
-                            onchange="applyHistoryFilters()">
-                            <option value="ALL">Все подрядчики</option>
-                        </select>
-                        <select id="hist-filter-inspector" class="input-base text-[10px] !py-1.5"
-                            onchange="applyHistoryFilters()">
-                            <option value="ALL">Все инспекторы</option>
-                        </select>
-                        <select id="hist-filter-period" class="input-base text-[10px] !py-1.5"
-                            onchange="applyHistoryFilters()">
-                            <option value="ALL">Всё время</option>
-                            <option value="DAY">Сегодня</option>
-                            <option value="WEEK">Неделя</option>
-                            <option value="MONTH">Месяц</option>
-                        </select>
+                        <button id="btn-hist-project" onclick="openMultiFilterModal('project', 'Объекты', 'history')" class="input-base text-[10px] !py-2 text-left flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm"><span class="truncate">Все объекты</span><svg class="w-3 h-3 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg></button>
+                        <button id="btn-hist-contractor" onclick="openMultiFilterModal('contractor', 'Подрядчики', 'history')" class="input-base text-[10px] !py-2 text-left flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm"><span class="truncate">Все подрядчики</span><svg class="w-3 h-3 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg></button>
+                        <button id="btn-hist-inspector" onclick="openMultiFilterModal('inspector', 'Инспекторы', 'history')" class="input-base text-[10px] !py-2 text-left flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm"><span class="truncate">Все инспекторы</span><svg class="w-3 h-3 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg></button>
+                        
+                        <div class="relative w-full">
+                            <select id="hist-filter-period" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="applyHistoryFilters()">
+                                <option value="ALL">Всё время</option>
+                                <option value="DAY">Сегодня</option>
+                                <option value="WEEK">Неделя</option>
+                                <option value="MONTH">Месяц</option>
+                            </select>
+                            <button id="btn-hist-period-label" class="input-base text-[10px] !py-2 text-left flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm w-full"><span class="truncate">Всё время</span><svg class="w-3 h-3 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg></button>
+                        </div>
                     </div>
 
                     <div class="flex justify-between items-center px-1 border-t border-[var(--card-border)] pt-2 mt-1">
@@ -739,38 +667,27 @@
                 <div id="analytics-panel-body"
                     style="transition: max-height 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease; max-height: 200px; overflow: hidden;">
 
-                    <!-- СТРОКА 1: Объект, Подрядчик, Инспектор -->
+                    <!-- СТРОКА 1: Объект, Подрядчик, Инспектор (Мультивыбор) -->
                     <div class="grid grid-cols-3 gap-2 mb-2">
-                        <select id="global-filter-project" class="input-base text-[9px] min-[400px]:text-[10px] !py-1.5"
-                            onchange="renderCurrentAnalyticsTab()">
-                            <option value="ALL">Все объекты</option>
-                        </select>
-                        <select id="global-filter-contractor"
-                            class="input-base text-[9px] min-[400px]:text-[10px] !py-1.5"
-                            onchange="renderCurrentAnalyticsTab()">
-                            <option value="ALL">Все подрядчики</option>
-                        </select>
-                        <select id="global-filter-inspector"
-                            class="input-base text-[9px] min-[400px]:text-[10px] !py-1.5"
-                            onchange="renderCurrentAnalyticsTab()">
-                            <option value="ALL">Все инспекторы</option>
-                        </select>
+                        <button id="btn-ana-project" onclick="openMultiFilterModal('project', 'Объекты', 'analytics')" class="input-base text-[9px] min-[400px]:text-[10px] !py-2 text-left flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm"><span class="truncate">Все объекты</span><svg class="w-3 h-3 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg></button>
+                        <button id="btn-ana-contractor" onclick="openMultiFilterModal('contractor', 'Подрядчики', 'analytics')" class="input-base text-[9px] min-[400px]:text-[10px] !py-2 text-left flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm"><span class="truncate">Все подрядчики</span><svg class="w-3 h-3 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg></button>
+                        <button id="btn-ana-inspector" onclick="openMultiFilterModal('inspector', 'Инспекторы', 'analytics')" class="input-base text-[9px] min-[400px]:text-[10px] !py-2 text-left flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm"><span class="truncate">Все инспекторы</span><svg class="w-3 h-3 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg></button>
                     </div>
 
                     <!-- СТРОКА 2: Вид работ и Период -->
                     <div class="grid grid-cols-2 gap-2 mb-2">
-                        <select id="global-filter-template" class="input-base text-[10px] !py-1.5"
-                            onchange="renderCurrentAnalyticsTab()">
-                            <option value="ALL">Все виды работ</option>
-                        </select>
-                        <select id="global-filter-period" class="input-base text-[10px] !py-1.5"
-                            onchange="toggleDateRange(); renderCurrentAnalyticsTab();">
-                            <option value="ALL">Всё время</option>
-                            <option value="DAY">Сегодня</option>
-                            <option value="WEEK">За 7 дней</option>
-                            <option value="MONTH">За 30 дней</option>
-                            <option value="CUSTOM">Свой период...</option>
-                        </select>
+                        <button id="btn-ana-template" onclick="openMultiFilterModal('template', 'Виды работ', 'analytics')" class="input-base text-[10px] !py-2 text-left flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm"><span class="truncate">Все виды работ</span><svg class="w-3 h-3 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg></button>
+                        
+                        <div class="relative w-full">
+                            <select id="global-filter-period" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="toggleDateRange(); renderCurrentAnalyticsTab();">
+                                <option value="ALL">Всё время</option>
+                                <option value="DAY">Сегодня</option>
+                                <option value="WEEK">За 7 дней</option>
+                                <option value="MONTH">За 30 дней</option>
+                                <option value="CUSTOM">Свой период...</option>
+                            </select>
+                            <button id="btn-ana-period-label" class="input-base text-[10px] !py-2 text-left flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm w-full"><span class="truncate">Всё время</span><svg class="w-3 h-3 opacity-50 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path></svg></button>
+                        </div>
                     </div>
 
                     <!-- КАЛЕНДАРЬ (СКРЫТ ПО УМОЛЧАНИЮ) -->
@@ -1241,153 +1158,293 @@
             <div id="ref-sub-faq" class="ref-sub-section hidden mx-1 mt-4 pb-8">
 
                 <div class="text-center mb-6 mt-2">
-                    <div class="text-3xl mb-2">📊</div>
-                    <h2
-                        class="text-[16px] font-black uppercase tracking-tight text-slate-800 dark:text-white leading-tight">
-                        Как приложение считает качество</h2>
-                    <p class="text-[11px] font-bold text-indigo-500 mt-1 uppercase tracking-widest">Просто о сложном</p>
+                    <svg class="w-10 h-10 mx-auto text-indigo-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    <h2 class="text-[16px] font-black uppercase tracking-tight text-slate-800 dark:text-white leading-tight">База знаний и Методология</h2>
+                    <p class="text-[11px] font-bold text-indigo-500 mt-1 uppercase tracking-widest">Полное руководство пользователя</p>
                 </div>
 
-                <div
-                    class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-4 shadow-sm mb-4 text-[12px] leading-relaxed text-slate-700 dark:text-slate-300">
-                    Когда инженер на стройке проверяет работу (например, монтаж окон или укладку плитки), он заполняет
-                    чек-лист в приложении. Каждый пункт — это конкретное требование: «зазор должен быть 5 мм»,
-                    «поверхность ровная», «нет трещин». Приложение автоматически превращает эти ответы в процент
-                    качества и делает выводы. Вот как это работает.
-                </div>
+                <div class="space-y-3">
 
-                <!-- УРОВЕНЬ 1 -->
-                <div
-                    class="bg-[var(--card-bg)] border border-blue-200 dark:border-blue-800 rounded-xl p-4 shadow-sm mb-4">
-                    <h3
-                        class="text-[13px] font-black uppercase text-blue-700 dark:text-blue-400 mb-3 flex items-center gap-2">
-                        <span>🏗️</span> Уровень 1: Качество изделия</h3>
-                    <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Представьте, что чек-лист состоит из
-                        10 пунктов. У каждого пункта есть «вес» — насколько это важно:</p>
-
-                    <div class="space-y-2 mb-4">
-                        <div
-                            class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-100 dark:border-blue-800/50 text-[11px]">
-                            <span class="font-black text-blue-600">B1</span> — Мелкий недочёт (вес 1)</div>
-                        <div
-                            class="bg-orange-50 dark:bg-orange-900/20 p-2 rounded border border-orange-100 dark:border-orange-800/50 text-[11px]">
-                            <span class="font-black text-orange-600">B2</span> — Серьёзное нарушение (вес 2)</div>
-                        <div
-                            class="bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800/50 text-[11px]">
-                            <span class="font-black text-red-600">B3</span> — Критический дефект (вес 3)</div>
-                    </div>
-
-                    <div class="text-[12px] font-bold text-slate-800 dark:text-white mb-2">🔴 Штрафы за ошибки</div>
-                    <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Просто средний балл — это нечестно.
-                        Если есть серьёзные нарушения, качество должно быть ниже.</p>
-
-                    <ul class="list-disc pl-4 space-y-2 text-[11px] text-slate-700 dark:text-slate-300 mb-4">
-                        <li><b>Штраф за «кучность» (B2):</b> Если провалено 2 из 5 пунктов B2 — базовый процент
-                            умножается на 0.85 (минус 15%). Если 3 из 5 — на 0.70 (минус 30%).</li>
-                        <li><b>Штраф за критичность (B3):</b> Если найден хотя бы один дефект B3, процент умножается на
-                            0.50 (минус половина). Такая работа не может считаться качественной.</li>
-                        <li><b>Правило потолка 84%:</b> Если были нарушения B2 или применялись штрафы, итоговый процент
-                            никогда не поднимется выше 84%. Работа с заметными недостатками не может получить «отлично».
-                        </li>
-                    </ul>
-
-                    <div
-                        class="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px]">
-                        <span class="font-black uppercase text-slate-500 mb-1 block">📌 Пример расчета</span>
-                        Проверили монтаж окна: 5 пунктов B1 (все ОК), 4 пункта B2 (два из них с нарушениями), 1 пункт B3
-                        (ОК).<br><br>
-                        Базовый балл = 85%.<br>
-                        Штраф за два провала B2 = ×0.85.<br>
-                        Штрафа за B3 нет.<br>
-                        <b>Итог = 85% × 0.85 = 72% (Статус «ИСПРАВИТЬ»).</b>
-                    </div>
-                </div>
-
-                <!-- УРОВЕНЬ 2 -->
-                <div
-                    class="bg-[var(--card-bg)] border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 shadow-sm mb-4">
-                    <h3
-                        class="text-[13px] font-black uppercase text-indigo-700 dark:text-indigo-400 mb-3 flex items-center gap-2">
-                        <span>🏢</span> Уровень 2: Качество Подрядчика</h3>
-                    <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Когда у подрядчика накопилось
-                        несколько проверенных изделий, приложение анализирует их все вместе и даёт общий процент
-                        надёжности.</p>
-
-                    <div class="space-y-3">
-                        <div>
-                            <div class="text-[11px] font-bold text-slate-800 dark:text-white mb-1">🔁 Штраф за
-                                «системность»</div>
-                            <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">Если дефект
-                                повторяется на разных объектах — это системная проблема. Например, в 5 окнах из 10
-                                отклонение зазора (частота 50%). Штраф: повтор в 20–50% случаев → умножаем на 0.70.</p>
+                    <!-- РАЗДЕЛ 1: СУТЬ УПРАВЛЕНИЯ КАЧЕСТВОМ -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> 1. Суть Управления Качеством</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
+                            <p class="mb-4">В строительстве часто путают <b>Контроль качества (Технадзор)</b> и <b>Управление качеством (Quality Management)</b>.</p>
+                            
+                            <div class="space-y-3 mb-4">
+                                <div class="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                                    <span class="font-black text-red-600 dark:text-red-400 text-[10px] uppercase mb-1 block">Контроль качества (Старый подход)</span>
+                                    Это работа "постфактум". Инспектор приходит на готовый объект, берет рулетку, находит кривую стену, пишет предписание и заставляет всё сломать. Итог: сорванные сроки, убытки подрядчика, конфликт на стройке.
+                                </div>
+                                <div class="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                                    <span class="font-black text-green-600 dark:text-green-400 text-[10px] uppercase mb-1 block">Управление качеством (Подход RBI)</span>
+                                    Это работа "на опережение". Система оцифровывает каждую проверку. Если подрядчик три раза ошибся в зазорах, приложение строит график Парето и "кричит": <b>Здесь системная проблема!</b> Мы останавливаем работу, проводим обучение (показываем TWI-карту), меняем технологию и только потом разрешаем строить дальше.
+                                </div>
+                            </div>
+                            <p class="font-bold text-slate-800 dark:text-white mb-2 text-[11px] uppercase">Главная задача инженера по качеству:</p>
+                            <ul class="list-disc pl-4 space-y-1.5 text-[11px]">
+                                <li>Не просто найти брак, а <b>исключить корневую причину</b> его появления.</li>
+                                <li>Снизить <b>Cost of Poor Quality (Стоимость плохого качества)</b> — переделки стоят денег и времени.</li>
+                            </ul>
                         </div>
-                        <div>
-                            <div class="text-[11px] font-bold text-slate-800 dark:text-white mb-1">🚨 Штраф за
-                                критичность</div>
-                            <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">Считается доля
-                                изделий с дефектами B3. Доля 10–20% → штраф 0.85. Доля 20–30% → штраф 0.70.</p>
+                    </details>
+
+                    <!-- РАЗДЕЛ 2: ПОЧЕМУ 70% И 85% -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> 2. Почему именно 70% и 85%?</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
+                            <p class="mb-4">В приложении используются жесткие, научно обоснованные пороги отсечения. Это не школьные оценки "5, 4, 3", это три зоны риска для бизнеса.</p>
+
+                            <div class="space-y-3 mb-4">
+                                <div class="bg-white dark:bg-slate-800 p-3 rounded-lg border-l-4 border-l-green-500 border-y border-r border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <span class="font-black text-green-600 dark:text-green-500 text-[11px] uppercase mb-1 block">🟢 Зеленая зона (85% — 100%)</span>
+                                    <b>Целевой показатель. "Готовность к сдаче клиенту с первого раза".</b><br>
+                                    На стройке не бывает идеальных 100%. Оставшиеся 15% брака — это мелкие эстетические дефекты (B1). Тратить время и деньги на их полное устранение прямо сейчас — перфекционизм, который стоит слишком дорого. Главное — нет критических и системных ошибок. Работа принимается.
+                                </div>
+                                <div class="bg-white dark:bg-slate-800 p-3 rounded-lg border-l-4 border-l-orange-500 border-y border-r border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <span class="font-black text-orange-600 dark:text-orange-500 text-[11px] uppercase mb-1 block">🟡 Желтая зона (70% — 84%)</span>
+                                    <b>Условный допуск. "Процесс идет, но есть дефектный хвост".</b><br>
+                                    Подрядчик работает, аварийных нарушений нет, но он допускает значимые отклонения (B2). Разрешается продолжать строить, но <b>запрещается финишная приемка (КС-2)</b> до устранения всех B2. Зона 84% — это "стеклянный потолок". Если есть хоть один дефект B2, выше 84% подрядчик не поднимется.
+                                </div>
+                                <div class="bg-white dark:bg-slate-800 p-3 rounded-lg border-l-4 border-l-red-500 border-y border-r border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <span class="font-black text-red-600 dark:text-red-500 text-[11px] uppercase mb-1 block">🔴 Красная зона (Менее 70% или наличие B3)</span>
+                                    <b>Процесс вне контроля. "Аварийная остановка".</b><br>
+                                    Плотность дефектов огромна. Либо подрядчик систематически лепит брак, либо допущена критическая ошибка B3 (угроза обрушения, промерзания). Дальнейшая работа приведет только к умножению убытков. Требуется немедленная остановка работ на участке.
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <div class="text-[11px] font-bold text-slate-800 dark:text-white mb-1">📉 Волатильность и
-                                стабильность</div>
-                            <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">Считается, насколько
-                                результаты разнятся от раза к разу. Если сегодня 90%, а завтра 60% — это плохой признак.
-                                Высокая волатильность снижает индекс стабильности.</p>
+                    </details>
+
+                    <!-- РАЗДЕЛ 3: СЛУЧАЙНАЯ ВЫБОРКА -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg> 3. Принцип случайной выборки</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
+                            
+                            <p class="mb-3">В приложении используется принцип статистического контроля процессов (SPC). Инженер по качеству <b>не должен заниматься сплошным 100% контролем</b> — это физически невозможно и экономически невыгодно. Сплошной контроль — это задача прораба подрядчика.</p>
+
+                            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 mb-4 shadow-inner text-[11px]">
+                                <b>Как это работает:</b> Если на этаже смонтировано 50 окон, инженеру достаточно случайным образом проверить 5–7 штук. Если в 3-х окнах из выборки отсутствует гидроизоляция, математическая статистика гарантирует, что такая же ошибка системно присутствует на всём этаже.
+                            </div>
+
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2 uppercase text-[10px] tracking-wider">Что делать при обнаружении системного брака?</h4>
+                            <p class="text-[11px] mb-3">Ошибкой будет выдать предписание на исправление только тех 3 окон, которые нашел инженер. Правильное управленческое решение: <b>забраковать всю партию (весь этаж)</b>. Подрядчик обязан за свой счет провести 100% ревизию всех 50 окон, исправить их и только потом повторно вызвать инженера на новую случайную выборку.</p>
+                            <p class="text-[11px] font-bold text-red-600 dark:text-red-400">Приложение перекладывает ответственность за качество обратно на подрядчика, не позволяя ему использовать технадзор заказчика как бесплатных "искателей своих косяков".</p>
                         </div>
-                    </div>
+                    </details>
+
+                    <!-- РАЗДЕЛ 4: ФОРМУЛЫ И МАТЕМАТИКА -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> 4. Формулы расчетов и Коэффициенты</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
+                            
+                            <p class="mb-4">Итоговая оценка всегда формируется путем умножения <b>Базового процента</b> на <b>Штрафные коэффициенты</b>. Если штрафов нет (коэффициент 1.0), то балл не снижается.</p>
+
+                            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 mb-4 shadow-inner">
+                                <div class="font-black text-indigo-800 dark:text-indigo-400 uppercase text-[10px] mb-2">Формула УрК Изделия (Для одной проверки)</div>
+                                <div class="font-mono font-bold bg-white dark:bg-slate-800 text-center py-2 rounded border border-indigo-100 dark:border-indigo-700">УрК = База × Kc × Kcrit</div>
+                            </div>
+                            <ul class="list-disc pl-4 space-y-2 text-[11px] mb-6">
+                                <li><b>База:</b> Отношение суммы весов пройденных пунктов к сумме весов всех проверенных пунктов.</li>
+                                <li><b>Kc (Концентрация):</b> Штрафует за "кучность" ошибок на одном изделии.<br>
+                                    — Допущено 2 ошибки B2 ➔ <code>Kc = 0.85</code><br>
+                                    — Допущено 3+ ошибок B2 ➔ <code>Kc = 0.70</code></li>
+                                <li><b>Kcrit (Критичность):</b> Штрафует за опасный брак.<br>
+                                    — Найден хотя бы один дефект B3 ➔ <code>Kcrit = 0.50</code> (срезает качество вдвое).</li>
+                            </ul>
+
+                            <div class="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 mb-4 shadow-inner">
+                                <div class="font-black text-emerald-800 dark:text-emerald-400 uppercase text-[10px] mb-2">Формула УрК Подрядчика (По группе проверок)</div>
+                                <div class="font-mono font-bold bg-white dark:bg-slate-800 text-center py-2 rounded border border-emerald-100 dark:border-emerald-700">УрК = Ср.База × Ks × Kcrit</div>
+                            </div>
+                            <ul class="list-disc pl-4 space-y-2 text-[11px] mb-6">
+                                <li><b>Ks (Системность):</b> Штраф за то, что подрядчик наступает на одни и те же грабли.<br>
+                                    Система ищет самый "популярный" дефект B2. Если он повторяется:<br>
+                                    — Более чем в 20% проверок ➔ <code>Ks = 0.70</code><br>
+                                    — Более чем в 50% проверок ➔ <code>Ks = 0.50</code></li>
+                                <li><b>Kcrit (Критичность для массива):</b> Считается доля изделий, где был обнаружен B3.<br>
+                                    — Брак B3 есть в >10% изделий ➔ <code>Kcrit = 0.85</code><br>
+                                    — Брак B3 есть в >30% изделий ➔ <code>Kcrit = 0.50</code></li>
+                            </ul>
+                        </div>
+                    </details>
+
+                    <!-- РАЗДЕЛ 5: СПРАВОЧНИК И TWI -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> 5. Справочник и TWI Карты</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
+                            
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1 uppercase text-[10px] tracking-wider">Что такое TWI (Training Within Industry)?</h4>
+                            <p class="mb-3 text-[11px]">Это визуальные стандарты работы. Люди плохо читают ГОСТы, но отлично понимают картинки. В приложении есть 3 типа TWI:</p>
+                            <ul class="space-y-2 text-[11px] mb-3">
+                                <li>🕵️‍♂️ <b>Карта Технадзора:</b> Привязывается строго к одному пункту чек-листа. Содержит фото "Как должно быть" и фото "Частый брак". Помогает молодому инженеру понять, куда смотреть.</li>
+                                <li>🛠 <b>Инструкция Рабочего:</b> Пошаговый алгоритм действий с фотографиями процесса.</li>
+                                <li>📄 <b>Внешний PDF:</b> Позволяет прикрепить техкарту или письмо и читать его прямо в приложении (без интернета).</li>
+                            </ul>
+                            <p class="text-[11px] bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 p-2 rounded"><b>Лайфхак:</b> Если вы создали TWI-карту, нажмите "Смотреть" и в правом верхнем углу нажмите кнопку 🖨️ <b>Печать</b>. Система сформирует идеальный PDF-плакат, который можно повесить в бытовке у рабочих.</p>
+                        </div>
+                    </details>
+
+                    <!-- РАЗДЕЛ 6: ПРОСТО О СЛОЖНОМ (Оригинальный текст) -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg> 6. Как приложение считает качество (Просто о сложном)</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] bg-slate-50 dark:bg-slate-900/30">
+                            
+                            <div class="mb-4 text-[12px] leading-relaxed text-slate-700 dark:text-slate-300">
+                                Когда инженер на стройке проверяет работу (например, монтаж окон или укладку плитки), он заполняет чек-лист в приложении. Каждый пункт — это конкретное требование: «зазор должен быть 5 мм», «поверхность ровная», «нет трещин». Приложение автоматически превращает эти ответы в процент качества и делает выводы. Вот как это работает.
+                            </div>
+
+                            <!-- УРОВЕНЬ 1 -->
+                            <div class="bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 rounded-xl p-4 shadow-sm mb-4">
+                                <h3 class="text-[13px] font-black uppercase text-blue-700 dark:text-blue-400 mb-3 flex items-center gap-2"><span>🏗️</span> Уровень 1: Качество изделия</h3>
+                                <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Представьте, что чек-лист состоит из 10 пунктов. У каждого пункта есть «вес» — насколько это важно:</p>
+                                
+                                <div class="space-y-2 mb-4">
+                                    <div class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-100 dark:border-blue-800/50 text-[11px]"><span class="font-black text-blue-600">B1</span> — Мелкий недочёт (вес 1)</div>
+                                    <div class="bg-orange-50 dark:bg-orange-900/20 p-2 rounded border border-orange-100 dark:border-orange-800/50 text-[11px]"><span class="font-black text-orange-600">B2</span> — Серьёзное нарушение (вес 2)</div>
+                                    <div class="bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800/50 text-[11px]"><span class="font-black text-red-600">B3</span> — Критический дефект (вес 3)</div>
+                                </div>
+
+                                <div class="text-[12px] font-bold text-slate-800 dark:text-white mb-2">🔴 Штрафы за ошибки</div>
+                                <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Просто средний балл — это нечестно. Если есть серьёзные нарушения, качество должно быть ниже.</p>
+                                
+                                <ul class="list-disc pl-4 space-y-2 text-[11px] text-slate-700 dark:text-slate-300 mb-4">
+                                    <li><b>Штраф за «кучность» (B2):</b> Если провалено 2 из 5 пунктов B2 — базовый процент умножается на 0.85 (минус 15%). Если 3 из 5 — на 0.70 (минус 30%).</li>
+                                    <li><b>Штраф за критичность (B3):</b> Если найден хотя бы один дефект B3, процент умножается на 0.50 (минус половина). Такая работа не может считаться качественной.</li>
+                                    <li><b>Правило потолка 84%:</b> Если были нарушения B2 или применялись штрафы, итоговый процент никогда не поднимется выше 84%. Работа с заметными недостатками не может получить «отлично».</li>
+                                </ul>
+
+                                <div class="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px]">
+                                    <span class="font-black uppercase text-slate-500 mb-1 block">📌 Пример расчета</span>
+                                    Проверили монтаж окна: 5 пунктов B1 (все ОК), 4 пункта B2 (два из них с нарушениями), 1 пункт B3 (ОК).<br><br>
+                                    Базовый балл = 85%.<br>
+                                    Штраф за два провала B2 = ×0.85.<br>
+                                    Штрафа за B3 нет.<br>
+                                    <b>Итог = 85% × 0.85 = 72% (Статус «ИСПРАВИТЬ»).</b>
+                                </div>
+                            </div>
+
+                            <!-- УРОВЕНЬ 2 -->
+                            <div class="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 shadow-sm mb-4">
+                                <h3 class="text-[13px] font-black uppercase text-indigo-700 dark:text-indigo-400 mb-3 flex items-center gap-2"><span>🏢</span> Уровень 2: Качество Подрядчика</h3>
+                                <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Когда у подрядчика накопилось несколько проверенных изделий, приложение анализирует их все вместе и даёт общий процент надёжности.</p>
+
+                                <div class="space-y-3">
+                                    <div>
+                                        <div class="text-[11px] font-bold text-slate-800 dark:text-white mb-1">🔁 Штраф за «системность»</div>
+                                        <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">Если дефект повторяется на разных объектах — это системная проблема. Например, в 5 окнах из 10 отклонение зазора (частота 50%). Штраф: повтор в 20–50% случаев → умножаем на 0.70.</p>
+                                    </div>
+                                    <div>
+                                        <div class="text-[11px] font-bold text-slate-800 dark:text-white mb-1">🚨 Штраф за критичность</div>
+                                        <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">Считается доля изделий с дефектами B3. Доля 10–20% → штраф 0.85. Доля 20–30% → штраф 0.70.</p>
+                                    </div>
+                                    <div>
+                                        <div class="text-[11px] font-bold text-slate-800 dark:text-white mb-1">📉 Волатильность и стабильность</div>
+                                        <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">Считается, насколько результаты разнятся от раза к разу. Если сегодня 90%, а завтра 60% — это плохой признак. Высокая волатильность снижает индекс стабильности.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- СТАТУСЫ -->
+                            <div class="bg-white dark:bg-slate-800 border border-[var(--card-border)] rounded-xl p-4 shadow-sm mb-4">
+                                <h3 class="text-[12px] font-black uppercase text-slate-800 dark:text-white mb-3">🎯 Достоверность и Статусы</h3>
+                                
+                                <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Чтобы проценту можно было верить, нужно достаточное количество проверок:</p>
+                                <div class="flex gap-2 text-[10px] font-bold text-center mb-4">
+                                    <div class="flex-1 bg-slate-100 dark:bg-slate-900 py-2 rounded text-slate-500">До 5 изд.<br>Низкая</div>
+                                    <div class="flex-1 bg-slate-200 dark:bg-slate-700 py-2 rounded text-slate-600 dark:text-slate-300">От 7 до 15<br>Средняя</div>
+                                    <div class="flex-1 bg-slate-300 dark:bg-slate-600 py-2 rounded text-slate-800 dark:text-white">Более 15<br>Высокая</div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <div class="bg-green-50 dark:bg-green-900/20 p-2.5 rounded-lg border border-green-200 dark:border-green-800 text-[11px]"><span class="font-black text-green-700 dark:text-green-400">🟢 ЗЕЛЕНАЯ ЗОНА (85–100%)</span><br>Можно доверять, давать новые объёмы.</div>
+                                    <div class="bg-yellow-50 dark:bg-yellow-900/20 p-2.5 rounded-lg border border-yellow-200 dark:border-yellow-800 text-[11px]"><span class="font-black text-yellow-700 dark:text-yellow-500">🟡 ЖЕЛТАЯ ЗОНА (70–84%)</span><br>Требует внимания, есть повторяющиеся недочёты.</div>
+                                    <div class="bg-red-50 dark:bg-red-900/20 p-2.5 rounded-lg border border-red-200 dark:border-red-800 text-[11px]"><span class="font-black text-red-700 dark:text-red-400">🔴 КРАСНАЯ ЗОНА (<70% или есть B3)</span><br>Стоп-работы, необходимо срочное вмешательство.</div>
+                                </div>
+                            </div>
+
+                            <!-- ПОЧЕМУ ЭТО УДОБНО -->
+                            <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 shadow-sm">
+                                <h3 class="text-[12px] font-black uppercase text-emerald-800 dark:text-emerald-400 mb-3 flex items-center gap-2"><span>🧠</span> Почему это удобно и справедливо</h3>
+                                <ul class="list-none space-y-2 text-[11px] text-emerald-900 dark:text-emerald-200">
+                                    <li>✔️ <b>Объективно:</b> Инженер не ставит оценку «на глаз». Приложение считает по единым правилам для всех.</li>
+                                    <li>✔️ <b>Прозрачно:</b> Подрядчик видит, за что именно снижен балл, и может исправить конкретный дефект.</li>
+                                    <li>✔️ <b>Предотвращает проблемы:</b> Система подсвечивает повторяющиеся ошибки, чтобы их можно было устранить в корне.</li>
+                                </ul>
+                                <div class="mt-4 pt-3 border-t border-emerald-200 dark:border-emerald-800/50 text-[11px] font-bold text-center">
+                                    Приложение не просто фиксирует дефекты, а помогает строить культуру качества.
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- РАЗДЕЛ 7: ОФЛАЙН РАБОТА И PWA -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> 7. Установка и работа в Офлайне</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
+                            <p class="mb-3">Приложение построено по технологии <b>PWA (Progressive Web App)</b>. Это значит, что его не нужно скачивать из AppStore или Google Play. Оно устанавливается прямо из браузера.</p>
+                            <ul class="list-disc pl-4 space-y-1.5 text-[11px] mb-4">
+                                <li><b>iPhone (Safari):</b> Нажмите кнопку "Поделиться" (квадрат со стрелочкой) ➔ "На экран Домой".</li>
+                                <li><b>Android (Chrome):</b> Нажмите меню (три точки) ➔ "Добавить на главный экран".</li>
+                            </ul>
+                            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 text-[11px]">
+                                <span class="font-black text-indigo-600 dark:text-indigo-400 uppercase mb-1 block">Архитектура Offline-First</span>
+                                Вся база данных, справочники, шаблоны и даже сделанные фотографии хранятся прямо в защищенной памяти вашего телефона (технология IndexedDB).<br><b>На стройке (в подвале, в паркинге) интернет не нужен!</b> Вы спокойно проводите инспекцию, фоткаете, сохраняете акты. Выгрузить PDF отчет или отправить Бэкап руководителю вы сможете потом, когда вернетесь в офис с Wi-Fi.
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- РАЗДЕЛ 8: БЭКАПЫ И СИНХРОНИЗАЦИЯ -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 8. Командная работа и Бэкапы</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
+                            <p class="mb-3">Так как все данные лежат в памяти вашего телефона, для передачи информации коллегам или руководителю используется система <b>Бэкапов (JSON)</b>.</p>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1 uppercase text-[10px] tracking-wider">Как отправить свои проверки коллеге:</h4>
+                            <ol class="list-decimal pl-4 space-y-1.5 text-[11px] mb-4">
+                                <li>Перейдите во вкладку <b>Аналитика ➔ База</b>.</li>
+                                <li>Нажмите <b>Скачать Бэкап</b> (сформируется файл <code>rbi_backup.json</code>).</li>
+                                <li>Отправьте этот файл коллеге через Telegram или почту.</li>
+                            </ol>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-1 uppercase text-[10px] tracking-wider">Как объединить базы (Слияние):</h4>
+                            <p class="text-[11px] mb-3">Если вы руководитель и получаете бэкапы от трех инженеров, вам нужно просто зайти во вкладку <b>Аналитика ➔ База</b> и нажать <b>Загрузить</b>. Выберите присланный файл. Система умная: она сравнит уникальные ID проверок и <b>добавит только новые</b>. Ваши старые проверки не удалятся, базы просто сольются в одну большую.</p>
+                            
+                            <div class="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800 text-[11px]">
+                                <span class="font-black text-green-600 dark:text-green-400 uppercase mb-1 block">Выгрузка в Excel</span>
+                                Если вам нужно построить сводную таблицу (Сводную) в Excel, перейдите во вкладку <b>История</b>, выберите галочками нужные проверки и нажмите иконку <b>CSV</b> (зеленая кнопка со стрелкой вниз).
+                            </div>
+                        </div>
+                    </details>
+
                 </div>
 
-                <!-- СТАТУСЫ -->
-                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-4 shadow-sm mb-4">
-                    <h3 class="text-[12px] font-black uppercase text-slate-800 dark:text-white mb-3">🎯 Достоверность и
-                        Статусы</h3>
-
-                    <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Чтобы проценту можно было верить,
-                        нужно достаточное количество проверок:</p>
-                    <div class="flex gap-2 text-[10px] font-bold text-center mb-4">
-                        <div class="flex-1 bg-slate-100 dark:bg-slate-800 py-2 rounded text-slate-500">До 5
-                            изд.<br>Низкая</div>
-                        <div
-                            class="flex-1 bg-slate-200 dark:bg-slate-700 py-2 rounded text-slate-600 dark:text-slate-300">
-                            От 7 до 15<br>Средняя</div>
-                        <div class="flex-1 bg-slate-300 dark:bg-slate-600 py-2 rounded text-slate-800 dark:text-white">
-                            Более 15<br>Высокая</div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <div
-                            class="bg-green-50 dark:bg-green-900/20 p-2.5 rounded-lg border border-green-200 dark:border-green-800 text-[11px]">
-                            <span class="font-black text-green-700 dark:text-green-400">🟢 ЗЕЛЕНАЯ ЗОНА
-                                (85–100%)</span><br>Можно доверять, давать новые объёмы.</div>
-                        <div
-                            class="bg-yellow-50 dark:bg-yellow-900/20 p-2.5 rounded-lg border border-yellow-200 dark:border-yellow-800 text-[11px]">
-                            <span class="font-black text-yellow-700 dark:text-yellow-500">🟡 ЖЕЛТАЯ ЗОНА
-                                (70–84%)</span><br>Требует внимания, есть повторяющиеся недочёты.</div>
-                        <div
-                            class="bg-red-50 dark:bg-red-900/20 p-2.5 rounded-lg border border-red-200 dark:border-red-800 text-[11px]">
-                            <span class="font-black text-red-700 dark:text-red-400">🔴 КРАСНАЯ ЗОНА (<70% или есть
-                                    B3)</span><br>Стоп-работы, необходимо срочное вмешательство.</div>
-                    </div>
-                </div>
-
-                <!-- ПОЧЕМУ ЭТО УДОБНО -->
-                <div
-                    class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 shadow-sm mb-4">
-                    <h3
-                        class="text-[12px] font-black uppercase text-emerald-800 dark:text-emerald-400 mb-3 flex items-center gap-2">
-                        <span>🧠</span> Почему это удобно и справедливо</h3>
-                    <ul class="list-none space-y-2 text-[11px] text-emerald-900 dark:text-emerald-200">
-                        <li>✔️ <b>Объективно:</b> Инженер не ставит оценку «на глаз». Приложение считает по единым
-                            правилам для всех.</li>
-                        <li>✔️ <b>Прозрачно:</b> Подрядчик видит, за что именно снижен балл, и может исправить
-                            конкретный дефект.</li>
-                        <li>✔️ <b>Предотвращает проблемы:</b> Система подсвечивает повторяющиеся ошибки, чтобы их можно
-                            было устранить в корне.</li>
-                    </ul>
-                    <div
-                        class="mt-4 pt-3 border-t border-emerald-200 dark:border-emerald-800/50 text-[11px] font-bold text-center">
-                        Приложение не просто фиксирует дефекты, а помогает строить культуру качества.
-                    </div>
+                <!-- ПОДВАЛ FAQ -->
+                <div class="mt-8 text-center text-[10px] text-slate-400 uppercase tracking-widest font-black flex items-center justify-center gap-2">
+                    <span class="w-8 h-px bg-slate-300 dark:bg-slate-600"></span>
+                    RBI Quality • V.16.0
+                    <span class="w-8 h-px bg-slate-300 dark:bg-slate-600"></span>
                 </div>
 
             </div>
@@ -1397,7 +1454,10 @@
         <!-- ВКЛАДКА 5: НАСТРОЙКИ -->
         <div id="tab-settings" class="view-section">
             <div class="text-2xl font-black mb-6 pl-2 flex justify-between items-center">
-                <span>Настройки ⚙️</span>
+                <span class="flex items-center gap-2">
+    <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+    Настройки
+</span>
                 <button onclick="resetSettingsToDefault()"
                     class="text-[10px] bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-bold uppercase active:scale-95 dark:bg-slate-700 dark:text-slate-300">Сбросить
                     по умолчанию</button>
@@ -1580,13 +1640,14 @@
                     <span>Исп: <span id="storage-used">--</span> МБ</span>
                     <span>Свободно: <span id="storage-free">--</span> МБ</span>
                 </div>
-                <button onclick="clearPdfCache()"
-                    class="w-full bg-[var(--hover-bg)] border border-[var(--card-border)] text-slate-600 py-3 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">🗑️
-                    Очистить кэш PDF</button>
-                <button onclick="fullFactoryReset()"
-                    class="w-full mt-3 bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-black text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2">⚠️
-                    Полный сброс (Очистить всё)</button>
-            </div>
+                <button onclick="clearPdfCache()" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 py-3.5 rounded-xl font-bold text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2 shadow-sm transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Очистить кэш PDF
+                </button>
+                <button onclick="fullFactoryReset()" class="w-full mt-3 bg-red-50 text-red-600 border border-red-200 dark:bg-red-900/20 dark:border-red-800/50 py-3.5 rounded-xl font-black text-[11px] uppercase active:scale-95 flex items-center justify-center gap-2 shadow-sm transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    Полный сброс (Очистить всё)
+                </button>
             <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2 pl-2">Информация</div>
             <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl mb-6 overflow-hidden p-2">
                 <button onclick="showAboutApp()"
@@ -1603,44 +1664,36 @@
     </main>
 
     <!-- === НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (iOS-like) === -->
-    <nav class="bottom-nav nav-auto">
+    <!-- === НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ (iOS-like) === -->
+    <nav class="bottom-nav nav-auto ios-panel border-t-0">
         <div class="nav-item active" data-tab="tab-audit">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
-                </path>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
             </svg>
             <span class="nav-text">Осмотр</span>
         </div>
         <div class="nav-item" data-tab="tab-history">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z">
-                </path>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
             <span class="nav-text">История</span>
         </div>
         <div class="nav-item" data-tab="tab-analytics">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
-                </path>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
             </svg>
             <span class="nav-text">Аналитика</span>
         </div>
         <div class="nav-item" data-tab="tab-reference">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253">
-                </path>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
             </svg>
             <span class="nav-text">Справочник</span>
         </div>
         <div class="nav-item" data-tab="tab-settings">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
-                </path>
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
             </svg>
             <span class="nav-text">Настройки</span>
         </div>
@@ -1752,6 +1805,40 @@
         </div>
         <div id="tut-arrow"
             class="absolute w-4 h-4 bg-white dark:bg-slate-800 border-l border-t border-slate-200 dark:border-slate-700 transform rotate-45 transition-all duration-500 hidden">
+        </div>
+    </div>
+<!-- === МОДАЛКА МУЛЬТИ-ФИЛЬТРА === -->
+    <div id="multi-filter-modal-overlay" class="fixed inset-0 bg-slate-900/70 z-[3000] hidden items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm transition-opacity duration-300 opacity-0" onclick="closeMultiFilterModal()">
+        <div class="bg-[var(--bg-main)] w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl transition-transform duration-300 transform translate-y-full sm:translate-y-4 sm:scale-95 flex flex-col max-h-[85vh] border border-slate-200/50 dark:border-slate-700/50" id="multi-filter-modal-content" onclick="event.stopPropagation()">
+            
+            <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-t-3xl z-10">
+                <div class="font-black text-[13px] uppercase tracking-tight text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5" id="multi-filter-title">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+                    Фильтр
+                </div>
+                <div class="flex gap-3 items-center">
+                    <button onclick="selectAllMultiFilter()" class="text-[10px] font-bold text-slate-500 hover:text-indigo-500 uppercase active:scale-95 transition-colors">Выбрать всё</button>
+                    <button onclick="closeMultiFilterModal()" class="w-8 h-8 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 active:scale-90 shadow-sm border border-slate-200 dark:border-slate-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-3 border-b border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm z-10 relative">
+                <span class="absolute left-6 top-5 text-slate-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></span>
+                <input type="text" id="multi-filter-search" class="input-base text-[12px] !py-2.5 pl-10 bg-white dark:bg-slate-900 shadow-inner" placeholder="Быстрый поиск..." oninput="filterMultiModalList()">
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2 bg-slate-50 dark:bg-slate-900/50" id="multi-filter-list">
+                <!-- Чекбоксы генерируются здесь -->
+            </div>
+            
+            <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-b-3xl shrink-0 z-10">
+                <button onclick="applyMultiFilter()" class="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-[12px] uppercase tracking-widest shadow-[0_4px_14px_rgba(79,70,229,0.3)] active:scale-95 transition-transform flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    Применить
+                </button>
+            </div>
         </div>
     </div>
 </body>
