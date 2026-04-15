@@ -319,10 +319,7 @@ function updateFilterButtonLabels() {
 }
 
 // Заглушка, чтобы не ломать старый код при загрузке
-function updateAllDynamicFilters() {
-    // Просто обновляем надписи на кнопках на случай сброса
-    updateFilterButtonLabels();
-}
+
 
 // === УВЕДОМЛЕНИЯ И МОДАЛКИ (v15 100% совместимость) ===
 function showToast(message) {
@@ -1187,103 +1184,7 @@ function closeItemHelpMenu() {
 }
 
 // === ВКЛАДКА: ИСТОРИЯ (С ФИЛЬТРАМИ v16.0) ===
-function renderHistoryTab() {
-    const listDiv = document.getElementById('history-list'); 
-    const emptyMsg = document.getElementById('hist-empty-msg');
-    const countEl = document.getElementById('hist-count-total');
-    if(!listDiv) return;
 
-    if (contractorArray.length === 0) { 
-        listDiv.innerHTML = ''; 
-        if(emptyMsg) emptyMsg.style.display = 'block'; 
-        if(countEl) countEl.innerText = '0';
-        return; 
-    }
-    if(emptyMsg) emptyMsg.style.display = 'none';
-
-    const fSearch = document.getElementById('hist-search-text')?.value.toLowerCase() || '';
-    const fPeriod = document.getElementById('hist-filter-period')?.value || 'ALL';
-    const fPhoto = document.getElementById('hist-filter-photo')?.checked;
-    const fB3 = document.getElementById('hist-filter-b3')?.checked;
-
-    const fProj = activeMultiFilters.history.project;
-    const fContr = activeMultiFilters.history.contractor;
-    const fInsp = activeMultiFilters.history.inspector;
-
-    let filteredArr = contractorArray;
-    const now = new Date();
-    
-    if (fSearch) {
-        filteredArr = filteredArr.filter(i => 
-            (i.location && i.location.toLowerCase().includes(fSearch)) ||
-            (i.projectName && i.projectName.toLowerCase().includes(fSearch)) ||
-            (i.inspectorName && i.inspectorName.toLowerCase().includes(fSearch)) ||
-            (i.contractorName && i.contractorName.toLowerCase().includes(fSearch))
-        );
-    }
-    
-    // МУЛЬТИФИЛЬТРЫ
-    if (fProj.length > 0) filteredArr = filteredArr.filter(i => fProj.includes(i.projectName));
-    if (fContr.length > 0) filteredArr = filteredArr.filter(i => fContr.includes(i.contractorName));
-    if (fInsp.length > 0) filteredArr = filteredArr.filter(i => fInsp.includes(i.inspectorName));
-    
-    // ПЕРИОД И ЧЕКБОКСЫ
-    if (fPeriod === 'DAY') filteredArr = filteredArr.filter(i => new Date(i.date).toDateString() === now.toDateString());
-    else if (fPeriod === 'WEEK') { const w = new Date(); w.setDate(now.getDate()-7); filteredArr = filteredArr.filter(i => new Date(i.date) >= w); }
-    else if (fPeriod === 'MONTH') { const m = new Date(); m.setDate(now.getDate()-30); filteredArr = filteredArr.filter(i => new Date(i.date) >= m); }
-
-    if (fPhoto) filteredArr = filteredArr.filter(i => i.photos && Object.keys(i.photos).length > 0);
-    if (fB3) filteredArr = filteredArr.filter(i => i.metrics && i.metrics.n_B3_fail > 0);
-
-    if(countEl) countEl.innerText = filteredArr.length;
-
-    if (filteredArr.length === 0) {
-        listDiv.innerHTML = `<div class="text-sm text-slate-500 text-center bg-slate-50 dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700">По заданным фильтрам проверок не найдено.</div>`;
-        return;
-    }
-
-    const grouped = {};
-    filteredArr.forEach(item => {
-        const cName = item.contractorName || 'Не указан'; 
-        const tTitle = item.templateTitle || 'Неизвестный вид работ';
-        if (!grouped[cName]) grouped[cName] = {}; 
-        if (!grouped[cName][tTitle]) grouped[cName][tTitle] = [];
-        grouped[cName][tTitle].push(item);
-    });
-
-    let html = '';
-    let groupIndex = 0;
-    for (let cName in grouped) {
-        const safeGroupName = `hist-group-${groupIndex++}`;
-        html += `<div class="font-black text-slate-700 dark:text-slate-300 text-xs mt-4 mb-2 uppercase tracking-tight pl-2 border-l-4 border-indigo-500 cursor-pointer flex justify-between items-center" onclick="document.getElementById('${safeGroupName}').classList.toggle('hidden')">
-            <span>🏗️ ${cName}</span><span class="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">СВЕРНУТЬ</span>
-        </div><div id="${safeGroupName}" class="transition-all duration-300 origin-top">`; 
-        
-        for (let tTitle in grouped[cName]) {
-            html += `<div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-2 ml-2 mt-2">${tTitle} (${grouped[cName][tTitle].length} изд.)</div>`;
-            const reversed = [...grouped[cName][tTitle]].sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            html += reversed.map((item) => {
-                const photoIcon = (item.photos && Object.keys(item.photos).length > 0) ? `📸` : '';
-                return `
-                <div class="flex items-center gap-2 mb-2">
-                    <input type="checkbox" class="hist-checkbox w-5 h-5 accent-indigo-600 rounded shrink-0" value="${item.id}">
-                    <div class="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm cursor-pointer hover:border-indigo-300 transition-colors active:scale-[0.98]" onclick="showHistoryDetail(${item.id})">
-                        <div class="flex justify-between items-start mb-1">
-                            <div>
-                                <div class="text-[11px] font-bold text-slate-800 dark:text-white">${item.location} <span class="text-[10px] ml-1">${photoIcon}</span></div>
-                                <div class="text-[9px] text-slate-400 mt-0.5">${new Date(item.date).toLocaleString('ru-RU')} | Инсп: ${item.inspectorName || 'Не указан'}</div>
-                            </div>
-                            <span class="status-tag ${item.metrics.statusCls}">${item.metrics.final}%</span>
-                        </div>
-                    </div>
-                </div>`
-            }).join('');
-        }
-        html += `</div>`; 
-    }
-    listDiv.innerHTML = html;
-}
 // --- УМНОЕ ОБНОВЛЕНИЕ ФИЛЬТРОВ (ЧТОБЫ НЕ СБРАСЫВАЛСЯ ВЫБОР) ---
 function populateSelect(id, values, defaultText) {
     const el = document.getElementById(id);
@@ -1294,32 +1195,7 @@ function populateSelect(id, values, defaultText) {
     else el.value = "ALL";
 }
 
-function updateAllDynamicFilters() {
-    const projects = [...new Set(contractorArray.map(i => i.projectName).filter(Boolean))];
-    const contractors = [...new Set(contractorArray.map(i => i.contractorName).filter(Boolean))];
-    const inspectors = [...new Set(contractorArray.map(i => i.inspectorName).filter(Boolean))];
 
-    populateSelect('hist-filter-project', projects, 'Все объекты');
-    populateSelect('hist-filter-contractor', contractors, 'Все подрядчики');
-    populateSelect('hist-filter-inspector', inspectors, 'Все инспекторы');
-
-    populateSelect('global-filter-project', projects, 'Все объекты');
-    populateSelect('global-filter-contractor', contractors, 'Все подрядчики');
-    populateSelect('global-filter-inspector', inspectors, 'Все инспекторы');
-    
-    // Шаблоны для Аналитики
-    const tmplSelect = document.getElementById('checklist-selector');
-    const targetTmpl = document.getElementById('global-filter-template');
-    if(tmplSelect && targetTmpl) {
-        const currentTmpl = targetTmpl.value;
-        let opts = `<option value="ALL">Все виды работ</option>`;
-        Array.from(tmplSelect.options).forEach(o => {
-            if(o.value && o.value !== "HOME" && o.value !== "UPLOAD") opts += `<option value="${o.value}">${o.text}</option>`;
-        });
-        targetTmpl.innerHTML = opts;
-        if(Array.from(targetTmpl.options).some(o => o.value === currentTmpl)) targetTmpl.value = currentTmpl;
-    }
-}
 function applyHistoryFilters() {
     // Обновление лейбла кнопки времени
     const periodSelect = document.getElementById('hist-filter-period');
@@ -1332,97 +1208,7 @@ function applyHistoryFilters() {
     renderHistoryTab();
 }
 
-function renderHistoryTab() {
-    const listDiv = document.getElementById('history-list'); 
-    const emptyMsg = document.getElementById('hist-empty-msg');
-    const countEl = document.getElementById('hist-count-total');
-    if(!listDiv) return;
 
-    if (contractorArray.length === 0) { 
-        listDiv.innerHTML = ''; 
-        if(emptyMsg) emptyMsg.style.display = 'block'; 
-        if(countEl) countEl.innerText = '0';
-        return; 
-    }
-    if(emptyMsg) emptyMsg.style.display = 'none';
-
-    // Сбор фильтров из DOM
-    const fSearch = document.getElementById('hist-search-text')?.value.toLowerCase() || '';
-    const fProj = document.getElementById('hist-filter-project')?.value || 'ALL';
-    const fContr = document.getElementById('hist-filter-contractor')?.value || 'ALL';
-    const fInsp = document.getElementById('hist-filter-inspector')?.value || 'ALL';
-    const fPeriod = document.getElementById('hist-filter-period')?.value || 'ALL';
-
-    // Применение фильтров
-    let filteredArr = contractorArray;
-    const now = new Date();
-    
-    if (fSearch) {
-        filteredArr = filteredArr.filter(i => 
-            (i.location && i.location.toLowerCase().includes(fSearch)) ||
-            (i.projectName && i.projectName.toLowerCase().includes(fSearch)) ||
-            (i.inspectorName && i.inspectorName.toLowerCase().includes(fSearch)) ||
-            (i.contractorName && i.contractorName.toLowerCase().includes(fSearch))
-        );
-    }
-    
-    if (fProj !== 'ALL') filteredArr = filteredArr.filter(i => i.projectName === fProj);
-    if (fContr !== 'ALL') filteredArr = filteredArr.filter(i => i.contractorName === fContr);
-    if (fInsp !== 'ALL') filteredArr = filteredArr.filter(i => i.inspectorName === fInsp);
-    
-    if (fPeriod === 'DAY') filteredArr = filteredArr.filter(i => new Date(i.date).toDateString() === now.toDateString());
-    else if (fPeriod === 'WEEK') { const w = new Date(); w.setDate(now.getDate()-7); filteredArr = filteredArr.filter(i => new Date(i.date) >= w); }
-    else if (fPeriod === 'MONTH') { const m = new Date(); m.setDate(now.getDate()-30); filteredArr = filteredArr.filter(i => new Date(i.date) >= m); }
-
-    if(countEl) countEl.innerText = filteredArr.length;
-
-    if (filteredArr.length === 0) {
-        listDiv.innerHTML = `<div class="text-sm text-slate-500 text-center bg-slate-50 dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700">По заданным фильтрам проверок не найдено.</div>`;
-        return;
-    }
-
-    const grouped = {};
-    filteredArr.forEach(item => {
-        const cName = item.contractorName || 'Не указан'; 
-        const tTitle = item.templateTitle || 'Неизвестный вид работ';
-        if (!grouped[cName]) grouped[cName] = {}; 
-        if (!grouped[cName][tTitle]) grouped[cName][tTitle] = [];
-        grouped[cName][tTitle].push(item);
-    });
-
-    let html = '';
-    let groupIndex = 0;
-    for (let cName in grouped) {
-        const safeGroupName = `hist-group-${groupIndex++}`;
-        html += `<div class="font-black text-slate-700 dark:text-slate-300 text-xs mt-4 mb-2 uppercase tracking-tight pl-2 border-l-4 border-indigo-500 cursor-pointer flex justify-between items-center" onclick="document.getElementById('${safeGroupName}').classList.toggle('hidden')">
-            <span>🏗️ ${cName}</span><span class="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">СВЕРНУТЬ</span>
-        </div><div id="${safeGroupName}" class="transition-all duration-300 origin-top">`; 
-        
-        for (let tTitle in grouped[cName]) {
-            html += `<div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-2 ml-2 mt-2">${tTitle} (${grouped[cName][tTitle].length} изд.)</div>`;
-            const reversed = [...grouped[cName][tTitle]].reverse();
-            
-            html += reversed.map((item) => {
-                const photoIcon = (item.photos && Object.keys(item.photos).length > 0) ? `📸` : '';
-                return `
-                <div class="flex items-center gap-2 mb-2">
-                    <input type="checkbox" class="hist-checkbox w-5 h-5 accent-indigo-600 rounded shrink-0" value="${item.id}">
-                    <div class="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm cursor-pointer hover:border-indigo-300 transition-colors active:scale-[0.98]" onclick="showHistoryDetail(${item.id})">
-                        <div class="flex justify-between items-start mb-1">
-                            <div>
-                                <div class="text-[11px] font-bold text-slate-800 dark:text-white">${item.location} <span class="text-[10px] ml-1">${photoIcon}</span></div>
-                                <div class="text-[9px] text-slate-400 mt-0.5">${new Date(item.date).toLocaleString('ru-RU')} | Инсп: ${item.inspectorName || 'Не указан'}</div>
-                            </div>
-                            <span class="status-tag ${item.metrics.statusCls}">${item.metrics.final}%</span>
-                        </div>
-                    </div>
-                </div>`
-            }).join('');
-        }
-        html += `</div>`; 
-    }
-    listDiv.innerHTML = html;
-}
 // === МАССОВЫЕ ОПЕРАЦИИ (ИСТОРИЯ) ===
 function toggleAllHistory(checkbox) {
     const checkboxes = document.querySelectorAll('.hist-checkbox');
@@ -2023,6 +1809,7 @@ function initSwipes() {
 
 // === ОБНОВЛЕНИЕ МИНИ-ДАШБОРДА ===
 // === ОБНОВЛЕНИЕ МИНИ-ДАШБОРДА ===
+// === ОБНОВЛЕНИЕ МИНИ-ДАШБОРДА ===
 function updateUI() {
     const p = currentTemplateKey ? getProductMetrics(state, currentChecklist) : null;
     const getTextColor = (val, isDanger) => {
@@ -2031,6 +1818,7 @@ function updateUI() {
         return 'text-white drop-shadow-md'; 
     };
 
+    // Обновление метрик текущего осмотра
     if (!p) {
         if(document.getElementById('dash-p-text')) document.getElementById('dash-p-text').innerText = "0/0";
         if(document.getElementById('dash-p-bar')) document.getElementById('dash-p-bar').style.width = "0%";
@@ -2052,19 +1840,20 @@ function updateUI() {
         if(document.getElementById('dash-p-b3')) document.getElementById('dash-p-b3').innerText = p.n_B3_fail;
     }
 
+    // Обновление интегральных метрик подрядчика
     const currentContr = document.getElementById('inp-contractor')?.value.trim();
     const filteredArr = currentContr ? contractorArray.filter(i => i.contractorName === currentContr && i.templateKey === currentTemplateKey) : [];
     
-    // ПРАВКА 5: Порог достоверности 7 и отображение 2/7
-    if (filteredArr.length < 7) { 
-        if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${filteredArr.length}/7 изд.`;
+    // Модель 4.0: Порог старта расчета - 3 независимые проверки
+    if (filteredArr.length < 3) { 
+        if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${filteredArr.length}/3 пров.`;
         if(document.getElementById('dash-c-bar')) document.getElementById('dash-c-bar').style.width = "0%";
         if(document.getElementById('dash-c-percent')) document.getElementById('dash-c-percent').innerText = "СБОР";
         ['dash-c-ks', 'dash-c-kcrit', 'dash-c-b3'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerText = "-"; });
     } else {
         const c = getContractorMetrics(filteredArr, userTemplates);
         if(c) {
-            if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${c.count} изд.`;
+            if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${c.count} пров.`;
             if(document.getElementById('dash-c-bar')) {
                 document.getElementById('dash-c-bar').style.width = `${c.finalC}%`;
                 document.getElementById('dash-c-bar').className = `absolute top-0 left-0 h-full transition-all duration-500 ${c.isRedZone ? 'bg-red-500' : (c.finalC < 85 ? 'bg-yellow-400' : 'bg-green-500')}`;
@@ -2254,9 +2043,7 @@ async function fullFactoryReset() {
 }
 
 // === АНАЛИТИКА И ОТЧЕТЫ ===
-function updateAnalyticsFilters() {
-    updateAllDynamicFilters();
-}
+
 
 function renderAnalyticsTab() {
     const container = document.getElementById('analytics-contractors-container');
@@ -2449,6 +2236,7 @@ function processDataImport(event) {
                 throw new Error("Неизвестный формат файла");
             }
             
+            
             // ПРИНУДИТЕЛЬНО ОБНОВЛЯЕМ ВЕСЬ ИНТЕРФЕЙС
             updateAllDynamicFilters();
             renderSelector(); // Обновит списки чек-листов в шапке
@@ -2476,6 +2264,121 @@ function processDataImport(event) {
     event.target.value = '';
 }
 
+// === УМНЫЕ МУЛЬТИ-ФИЛЬТРЫ И ИСТОРИЯ ===
+function updateAllDynamicFilters() {
+    // Обновляем надписи на кнопках мульти-фильтров
+    if (typeof updateFilterButtonLabels === 'function') {
+        updateFilterButtonLabels();
+    }
+}
+
+function applyHistoryFilters() {
+    const periodSelect = document.getElementById('hist-filter-period');
+    const periodLabel = document.getElementById('btn-hist-period-label');
+    if (periodSelect && periodLabel) {
+        periodLabel.querySelector('.truncate').innerText = periodSelect.options[periodSelect.selectedIndex].text;
+    }
+    renderHistoryTab();
+}
+
+function renderHistoryTab() {
+    const listDiv = document.getElementById('history-list'); 
+    const emptyMsg = document.getElementById('hist-empty-msg');
+    const countEl = document.getElementById('hist-count-total');
+    if(!listDiv) return;
+
+    if (contractorArray.length === 0) { 
+        listDiv.innerHTML = ''; 
+        if(emptyMsg) emptyMsg.style.display = 'block'; 
+        if(countEl) countEl.innerText = '0';
+        return; 
+    }
+    if(emptyMsg) emptyMsg.style.display = 'none';
+
+    const fSearch = document.getElementById('hist-search-text')?.value.toLowerCase() || '';
+    const fPeriod = document.getElementById('hist-filter-period')?.value || 'ALL';
+    const fPhoto = document.getElementById('hist-filter-photo')?.checked;
+    const fB3 = document.getElementById('hist-filter-b3')?.checked;
+
+    // Берем данные из мульти-фильтров
+    const fProj = activeMultiFilters.history.project || [];
+    const fContr = activeMultiFilters.history.contractor || [];
+    const fInsp = activeMultiFilters.history.inspector || [];
+
+    let filteredArr = contractorArray;
+    const now = new Date();
+    
+    if (fSearch) {
+        filteredArr = filteredArr.filter(i => 
+            (i.location && i.location.toLowerCase().includes(fSearch)) ||
+            (i.projectName && i.projectName.toLowerCase().includes(fSearch)) ||
+            (i.inspectorName && i.inspectorName.toLowerCase().includes(fSearch)) ||
+            (i.contractorName && i.contractorName.toLowerCase().includes(fSearch))
+        );
+    }
+    
+    // МУЛЬТИФИЛЬТРЫ (РАБОТАЮТ КОРРЕКТНО)
+    if (fProj.length > 0) filteredArr = filteredArr.filter(i => fProj.includes(i.projectName));
+    if (fContr.length > 0) filteredArr = filteredArr.filter(i => fContr.includes(i.contractorName));
+    if (fInsp.length > 0) filteredArr = filteredArr.filter(i => fInsp.includes(i.inspectorName));
+    
+    // ПЕРИОД И ЧЕКБОКСЫ
+    if (fPeriod === 'DAY') filteredArr = filteredArr.filter(i => new Date(i.date).toDateString() === now.toDateString());
+    else if (fPeriod === 'WEEK') { const w = new Date(); w.setDate(now.getDate()-7); filteredArr = filteredArr.filter(i => new Date(i.date) >= w); }
+    else if (fPeriod === 'MONTH') { const m = new Date(); m.setDate(now.getDate()-30); filteredArr = filteredArr.filter(i => new Date(i.date) >= m); }
+
+    if (fPhoto) filteredArr = filteredArr.filter(i => i.photos && Object.keys(i.photos).length > 0);
+    if (fB3) filteredArr = filteredArr.filter(i => i.metrics && i.metrics.n_B3_fail > 0);
+
+    if(countEl) countEl.innerText = filteredArr.length;
+
+    if (filteredArr.length === 0) {
+        listDiv.innerHTML = `<div class="text-sm text-slate-500 text-center bg-slate-50 dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700">По заданным фильтрам проверок не найдено.</div>`;
+        return;
+    }
+
+    const grouped = {};
+    filteredArr.forEach(item => {
+        const cName = item.contractorName || 'Не указан'; 
+        const tTitle = item.templateTitle || 'Неизвестный вид работ';
+        if (!grouped[cName]) grouped[cName] = {}; 
+        if (!grouped[cName][tTitle]) grouped[cName][tTitle] = [];
+        grouped[cName][tTitle].push(item);
+    });
+
+    let html = '';
+    let groupIndex = 0;
+    for (let cName in grouped) {
+        const safeGroupName = `hist-group-${groupIndex++}`;
+        html += `<div class="font-black text-slate-700 dark:text-slate-300 text-xs mt-4 mb-2 uppercase tracking-tight pl-2 border-l-4 border-indigo-500 cursor-pointer flex justify-between items-center" onclick="document.getElementById('${safeGroupName}').classList.toggle('hidden')">
+            <span>🏗️ ${cName}</span><span class="text-[10px] text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">СВЕРНУТЬ</span>
+        </div><div id="${safeGroupName}" class="transition-all duration-300 origin-top">`; 
+        
+        for (let tTitle in grouped[cName]) {
+            html += `<div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-2 ml-2 mt-2">${tTitle} (${grouped[cName][tTitle].length} изд.)</div>`;
+            const reversed = [...grouped[cName][tTitle]].sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            html += reversed.map((item) => {
+                const photoIcon = (item.photos && Object.keys(item.photos).length > 0) ? `📸` : '';
+                return `
+                <div class="flex items-center gap-2 mb-2">
+                    <input type="checkbox" class="hist-checkbox w-5 h-5 accent-indigo-600 rounded shrink-0" value="${item.id}">
+                    <div class="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 shadow-sm cursor-pointer hover:border-indigo-300 transition-colors active:scale-[0.98]" onclick="showHistoryDetail(${item.id})">
+                        <div class="flex justify-between items-start mb-1">
+                            <div>
+                                <div class="text-[11px] font-bold text-slate-800 dark:text-white">${item.location} <span class="text-[10px] ml-1">${photoIcon}</span></div>
+                                <div class="text-[9px] text-slate-400 mt-0.5">${new Date(item.date).toLocaleString('ru-RU')} | Инсп: ${item.inspectorName || 'Не указан'}</div>
+                            </div>
+                            <span class="status-tag ${item.metrics.statusCls}">${item.metrics.final}%</span>
+                        </div>
+                    </div>
+                </div>`
+            }).join('');
+        }
+        html += `</div>`; 
+    }
+    listDiv.innerHTML = html;
+}
 // === ФОТО И КОММЕНТАРИИ (СОВМЕСТИМОСТЬ v15) ===
 // === ФОТО И КОММЕНТАРИИ (С ПРИЧИНАМИ ДЕФЕКТОВ) ===
 const DEFECT_CAUSES = [
@@ -2835,10 +2738,17 @@ function generateDemoHistory() {
     
     const demoPhoto = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%23f1f5f9'/><path d='M150 100 L250 100 L200 200 Z' fill='%23cbd5e1'/><circle cx='200' cy='80' r='20' fill='%23fbbf24'/><text x='200' y='250' font-family='Arial' font-size='20' font-weight='bold' fill='%23475569' text-anchor='middle'>ФОТО НАРУШЕНИЯ</text></svg>";
 
-    const createRecord = (id, daysAgo, contr, tmplKey, tmplTitle, loc, stageId, stageName, states, detailsData, photoData, m) => {
-        let d = new Date(now); d.setDate(now.getDate() - daysAgo);
+    const randomDay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+    const createRecord = (id, daysAgo, proj, insp, contr, tmplKey, tmplTitle, loc, stageId, stageName, states, detailsData, photoData, m) => {
+        let d = new Date(now); 
+        d.setDate(now.getDate() - daysAgo);
+        
         return {
-            id, date: d.toISOString(), projectName: 'ЖК "Демонстрационный"', inspectorName: 'Иванов И.И.',
+            id: id + Math.floor(Math.random() * 1000), 
+            date: d.toISOString(), 
+            projectName: proj, 
+            inspectorName: insp,
             contractorName: contr, templateKey: tmplKey, templateTitle: tmplTitle, location: loc,
             stageId, stageName, isCompleted: true, state: states, details: detailsData, photos: photoData, metrics: m
         };
@@ -2849,64 +2759,66 @@ function generateDemoHistory() {
         kc: b2>2?0.85:1.0, kcrit: b3>0?0.5:1.0, isDanger: b3>0
     });
 
-    // 1. Подрядчик ОТЛИЧНИК (ООО "Альфа-Отделка") - Фасады
-    for(let i=0; i<12; i++) {
-        mockArray.push(createRecord(100+i, i, 'ООО "Альфа-Отделка"', 'sys_nvf_facade', 'Вент. фасад', `Секция 1, Ось ${i+1}`, 
-            0, "1. Документация", {'101':'ok', '102':'ok'}, {}, {}, metric(100,0,0,0)));
-        let hasDefect = (i === 5 || i === 9);
-        mockArray.push(createRecord(150+i, i, 'ООО "Альфа-Отделка"', 'sys_nvf_facade', 'Вент. фасад', `Секция 1, Ось ${i+1}`, 
+    // 1. ЖК "Северный" | Инспектор: Иванов И.И.
+    // Подрядчик ОТЛИЧНИК (ООО "Альфа-Отделка") - Улучшался от 85 до 100
+    for(let i=0; i<15; i++) {
+        let day = randomDay(5, 85);
+        let hasDefect = day > 60; // Ошибался только 2 месяца назад
+        mockArray.push(createRecord(100+i, day, 'ЖК "Северный"', 'Иванов И.И.', 'ООО "Альфа-Отделка"', 'sys_nvf_facade', 'Вент. фасад', `Секция 1, Ось ${i+1}`, 
             1, "2. Подготовка", {'106':hasDefect?'fail':'ok', '107':'ok'}, 
             hasDefect ? {'106': {causeCode: 'C06', comment: '[Спешка] Пыль на основании'}} : {}, {}, 
             metric(hasDefect?80:100, 0, hasDefect?1:0, 0)));
     }
 
-    // 2. Подрядчик ХОРОШИСТ (СМУ-7) - Арматура
-    for(let i=0; i<10; i++) {
-        let hasDefect = (i % 3 === 0); // Каждый 3-й с косяком
-        mockArray.push(createRecord(200+i, i*2, 'СМУ-7', 'sys_armature', 'Арматура', `Секция 2, Перекрытие ${i+1}`, 
+    // Подрядчик ХОРОШИСТ (СМУ-7) - Стабильно на 80-90
+    for(let i=0; i<18; i++) {
+        let day = randomDay(2, 90);
+        let hasDefect = (i % 3 === 0); 
+        mockArray.push(createRecord(200+i, day, 'ЖК "Северный"', 'Иванов И.И.', 'СМУ-7', 'sys_armature', 'Арматура', `Секция 2, Перекрытие ${i+1}`, 
             1, "2. Монтаж", {'204':hasDefect?'fail':'ok', '206':'ok', '210':'ok'}, 
-            hasDefect ? {'204': {causeCode: 'C04', comment: '[Персонал] Шаг нарушен на 10мм'}} : {}, 
-            hasDefect ? {'204': demoPhoto} : {}, 
+            hasDefect ? {'204': {causeCode: 'C04', comment: '[Персонал] Шаг нарушен на 10мм'}} : {}, hasDefect ? {'204': demoPhoto} : {}, 
             metric(hasDefect?75:100, 1, hasDefect?2:0, 0)));
     }
 
-    // 3. Подрядчик СРЕДНЯК (ООО "Монолит-Строй") - Арматура
-    for(let i=0; i<15; i++) {
-        let hasDefect = (i % 2 === 0); // Половина с косяками
-        mockArray.push(createRecord(300+i, i*1.5, 'ООО "Монолит-Строй"', 'sys_armature', 'Арматура', `Пилон П-${i+1}`, 
+    // 2. ЖК "Восточный" | Инспектор: Смирнов А.А.
+    // Подрядчик СРЕДНЯК (ООО "Монолит-Строй") - Качество падает!
+    for(let i=0; i<20; i++) {
+        let day = randomDay(1, 90);
+        let hasDefect = day < 40; // Недавно начал косячить
+        mockArray.push(createRecord(300+i, day, 'ЖК "Восточный"', 'Смирнов А.А.', 'ООО "Монолит-Строй"', 'sys_armature', 'Арматура', `Пилон П-${i+1}`, 
             1, "2. Монтаж", {'204':hasDefect?'fail':'ok', '206':'ok', '210':'ok'}, 
-            hasDefect ? {'204': {causeCode: 'C05', comment: '[Организация] Нет контроля'}} : {}, 
-            hasDefect ? {'204': demoPhoto} : {}, 
+            hasDefect ? {'204': {causeCode: 'C05', comment: '[Организация] Нет контроля'}} : {}, hasDefect ? {'204': demoPhoto} : {}, 
             metric(hasDefect?70:100, 1, hasDefect?3:0, 0)));
     }
 
-    // 4. Подрядчик ТРОЕЧНИК (ВентФасадПро) - Фасады
-    for(let i=0; i<8; i++) {
-        let isBad = (i < 4); 
-        mockArray.push(createRecord(400+i, i*3, 'ВентФасадПро', 'sys_nvf_facade', 'Вент. фасад', `Секция 3, Этаж ${i+1}`, 
+    // Подрядчик ТРОЕЧНИК (ВентФасадПро) - Случайные скачки
+    for(let i=0; i<12; i++) {
+        let day = randomDay(10, 90);
+        let isBad = (i % 2 === 0); 
+        mockArray.push(createRecord(400+i, day, 'ЖК "Восточный"', 'Смирнов А.А.', 'ВентФасадПро', 'sys_nvf_facade', 'Вент. фасад', `Секция 3, Этаж ${i+1}`, 
             2, "3. Монтаж кронштейнов", {'109':isBad?'fail':'ok', '112':'fail'}, 
-            isBad ? {'109': {causeCode: 'C01', comment: 'Смещение >15мм'}, '112': {causeCode: 'C04', comment: 'Не чистят отверстия'}} : {}, 
-            isBad ? {'109': demoPhoto} : {}, 
+            isBad ? {'109': {causeCode: 'C01', comment: 'Смещение >15мм'}, '112': {causeCode: 'C04', comment: 'Не чистят отверстия'}} : {}, isBad ? {'109': demoPhoto} : {}, 
             metric(isBad?65:80, 0, isBad?4:2, 0)));
     }
 
-    // 5. Подрядчик ДВОЕЧНИК С КРИТИКОЙ (ИП Петров) - Вентблоки
-    for(let i=0; i<9; i++) {
-        let hasB3 = (i === 1 || i === 4 || i === 7); 
-        mockArray.push(createRecord(500+i, i+1, 'ИП Петров (Вентблоки)', 'sys_vent_stairs', 'Вент. блоки', `Секция 3, Эт ${i+1}`, 
+    // 3. БЦ "Сити-Плаза" | Инспектор: Петров В.В.
+    // Подрядчик ДВОЕЧНИК (ИП Петров) - Стабильный брак B3
+    for(let i=0; i<10; i++) {
+        let day = randomDay(1, 80);
+        let hasB3 = (i % 3 === 0); 
+        mockArray.push(createRecord(500+i, day, 'БЦ "Сити-Плаза"', 'Петров В.В.', 'ИП Петров (Вентблоки)', 'sys_vent_stairs', 'Вент. блоки', `Секция 3, Эт ${i+1}`, 
             1, "2. Вент. блоки", {'305':'fail', '310':hasB3?'fail_escalated':'ok'}, 
-            hasB3 ? {'310': {causeCode: 'C03', comment: '[Материалы] Трещины >0.2мм в массиве'}} : {'305': {causeCode: 'C01', comment: '[Технология] Смещение осей'}}, 
-            hasB3 ? {'310': demoPhoto} : {}, 
+            hasB3 ? {'310': {causeCode: 'C03', comment: '[Материалы] Трещины >0.2мм в массиве'}} : {'305': {causeCode: 'C01', comment: '[Технология] Смещение осей'}}, hasB3 ? {'310': demoPhoto} : {}, 
             metric(hasB3?45:82, 0, 1, hasB3?1:0)));
     }
 
-    // 6. Подрядчик КАТАСТРОФА (СК Эталон) - Лестницы
-    for(let i=0; i<7; i++) {
-        let hasB3 = (i > 2); // Больше половины с B3!
-        mockArray.push(createRecord(600+i, i, 'СК Эталон', 'sys_vent_stairs', 'Вент. блоки', `Лестница ЛК-${i+1}`, 
+    // Подрядчик КАТАСТРОФА (СК Эталон) - Деградация в ноль
+    for(let i=0; i<8; i++) {
+        let day = randomDay(1, 60);
+        let hasB3 = (day < 30); // Последний месяц гонят сплошной B3
+        mockArray.push(createRecord(600+i, day, 'БЦ "Сити-Плаза"', 'Петров В.В.', 'СК Эталон', 'sys_vent_stairs', 'Вент. блоки', `Лестница ЛК-${i+1}`, 
             2, "3. Лестничные марши", {'316':'fail', '319':hasB3?'fail_escalated':'ok'}, 
-            hasB3 ? {'319': {causeCode: 'C03', comment: 'Сломан марш при монтаже'}} : {'316': {causeCode: 'C04', comment: 'Ступени кривые'}}, 
-            hasB3 ? {'319': demoPhoto} : {}, 
+            hasB3 ? {'319': {causeCode: 'C03', comment: 'Сломан марш при монтаже'}} : {'316': {causeCode: 'C04', comment: 'Ступени кривые'}}, hasB3 ? {'319': demoPhoto} : {}, 
             metric(hasB3?30:75, 0, 2, hasB3?1:0)));
     }
 
@@ -2984,31 +2896,32 @@ document.addEventListener("DOMContentLoaded", () => {
     if(cCard) cCard.addEventListener('click', showContractorDetails);
 });
 
+// === МОДАЛКИ РАСЧЕТОВ ===
 function showProductMath() {
     if(!currentTemplateKey) return;
     const p = getProductMetrics(state, currentChecklist);
     const modal = document.getElementById('modal-overlay');
-    const title = document.getElementById('modal-title');
     const body = document.getElementById('modal-body');
     
     document.getElementById('modal-icon').innerHTML = `<div class="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-[14px] flex items-center justify-center border border-indigo-100 dark:border-indigo-800 mx-auto"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="8" y="8" width="8" height="2"></rect><line x1="8" y1="14" x2="8.01" y2="14"></line><line x1="12" y1="14" x2="12.01" y2="14"></line><line x1="16" y1="14" x2="16.01" y2="14"></line></svg></div>`;
-    
+    document.getElementById('modal-title').innerText = "Расчет УрК Осмотра";
+
     if (!p) {
-        body.innerHTML = "<p>Заполните хотя бы один пункт для отображения оценки.</p>";
+        body.innerHTML = "<p>Проверьте хотя бы один пункт для отображения оценки.</p>";
     } else {
         body.innerHTML = `
         <div class="bg-[var(--hover-bg)] p-4 rounded-xl border border-[var(--card-border)] mb-4">
-            <div class="text-[10px] uppercase font-bold text-[var(--text-muted)] mb-2">Формула</div>
+            <div class="text-[10px] uppercase font-bold text-[var(--text-muted)] mb-2">Формула (Текущий осмотр)</div>
             <div class="text-sm font-black font-mono bg-[var(--card-bg)] p-2 rounded border border-[var(--card-border)] text-center">УрК = База × Kc × Kcrit</div>
-            <div class="text-center mt-2 text-2xl font-black text-blue-600">${p.final}%</div>
+            <div class="text-center mt-2 text-2xl font-black ${p.final < 70 ? 'text-red-600' : (p.final < 85 ? 'text-orange-500' : 'text-green-600')}">${p.final}%</div>
         </div>
         <ul class="text-sm space-y-3 mb-4">
             <li class="flex justify-between items-center border-b border-[var(--card-border)] pb-2">
-                <span><b>Базовый балл</b><br><span class="text-[10px] text-[var(--text-muted)]">Доля пройденных проверок</span></span>
+                <span><b>Базовый балл</b><br><span class="text-[10px] text-[var(--text-muted)]">Доля пройденных пунктов (по весам)</span></span>
                 <span class="font-black text-lg">${p.baseUrkPerc}%</span>
             </li>
             <li class="flex justify-between items-center border-b border-[var(--card-border)] pb-2">
-                <span><b>Концентрация (Kc)</b><br><span class="text-[10px] text-[var(--text-muted)]">Штраф за множественные B2</span></span>
+                <span><b>Концентрация (Kc)</b><br><span class="text-[10px] text-[var(--text-muted)]">Штраф за долю брака B2</span></span>
                 <span class="font-black text-lg ${p.kc < 1 ? 'text-red-500' : 'text-green-600'}">${p.kc.toFixed(2)}</span>
             </li>
             <li class="flex justify-between items-center border-b border-[var(--card-border)] pb-2">
@@ -3016,7 +2929,7 @@ function showProductMath() {
                 <span class="font-black text-lg ${p.kcrit < 1 ? 'text-red-500' : 'text-green-600'}">${p.kcrit.toFixed(2)}</span>
             </li>
         </ul>
-        <div class="text-[11px] font-bold bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm leading-relaxed">
+        <div class="text-[11px] font-bold ${p.final > 84 && (p.kc < 1 || p.kcrit < 1 || p.n_B2_fail > 0) ? 'bg-orange-50 text-orange-800 border-orange-200' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'} p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm leading-relaxed">
             <b>Правило потолка (Cap84):</b> Если допущен B2 или применены штрафы, итоговый балл не может превышать 84%.
         </div>`;
     }
@@ -3033,12 +2946,20 @@ function showContractorDetails() {
     document.getElementById('modal-title').innerText = currentContr ? `Аналитика: ${currentContr}` : "Аналитика подрядчика";
     const body = document.getElementById('modal-body');
 
-    if (filteredArr.length < 7) {
-        body.innerHTML = `<p class="bg-yellow-50 text-yellow-800 p-4 rounded-xl border border-yellow-200 font-bold leading-snug">Собрано: <b class="text-lg">${filteredArr.length}</b> изд.<br><br>Для расчета УрК Подрядчика и достоверной аналитики требуется минимум <b>7</b> проверок.</p>`;
+    if (filteredArr.length < 3) {
+        body.innerHTML = `<p class="bg-yellow-50 text-yellow-800 p-4 rounded-xl border border-yellow-200 font-bold leading-snug">Собрано: <b class="text-lg">${filteredArr.length}</b> проверок.<br><br>Для расчета интегрального рейтинга подрядчика и достоверной аналитики требуется минимум <b>3</b> независимые проверки.</p>`;
     } else {
         const c = getContractorMetrics(filteredArr, userTemplates);
+        
+        // Предупреждение о малой выборке
+        let warningHtml = '';
+        if (c.count < 7) {
+            warningHtml = `<div class="bg-orange-50 text-orange-800 p-2 mb-3 rounded-lg border border-orange-200 text-[10px] font-bold text-center uppercase tracking-wider">⚠️ Предварительный рейтинг (Малая выборка)</div>`;
+        }
+
         body.innerHTML = `
-            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800 mb-5 shadow-sm">
+            ${warningHtml}
+            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800 mb-5 shadow-sm relative overflow-hidden">
                 <div class="text-[10px] uppercase font-bold text-indigo-500 mb-2 flex justify-between items-center">
                     <span>УрК Подрядчика</span>
                     <span class="text-[9px] font-bold ${c.confCls} px-2 py-0.5 rounded border uppercase">${c.confStatus}</span>
@@ -3047,6 +2968,7 @@ function showContractorDetails() {
                     <div class="text-5xl font-black text-indigo-700 dark:text-indigo-400">${c.finalC}%</div>
                     <div class="text-right">
                         <span class="text-[10px] font-bold text-indigo-800 bg-indigo-100 px-2 py-1 rounded uppercase block w-fit ml-auto border border-indigo-200">${c.statusTxt}</span>
+                        <div class="text-[9px] text-indigo-500 mt-1 font-bold">Выборка: ${c.count} пров.</div>
                     </div>
                 </div>
             </div>
@@ -3054,29 +2976,29 @@ function showContractorDetails() {
             <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Штрафные коэффициенты</div>
             <ul class="text-[13px] space-y-3 mb-5 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
                 <li class="flex justify-between items-center border-b border-[var(--card-border)] pb-2">
-                    <span class="leading-snug"><b>Системный брак (Ks)</b><br><span class="text-[10px] text-[var(--text-muted)] mt-0.5">Повтор дефекта в ${c.maxFailRate.toFixed(1)}%</span></span>
+                    <span class="leading-snug"><b>Системный брак (Ks)</b><br><span class="text-[10px] text-[var(--text-muted)] mt-0.5">Повтор дефекта в ${c.maxFailRate.toFixed(1)}% проверок</span></span>
                     <span class="font-black text-lg ${c.ks < 1 ? 'text-red-500' : 'text-green-600'}">${c.ks.toFixed(2)}</span>
                 </li>
                 <li class="flex justify-between items-center pb-1">
-                    <span class="leading-snug"><b>Критичность (Kcrit)</b><br><span class="text-[10px] text-[var(--text-muted)] mt-0.5">Доля изделий с B3: ${c.rateB3.toFixed(1)}%</span></span>
+                    <span class="leading-snug"><b>Критичность (KB3)</b><br><span class="text-[10px] text-[var(--text-muted)] mt-0.5">Доля проверок с B3: ${c.rateB3.toFixed(1)}%</span></span>
                     <span class="font-black text-lg ${c.kcritC < 1 ? 'text-red-500' : 'text-green-600'}">${c.kcritC.toFixed(2)}</span>
                 </li>
             </ul>
 
-            <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Качество процесса</div>
+            <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Достоверность и Стабильность</div>
             <div class="grid grid-cols-2 gap-2 mb-5">
                 <div class="bg-[var(--card-bg)] border border-[var(--card-border)] p-3 rounded-xl shadow-sm text-center">
-                    <div class="text-[9px] text-[var(--text-muted)] font-bold uppercase mb-1">Индекс стабильности</div>
-                    <div class="text-2xl font-black ${c.stabilityIndex < 70 ? 'text-orange-500' : 'text-green-600'}">${c.stabilityIndex}/100</div>
+                    <div class="text-[9px] text-[var(--text-muted)] font-bold uppercase mb-1" title="Доверительный интервал 95%">Погрешность (±E)</div>
+                    <div class="text-xl font-black text-slate-700 dark:text-slate-300">± ${c.ci95_margin.toFixed(1)}%</div>
                 </div>
                 <div class="bg-[var(--card-bg)] border border-[var(--card-border)] p-3 rounded-xl shadow-sm text-center">
-                    <div class="text-[9px] text-[var(--text-muted)] font-bold uppercase mb-1">Волатильность (скачки)</div>
-                    <div class="text-2xl font-black ${c.volatility > 15 ? 'text-red-500' : 'text-blue-500'}">${c.volatility.toFixed(1)}</div>
+                    <div class="text-[9px] text-[var(--text-muted)] font-bold uppercase mb-1">Индекс стаб.</div>
+                    <div class="text-xl font-black ${c.stabilityIndex < 70 ? 'text-orange-500' : 'text-green-600'}">${c.stabilityIndex} / 100</div>
                 </div>
             </div>
 
-            <div class="text-[11px] font-bold text-red-700 mt-2 bg-red-50 p-3 rounded-xl border border-red-200 shadow-sm leading-snug">
-                <span class="uppercase text-[9px] block mb-1 text-red-400">Основание / Вывод</span>${c.reason}
+            <div class="text-[11px] font-bold ${c.finalC < 70 ? 'text-red-700 bg-red-50 border-red-200' : (c.finalC < 85 ? 'text-orange-700 bg-orange-50 border-orange-200' : 'text-green-700 bg-green-50 border-green-200')} mt-2 p-3 rounded-xl border shadow-sm leading-snug">
+                <span class="uppercase text-[9px] block mb-1 opacity-70">Основание / Вывод</span>${c.reason}
             </div>`;
     }
     document.body.classList.add('modal-open'); modal.style.display = 'flex';
@@ -3274,6 +3196,7 @@ function renderCurrentAnalyticsTab() {
 }
 
 // === ПОДВКЛАДКА 1: РЕЙТИНГ ПОДРЯДЧИКОВ ===
+// === ПОДВКЛАДКА 1: РЕЙТИНГ ПОДРЯДЧИКОВ ===
 function renderRatingSubTab(data) {
     const container = document.getElementById('rating-content-container');
     if(data.length === 0) { container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">Нет данных по фильтрам</div>`; return; }
@@ -3282,9 +3205,18 @@ function renderRatingSubTab(data) {
     data.forEach(item => { const cName = item.contractorName || 'Не указан'; if(!grouped[cName]) grouped[cName] = []; grouped[cName].push(item); });
     
     const ratingData = [];
-    for(let cName in grouped) { const metrics = getContractorMetrics(grouped[cName], userTemplates); if (metrics) ratingData.push({ name: cName, metrics: metrics, raw: grouped[cName] }); }
+    for(let cName in grouped) { 
+        // Порог старта аналитики: минимум 3 проверки
+        if(grouped[cName].length >= 3) {
+            const metrics = getContractorMetrics(grouped[cName], userTemplates); 
+            if (metrics) ratingData.push({ name: cName, metrics: metrics, raw: grouped[cName] }); 
+        }
+    }
     
-    if (ratingData.length === 0) { container.innerHTML = '<p class="p-6 text-center text-slate-500 text-sm">Мало данных. Для расчета рейтинга нужно мин. 7 изделия.</p>'; return; }
+    if (ratingData.length === 0) { 
+        container.innerHTML = '<p class="p-6 text-center text-slate-500 text-sm bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm">Мало данных. Для расчета рейтинга нужно мин. 3 проверки на подрядчика.</p>'; 
+        return; 
+    }
 
     ratingData.sort((a,b) => b.metrics.finalC - a.metrics.finalC);
 
@@ -3301,21 +3233,25 @@ function renderRatingSubTab(data) {
     html += ratingData.map((r, index) => {
         const m = r.metrics;
         const barColor = m.finalC < 70 ? 'bg-red-500' : (m.finalC < 85 ? 'bg-orange-500' : 'bg-green-500');
-        const isLeader = index === 0 && m.finalC >= 85;
+        // Лидер только если УрК >= 85 и выборка полная (>= 7)
+        const isLeader = index === 0 && m.finalC >= 85 && m.count >= 7;
+        // Пометка о предварительном рейтинге
+        const isPreliminary = m.count < 7;
 
         return `
         <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-4 mb-3 shadow-sm relative overflow-hidden">
             ${isLeader ? '<div class="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-[8px] font-black px-3 py-1 rounded-bl-lg uppercase shadow-sm">🏆 Лидер</div>' : ''}
+            ${isPreliminary ? '<div class="absolute top-0 right-0 bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300 text-[8px] font-black px-3 py-1 rounded-bl-lg uppercase shadow-sm">⚠️ Предварительно (Малая выборка)</div>' : ''}
             
             <div class="flex items-start gap-3 border-b border-[var(--card-border)] pb-3 mb-3">
                 <div class="w-10 h-10 rounded-xl flex items-center justify-center font-black text-xl shadow-inner shrink-0 ${index === 0 ? 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-yellow-900' : (index === 1 ? 'bg-gradient-to-br from-slate-300 to-slate-400 text-slate-800' : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300')}">${index + 1}</div>
                 <div class="flex-1 min-w-0 pt-1">
                     <div class="text-[14px] font-black leading-tight truncate text-slate-800 dark:text-white">${r.name}</div>
-                    <span class="${m.confCls} mt-1 inline-block text-[9px] uppercase tracking-wide">${m.confStatus} (Выборка: ${m.count})</span>
+                    <span class="${m.confCls} mt-1 inline-block text-[9px] uppercase tracking-wide">${m.confStatus} (Пров: ${m.count})</span>
                 </div>
                 <div class="text-right shrink-0">
                     <div class="text-3xl font-black leading-none ${m.finalC < 70 ? 'text-red-600' : (m.finalC < 85 ? 'text-orange-500' : 'text-green-600')}">${m.finalC}%</div>
-                    <span class="${m.riskCls} text-[9px] uppercase block mt-1 font-bold">${m.riskStatus}</span>
+                    <div class="text-[9px] font-bold text-slate-400 block mt-1" title="Доверительный интервал">± ${m.ci95_margin.toFixed(1)}%</div>
                 </div>
             </div>
 
@@ -3343,7 +3279,7 @@ function renderRatingSubTab(data) {
                 <div class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)]">
                     <span class="text-[var(--text-muted)] block mb-0.5">Критичность (Kcrit):</span> 
                     <span class="${m.kcritC < 1 ? 'text-red-500' : 'text-green-600'} text-[12px]">${m.kcritC.toFixed(2)}</span> 
-                    <span class="font-normal text-red-500">(B3: ${m.n_изделий_с_B3} шт)</span>
+                    <span class="font-normal ${m.n_изделий_с_B3 > 0 ? 'text-red-500' : ''}">(B3: ${m.n_изделий_с_B3} шт)</span>
                 </div>
             </div>
             
@@ -3485,7 +3421,6 @@ function buildTrendChartData(data, fieldName, topN = 5, period = 'MONTH') {
 
 // --- ЯДРО ГРАФИКОВ ТРЕНДОВ И ФИЛЬТРОВ ---
 
-// Теперь для каждого графика хранится свой период
 let trendGroupings = { contrs: 'MONTH', works: 'MONTH', global: 'MONTH' }; 
 let selectedChartFilters = { contrs: [], works: [] }; // Пустой массив = Авто (ТОП-5)
 
@@ -3542,7 +3477,6 @@ function buildTrendChartData(data, fieldName, allowedCats = [], period = 'MONTH'
     return { labels, datasets };
 }
 
-// Плавное обновление графика без перерисовки экрана
 function updateTrendCharts(type, period) {
     if (period) trendGroupings[type] = period;
     const data = getFilteredAnalyticsData();
@@ -3622,30 +3556,32 @@ function saveChartFilters(type) {
         selectedChartFilters[type] = checked;
     }
     closeModal();
-    // Обновляем только измененный график плавно
     updateTrendCharts(type);
 }
 
-
+// === ПОДВКЛАДКА 2: ИНСТРУМЕНТ ИНЖЕНЕРА (УМНЫЙ ПОМОЩНИК И АНАЛИЗ) ===
 // === ПОДВКЛАДКА 2: ИНСТРУМЕНТ ИНЖЕНЕРА (УМНЫЙ ПОМОЩНИК И АНАЛИЗ) ===
 // === ПОДВКЛАДКА 2: ИНСТРУМЕНТ ИНЖЕНЕРА (УМНЫЙ ПОМОЩНИК И АНАЛИЗ) ===
 function renderEngineeringSubTab(data) {
     const container = document.getElementById('engineering-content-container');
     if(data.length === 0) { container.innerHTML = `<div class="p-6 text-center text-slate-500 text-sm">Нет данных по выбранным фильтрам</div>`; return; }
 
-    // --- ЧАСТЬ 1: ГЛОБАЛЬНЫЙ АНАЛИЗ (НОВЫЙ ПОДХОД) ---
     const causesCount = {}; 
     let tB1 = 0, tB2 = 0, tB3 = 0, tOk = 0;
     const stageData = {}; 
     const criticalPhotos = []; 
     const systemicPhotos = [];
     const critList = [];
+    const contrDataMap = {};
 
     data.forEach(unit => {
         const sKey = `${unit.templateTitle} | ${unit.stageName}`;
         if(!stageData[sKey]) stageData[sKey] = { checks: 0, sumUrk: 0, b3Count: 0 };
         stageData[sKey].checks++;
         
+        if(!contrDataMap[unit.contractorName]) contrDataMap[unit.contractorName] = [];
+        contrDataMap[unit.contractorName].push(unit);
+
         if(unit.metrics) {
             stageData[sKey].sumUrk += unit.metrics.final; stageData[sKey].b3Count += unit.metrics.n_B3_fail;
             tB1 += unit.metrics.n_B1_fail; tB2 += unit.metrics.n_B2_fail; tB3 += unit.metrics.n_B3_fail;
@@ -3660,7 +3596,7 @@ function renderEngineeringSubTab(data) {
                     let commentText = unit.details[itemId]?.comment || 'Без комментария';
                     causesCount[causeCode] = (causesCount[causeCode] || 0) + 1;
                     
-                    if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state === 'fail')) critList.push({ loc: unit.location, contr: unit.contractorName, text: commentText });
+                    if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state === 'fail')) critList.push({ loc: unit.location, contr: unit.contractorName, text: commentText, date: new Date(unit.date).toLocaleDateString('ru-RU') });
                     if(unit.photos && unit.photos[itemId]) {
                         const photoObj = { src: unit.photos[itemId], loc: unit.location, contr: unit.contractorName, text: commentText, date: new Date(unit.date).getTime() };
                         if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state === 'fail')) criticalPhotos.push(photoObj);
@@ -3671,29 +3607,53 @@ function renderEngineeringSubTab(data) {
         }
     });
 
-    const topCriticalPhotos = criticalPhotos.sort((a,b) => b.date - a.date).slice(0, 5);
-    const topSystemicPhotos = systemicPhotos.sort((a,b) => b.date - a.date).slice(0, 5);
+    const topCriticalPhotos = criticalPhotos.sort((a,b) => b.date - a.date).slice(0, 10);
+    const topSystemicPhotos = systemicPhotos.sort((a,b) => b.date - a.date).slice(0, 10);
+
+    // УМНЫЙ ТЕКСТ ДЛЯ ИНЖЕНЕРА ПО КАЖДОМУ ПОДРЯДЧИКУ
     const smartKey = 'global_engineering_advice';
     let rawSmartText = customExpertConclusions[smartKey] || "";
 
     if (!customExpertConclusions[smartKey]) {
-        let totalDefects = tB1 + tB2 + tB3;
-        let avgTotalUrk = Math.round((stageData[Object.keys(stageData)[0]]?.sumUrk || 0) / (stageData[Object.keys(stageData)[0]]?.checks || 1));
-        if (tB3 > 0) rawSmartText += `[БЛОКИРОВКА ПРИЕМКИ]\nВыявлен критический брак (B3). Финишная сдача невозможна. Необходима остановка СМР на данных участках.\n\n`;
-        let opStatus = tB3 > 0 ? "ПРОЦЕСС ЗАБЛОКИРОВАН (Наличие B3)" : (avgTotalUrk < 70 ? "РАБОТЫ ОСТАНОВЛЕНЫ (УрК < 70%)" : (avgTotalUrk < 85 ? "УСЛОВНЫЙ ДОПУСК СМР (УрК 70-84%)" : "ЦЕЛЕВОЙ ПОКАЗАТЕЛЬ (Готово к сдаче с 1-го раза)"));
-        rawSmartText += `[ОПЕРАЦИОННЫЙ СТАТУС]\n${opStatus}\n\n`;
-        if (totalDefects > 0) {
-            let sortedCauses = Object.keys(causesCount).sort((a,b) => causesCount[b] - causesCount[a]);
-            let topCauseCode = sortedCauses[0];
-            let topCausePercent = Math.round((causesCount[topCauseCode] / totalDefects) * 100);
-            let actText = topCauseCode === 'C01' ? "Остановить работы, пересмотреть ППР." : topCauseCode === 'C04' ? "Срочная замена или переаттестация бригады." : "Усилить операционный контроль на местах.";
-            rawSmartText += `[ГЛАВНАЯ ПРИЧИНА БРАКА]\n${topCausePercent}% дефектов вызвано причиной "${DEFECT_CAUSES.find(c => c.code === topCauseCode)?.name || 'Иное'}".\nРешение: ${actText}`;
-        } else {
-            rawSmartText += `[АНАЛИЗ]\nПроцесс стабилен. Отклонений не выявлено.`;
+        let totalUrkSum = 0;
+        data.forEach(d => totalUrkSum += d.metrics ? d.metrics.final : 0);
+        let avgGlobalUrk = Math.round(totalUrkSum / data.length);
+
+        rawSmartText += `[ОБЩИЙ СТАТУС ВЫБОРКИ]\nБаза расчета: ${data.length} независимых проверок.\nСредний УрК: ${avgGlobalUrk}%. Выявлено критических дефектов (B3): ${tB3} шт.\n\n[АНАЛИЗ ПОДРЯДЧИКОВ]\n`;
+        
+        let contrCount = 0;
+        for (let cName in contrDataMap) {
+            let cList = contrDataMap[cName];
+            if (cList.length >= 3) {
+                contrCount++;
+                let m = getContractorMetrics(cList, userTemplates);
+                
+                let cFailCounts = {};
+                cList.forEach(unit => {
+                    if (unit.state) {
+                        Object.keys(unit.state).forEach(id => {
+                            const s = unit.state[id];
+                            if (s === 'fail' || s === 'fail_escalated') {
+                                const tType = unit.templateKey.split('_')[0];
+                                const tKey = unit.templateKey.replace(tType + '_', '');
+                                const cl = tType === 'sys' && SYSTEM_TEMPLATES[tKey] ? SYSTEM_TEMPLATES[tKey].groups : (userTemplates[tKey] ? userTemplates[tKey].groups : []);
+                                const foundItem = getFlatList(cl).find(x => x.id == id);
+                                if(foundItem) { cFailCounts[foundItem.n] = (cFailCounts[foundItem.n] || 0) + 1; }
+                            }
+                        });
+                    }
+                });
+                const topDefectsStr = Object.entries(cFailCounts).sort((a,b) => b[1] - a[1]).slice(0, 2).map(d => d[0]).join('; ');
+
+                rawSmartText += `• ${cName}:\n  - УрК: ${m.finalC}% (${m.riskStatus}). Выборка: ${m.count} пров. (${m.confStatus}).\n  - Критические дефекты (B3): ${m.n_изделий_с_B3 > 0 ? `${m.n_изделий_с_B3} шт` : 'Отсутствуют'}.\n  - ${topDefectsStr ? `Обратить внимание на: ${topDefectsStr}.` : 'Значимых системных отклонений нет.'}\n\n`;
+            }
+        }
+        if (contrCount === 0) {
+            rawSmartText += `Недостаточно данных для анализа подрядчиков (нужно минимум 3 проверки на каждого).\n`;
         }
     }
 
-    let uiSmartText = rawSmartText.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/^\[(.*?)\]/gm, '<div class="text-[10px] font-black text-indigo-700 dark:text-indigo-400 uppercase mt-3 mb-1">$1</div>');
+    let uiSmartText = rawSmartText.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/^\[(.*?)\]/gm, '<div class="text-[10px] font-black text-indigo-700 uppercase mt-3 mb-1">$1</div>');
 
     const renderPhotoGallery = (photos, title, colorClass, bgClass) => {
         if(photos.length === 0) return '';
@@ -3722,7 +3682,7 @@ function renderEngineeringSubTab(data) {
     }).join('');
 
     const getSelectHtml = (type) => `
-        <select onchange="updateTrendCharts('${type}', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400 rounded px-1 py-1 outline-none cursor-pointer shadow-sm">
+        <select onchange="updateTrendCharts('${type}', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white rounded px-1 py-1 outline-none cursor-pointer shadow-sm">
             <option value="WEEK" ${trendGroupings[type]==='WEEK'?'selected':''}>Недели</option>
             <option value="MONTH" ${trendGroupings[type]==='MONTH'?'selected':''}>Месяцы</option>
             <option value="QUARTER" ${trendGroupings[type]==='QUARTER'?'selected':''}>Кварталы</option>
@@ -3736,24 +3696,24 @@ function renderEngineeringSubTab(data) {
         html += `
         <div class="bg-[var(--card-bg)] border border-indigo-200 rounded-xl shadow-sm relative overflow-hidden">
             <div class="bg-indigo-50 border-b border-indigo-100 p-2 flex justify-between items-center">
-                <div class="text-[10px] font-black text-indigo-600 uppercase flex items-center gap-1">🤖 AI-Анализ (Методика 70/85)</div>
+                <div class="text-[10px] font-black text-indigo-600 uppercase flex items-center gap-1">🤖 Анализ (Методика 70/85)</div>
                 <button onclick="editExpertText('${smartKey}', 'hidden_eng_text')" class="text-[10px] font-bold bg-white text-indigo-600 border border-indigo-200 px-3 py-1 rounded shadow-sm">✏️ Редак.</button>
                 <textarea id="hidden_eng_text" class="hidden">${rawSmartText}</textarea>
             </div>
-            <div class="p-3 text-[11px] leading-snug space-y-2 whitespace-pre-wrap">${uiSmartText}</div>
+            <div class="p-3 text-[11px] leading-snug space-y-2 whitespace-pre-wrap text-slate-800 dark:text-slate-200">${uiSmartText}</div>
         </div>`;
     }
 
     if (appSettings.anaEngPhotos) {
-        html += renderPhotoGallery(topCriticalPhotos, "Критические дефекты (B3)", "text-red-600", "bg-red-50");
-        html += renderPhotoGallery(topSystemicPhotos, "Системные отклонения (B2)", "text-orange-600", "bg-orange-50");
+        html += renderPhotoGallery(topCriticalPhotos, "Все Критические дефекты (B3)", "text-red-600", "bg-red-50");
+        html += renderPhotoGallery(topSystemicPhotos, "Все Повторяющиеся отклонения (B2)", "text-orange-600", "bg-orange-50");
     }
 
     html += `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
                 <div class="flex justify-between items-center mb-2">
-                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Динамика: Подрядчики</div>
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">📉 Динамика: Подрядчики</div>
                     <div class="flex gap-1">
                         <button onclick="openChartFilterModal('contrs')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
                         ${getSelectHtml('contrs')}
@@ -3763,7 +3723,7 @@ function renderEngineeringSubTab(data) {
             </div>
             <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm">
                 <div class="flex justify-between items-center mb-2">
-                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">Динамика: Виды работ</div>
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">📉 Динамика: Виды работ</div>
                     <div class="flex gap-1">
                         <button onclick="openChartFilterModal('works')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
                         ${getSelectHtml('works')}
@@ -3792,135 +3752,171 @@ function renderEngineeringSubTab(data) {
         <div class="bg-red-50 border border-red-200 rounded-xl p-3 shadow-sm mt-4">
             <div class="text-[10px] font-black text-red-600 uppercase mb-3">🚨 Реестр критических инцидентов (B3)</div>
             <div class="max-h-[250px] overflow-y-auto space-y-2 custom-scrollbar">
-                ${critList.map(c => `<div class="bg-white border border-red-100 p-2.5 rounded-lg shadow-sm"><div class="flex justify-between items-start mb-1"><span class="font-black text-[11px] text-red-700">${c.loc}</span><span class="text-[9px] font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded truncate max-w-[100px]">${c.contr}</span></div><div class="text-[10px] text-slate-700 italic">"${c.text}"</div></div>`).join('')}
+                ${critList.map(c => `<div class="bg-white border border-red-100 p-2.5 rounded-lg shadow-sm"><div class="flex justify-between items-start mb-1"><span class="font-black text-[11px] text-red-700">${c.loc}</span><span class="text-[9px] font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded truncate max-w-[100px]" title="${c.contr}">${c.contr}</span></div><div class="text-[10px] text-slate-700 italic">"${c.text}"</div><div class="text-[8px] text-slate-400 mt-1">${c.date}</div></div>`).join('')}
             </div>
         </div>`;
     }
 
     html += `
         <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm mt-4 mb-8">
-            <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Детализация по этапам</div>
+            <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-2">Глобальная Детализация по этапам</div>
             <div class="overflow-x-auto"><table class="w-full text-left whitespace-nowrap"><thead class="bg-[var(--hover-bg)] text-[10px] text-[var(--text-muted)] border-b border-[var(--card-border)]"><tr><th class="p-2">Этап контроля</th><th class="p-2 text-center">Проверок</th><th class="p-2 text-center">УрК</th></tr></thead><tbody class="divide-y divide-[var(--card-border)]">${stagesHtml}</tbody></table></div>
         </div>`;
 
-    // --- ЧАСТЬ 2: ДЕТАЛИЗАЦИЯ ПО ПОДРЯДЧИКАМ (СТАРЫЙ ПОДХОД) ---
-    html += `<div class="text-center font-black text-slate-400 dark:text-slate-500 uppercase mt-10 mb-4 tracking-widest text-[11px] flex items-center justify-center gap-2"><span class="w-8 h-px bg-slate-300 dark:bg-slate-600"></span> Детализация подрядчиков <span class="w-8 h-px bg-slate-300 dark:bg-slate-600"></span></div>`;
+    // --- ЧАСТЬ 2: ДЕТАЛИЗАЦИЯ ПОДРЯДЧИКОВ С ТАБЛИЦЕЙ ЭТАПОВ И ФОТО ---
+    html += `<div class="text-center font-black text-slate-400 uppercase mt-10 mb-4 tracking-widest text-[11px] flex items-center justify-center gap-2"><span class="w-8 h-px bg-slate-300"></span> Детализация подрядчиков <span class="w-8 h-px bg-slate-300"></span></div>`;
 
     let chartConfigs = [];
-    let blocksToProcess = [];
     const uniqueCs = [...new Set(data.map(i => i.contractorName))];
     
-    uniqueCs.forEach(cName => {
+    uniqueCs.forEach((cName, index) => {
         const cData = data.filter(i => i.contractorName === cName);
-        const uniqueTs = [...new Set(cData.map(i => i.templateKey))];
-        uniqueTs.forEach(tKey => {
-            blocksToProcess.push({ contractor: cName, template: cData.find(i => i.templateKey === tKey).templateTitle, data: cData.filter(i => i.templateKey === tKey) });
-        });
-    });
+        const safeNameId = cName.replace(/\W/g, '_') + '_' + index;
+        
+        let cFailCounts = {}; let cB3Counts = {}; let cB2 = 0; let cB3 = 0;
+        let cStageData = {}; // Для детальной таблицы этапов
+        let cStages = new Set();
+        
+        cData.forEach(unit => {
+            const stName = unit.stageName || 'Этап не указан';
+            cStages.add(stName);
+            
+            if(!cStageData[stName]) cStageData[stName] = { checks: 0, sumUrk: 0, ok: 0, fail: 0, b1: 0, b2: 0, b3: 0 };
+            cStageData[stName].checks++;
 
-    blocksToProcess.forEach((block, index) => {
-        const filteredArray = block.data;
-        const safeNameId = block.contractor.replace(/\W/g, '_') + '_' + index;
-        const labels = filteredArray.map((_, i) => `#${i+1}`);
-        const dataUrk = filteredArray.map(item => item.metrics.final);
+            if(unit.metrics) { 
+                cB2 += unit.metrics.n_B2_fail; cB3 += unit.metrics.n_B3_fail; 
+                cStageData[stName].sumUrk += unit.metrics.final;
+                cStageData[stName].b1 += unit.metrics.n_B1_fail;
+                cStageData[stName].b2 += unit.metrics.n_B2_fail;
+                cStageData[stName].b3 += unit.metrics.n_B3_fail;
+            }
+            if(unit.state) {
+                Object.keys(unit.state).forEach(id => {
+                    const s = unit.state[id];
+                    if (s === 'ok') cStageData[stName].ok++;
+                    if (s === 'fail' || s === 'fail_escalated') {
+                        cStageData[stName].fail++;
+                        
+                        let defName = "Дефект";
+                        const tType = unit.templateKey.split('_')[0];
+                        const tKey = unit.templateKey.replace(tType + '_', '');
+                        const cl = tType === 'sys' && SYSTEM_TEMPLATES[tKey] ? SYSTEM_TEMPLATES[tKey].groups : (userTemplates[tKey] ? userTemplates[tKey].groups : []);
+                        const foundItem = getFlatList(cl).find(x => x.id == id);
+                        if(foundItem) defName = foundItem.n;
 
-        let failCounts = {}, localCritList = [], allPhotos = [];
-        const tKey = filteredArray[0].templateKey; const type = tKey.split('_')[0]; const key = tKey.replace(type + '_', '');
-        const refChecklist = type === 'sys' && SYSTEM_TEMPLATES[key] ? SYSTEM_TEMPLATES[key].groups : (userTemplates[key] ? userTemplates[key].groups : currentChecklist);
-        const flatList = getFlatList(refChecklist);
-        flatList.forEach(i => failCounts[i.id] = { count: 0, n: i.n, w: i.w, photo: null });
+                        const photo = (unit.photos && unit.photos[id]) ? unit.photos[id] : null;
 
-        filteredArray.forEach((unit) => {
-            flatList.forEach(i => {
-                const s = unit.state[i.id];
-                if (s === 'fail' || s === 'fail_escalated') {
-                    failCounts[i.id].count++;
-                    let photoTag = '';
-                    if (unit.photos && unit.photos[i.id]) {
-                        failCounts[i.id].photo = unit.photos[i.id];
-                        photoTag = `<img src="${unit.photos[i.id]}" class="w-10 h-10 rounded object-cover border border-slate-200 shrink-0 cursor-pointer active:scale-90" onclick="openPhotoViewer('${unit.photos[i.id]}')" />`;
-                        allPhotos.push({ src: unit.photos[i.id], loc: unit.location, date: new Date(unit.date).toLocaleDateString('ru-RU') });
+                        if (s === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && s==='fail')) {
+                            if(!cB3Counts[defName]) cB3Counts[defName] = { count: 0, photo: null, name: defName };
+                            cB3Counts[defName].count++;
+                            if(photo) cB3Counts[defName].photo = photo;
+                        } else {
+                            if(!cFailCounts[defName]) cFailCounts[defName] = { count: 0, photo: null, name: defName };
+                            cFailCounts[defName].count++;
+                            if(photo) cFailCounts[defName].photo = photo;
+                        }
                     }
-                    if (i.w === 3 || s === 'fail_escalated') {
-                        localCritList.push(`<div class="flex flex-col min-[380px]:flex-row min-[380px]:items-center justify-between border-b border-red-100 dark:border-red-800 pb-2 mb-2 gap-2"><div class="text-[11px] text-red-700 dark:text-red-400 font-bold leading-snug break-words w-full"><span class="text-red-400 dark:text-red-500 block text-[9px] mb-0.5">[${new Date(unit.date).toLocaleDateString()}] ${unit.location}</span>${i.n}</div><div class="self-start min-[380px]:self-center">${photoTag}</div></div>`);
-                    }
-                }
-            });
+                });
+            }
         });
 
-        const sortedFails = Object.values(failCounts).filter(x => x.count > 0).sort((a, b) => b.count - a.count).slice(0, 5);
-        
-        let topDefectsHtml = sortedFails.length > 0 ? sortedFails.map(f => `
-            <div class="flex flex-col min-[450px]:flex-row items-start min-[450px]:items-center gap-2 mb-3 border-b border-slate-100 dark:border-slate-700 pb-2">
-                <div class="flex-1 w-full min-w-0 leading-snug">
-                    <span class="weight-tag wt-${f.w} shrink-0">B${f.w}</span> 
-                    <span class="text-[11px] text-slate-700 dark:text-slate-300 font-bold break-words">${f.n}</span>
-                </div>
-                <div class="flex items-center gap-2 self-start min-[450px]:self-end shrink-0">
-                    <div class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded text-[10px] font-black">${f.count} раз</div>
-                    ${f.photo ? `<img src="${f.photo}" class="w-10 h-10 rounded object-cover border border-slate-200 dark:border-slate-600 cursor-pointer active:scale-90" onclick="openPhotoViewer('${f.photo}')"/>` : ''}
-                </div>
-            </div>`).join('') : `<p class="text-xs text-slate-400 p-2 text-center">Дефектов не найдено</p>`;
-        
-        let critDefectsHtml = localCritList.length > 0 ? localCritList.join('') : `<p class="text-[11px] text-red-400 p-2 font-bold text-center">Критических дефектов нет.</p>`;
-        
-        let galleryHtml = allPhotos.length > 0 ? `<div class="grid grid-cols-3 gap-2">${allPhotos.slice(-6).reverse().map(p => `<div class="relative rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm cursor-pointer active:scale-95" onclick="openPhotoViewer('${p.src}')"><img src="${p.src}" class="w-full h-20 object-cover" /><div class="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[8px] font-bold p-1 truncate backdrop-blur-sm">${p.loc}</div></div>`).join('')}</div>` : `<p class="text-xs text-slate-400 text-center py-6">Нет прикрепленных фотографий.</p>`;
+        // Генерируем детальную таблицу этапов для подрядчика
+        let cStagesUIHtml = Object.keys(cStageData).map(k => {
+            const d = cStageData[k];
+            const avgUrk = Math.round(d.sumUrk / d.checks);
+            const urkColor = avgUrk < 70 ? 'text-red-500' : (avgUrk < 85 ? 'text-orange-500' : 'text-green-600');
+            return `<tr class="border-b border-[var(--card-border)] hover:bg-[var(--hover-bg)]">
+                <td class="p-2 text-[10px] font-bold whitespace-normal">${k}</td>
+                <td class="p-2 text-center text-[11px]">${d.checks}</td>
+                <td class="p-2 text-center text-[11px] font-black ${urkColor}">${avgUrk}%</td>
+                <td class="p-2 text-center text-[11px] text-green-600 font-bold">${d.ok}</td>
+                <td class="p-2 text-center text-[11px] text-red-500 font-bold">${d.fail}</td>
+                <td class="p-2 text-center text-[11px] text-slate-500">${d.b1}</td>
+                <td class="p-2 text-center text-[11px] text-orange-500">${d.b2}</td>
+                <td class="p-2 text-center text-[11px] text-red-600 font-black">${d.b3}</td>
+            </tr>`;
+        });
+
+        const cTopB3 = Object.values(cB3Counts).sort((a,b) => b.count - a.count).slice(0, 5);
+        const cTopB2 = Object.values(cFailCounts).sort((a,b) => b.count - a.count).slice(0, 5);
+
+        const renderContrPhotos = (arr, isCrit) => {
+            if(arr.length === 0) return '<p class="text-xs text-slate-400 py-2 text-center">Дефектов не зафиксировано</p>';
+            return `<div class="grid grid-cols-2 md:grid-cols-5 gap-2">${arr.map(d => {
+                const imgHtml = d.photo ? `<img src="${d.photo}" class="w-full h-20 object-cover cursor-pointer rounded-t-lg" onclick="openPhotoViewer('${d.photo}')">` : `<div class="w-full h-20 bg-[var(--hover-bg)] flex items-center justify-center text-[var(--card-border)] text-[8px] rounded-t-lg">НЕТ ФОТО</div>`;
+                return `<div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg shadow-sm flex flex-col"><div class="flex-1">${imgHtml}</div><div class="p-1.5 text-[8px] font-bold text-slate-800 dark:text-slate-200 leading-tight line-clamp-2">${d.name} <span class="text-slate-500">(${d.count} шт)</span></div></div>`;
+            }).join('')}</div>`;
+        };
 
         let cMetricsHtml = "";
-        if (filteredArray.length >= 7) {
-            const cM = getContractorMetrics(filteredArray, userTemplates);
+        if (cData.length >= 3) {
+            const cM = getContractorMetrics(cData, userTemplates);
             if (cM) {
                 let cColor = cM.isRedZone ? 'text-red-600' : (cM.finalC < 85 ? 'text-orange-500' : 'text-green-600');
-                const expertData = getExpertConclusion(cM, block.contractor, block.template, filteredArray.length, safeNameId, customExpertConclusions);
-                
                 cMetricsHtml = `
-                <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 min-[400px]:p-4 shadow-sm">
-                    <div class="flex flex-col min-[380px]:flex-row items-start min-[380px]:items-center justify-between mb-3 border-b border-slate-200 dark:border-slate-700 pb-2 gap-2">
+                ${cData.length < 7 ? '<div class="bg-orange-50 text-orange-800 p-2 mb-3 rounded-lg border border-orange-200 text-[10px] font-bold text-center uppercase tracking-wider">⚠️ Предварительно (Малая выборка)</div>' : ''}
+                <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 min-[400px]:p-4 shadow-sm mb-4">
+                    <div class="flex justify-between items-center mb-3 border-b border-slate-200 dark:border-slate-700 pb-2">
                         <div class="text-[11px] font-bold text-slate-500 uppercase">УрК Подрядчика</div>
-                        <div class="status-tag ${cM.statusCls} !text-[9px] w-fit">${cM.statusTxt}</div>
+                        <div class="status-tag ${cM.statusCls} !text-[9px]">${cM.statusTxt}</div>
                     </div>
                     <div class="flex items-end justify-between">
-                        <div class="text-4xl min-[400px]:text-5xl font-black ${cColor} leading-none tracking-tighter">${cM.finalC}%</div>
+                        <div class="text-4xl font-black ${cColor} leading-none">${cM.finalC}%</div>
                         <div class="text-right text-[10px] text-slate-500 font-bold bg-white dark:bg-slate-800 p-1.5 rounded border border-slate-200 dark:border-slate-700 shadow-inner">
-                            <div class="mb-0.5">База: <span class="text-slate-800 dark:text-slate-300">${cM.baseUrkContrPerc}%</span></div>
-                            <div>Ks: <span class="text-slate-800 dark:text-slate-300">${cM.ks.toFixed(2)}</span> | Kcrit: <span class="text-slate-800 dark:text-slate-300">${cM.kcritC.toFixed(2)}</span></div>
+                            <div class="mb-0.5">База УрК: <span class="text-slate-800 dark:text-slate-300">${cM.baseUrkContrPerc}%</span></div>
+                            <div>Штраф (Ks): <span class="${cM.ks < 1 ? 'text-red-500' : 'text-slate-800 dark:text-slate-300'}">${cM.ks.toFixed(2)}</span></div>
+                            <div>Штраф (Kcrit): <span class="${cM.kcritC < 1 ? 'text-red-500' : 'text-slate-800 dark:text-slate-300'}">${cM.kcritC.toFixed(2)}</span></div>
                         </div>
                     </div>
-                </div>
-                ${expertData.uiHtml}
-                `;
+                </div>`;
             }
         } else {
-            cMetricsHtml = `<div class="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-500 p-3 rounded-lg border border-yellow-200 dark:border-yellow-800 font-bold text-[10px] mb-6 shadow-sm leading-snug">Собрано ${filteredArray.length} изд. Для расчета УрК нужно минимум 7.</div>`;
+            cMetricsHtml = `<div class="bg-yellow-50 text-yellow-800 p-3 rounded-lg border border-yellow-200 font-bold text-[10px] mb-4 shadow-sm">Собрано ${cData.length} пров. Для расчета рейтинга и штрафов нужно минимум 3.</div>`;
         }
 
         html += `
             <div class="mb-6 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl overflow-hidden shadow-sm">
-                <div class="bg-slate-800 text-white p-3 font-black text-sm uppercase tracking-wider flex flex-col min-[450px]:flex-row justify-between items-start min-[450px]:items-center gap-2">
-                    <span class="break-words leading-tight w-full">🏗️ ${block.contractor}</span>
-                    <span class="text-[10px] font-bold text-slate-300 bg-slate-700 px-2 py-1 rounded shrink-0 border border-slate-600">Выборка: ${filteredArray.length}</span>
+                <div class="bg-slate-800 text-white p-3 font-black text-sm uppercase tracking-wider flex justify-between items-center gap-2">
+                    <span class="truncate">🏗️ ${cName}</span>
+                    <span class="text-[10px] font-bold text-slate-300 bg-slate-700 px-2 py-1 rounded shrink-0 border border-slate-600">${cData.length} пров.</span>
                 </div>
-                <div class="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-3 min-[400px]:px-4 py-2 text-[10px] min-[400px]:text-xs font-bold text-slate-600 dark:text-slate-400 uppercase break-words leading-snug">${block.template}</div>
-                <div class="p-3 min-[400px]:p-4">
+                <div class="bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-3 py-2 text-[9px] font-bold text-slate-600 dark:text-slate-400 uppercase truncate" title="${Array.from(cStages).join(', ')}">
+                    Этапы: ${Array.from(cStages).join(', ')}
+                </div>
+                <div class="p-3">
                     ${cMetricsHtml}
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">График качества по проверкам</div>
+                    
+                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">Детализация проверок по этапам</div>
+                    <div class="overflow-x-auto mb-4 border border-[var(--card-border)] rounded-lg">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead class="bg-[var(--hover-bg)] text-[9px] text-[var(--text-muted)] border-b border-[var(--card-border)] uppercase">
+                                <tr><th class="p-2">Этап</th><th class="p-2 text-center" title="Проверок">Пров.</th><th class="p-2 text-center">УрК</th><th class="p-2 text-center text-green-600">OK</th><th class="p-2 text-center text-red-500">FAIL</th><th class="p-2 text-center">B1</th><th class="p-2 text-center text-orange-500">B2</th><th class="p-2 text-center text-red-600">B3</th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-[var(--card-border)]">
+                                ${cStagesUIHtml.join('')}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2 mt-4">График качества (По проверкам)</div>
                     <div style="height: 160px; position: relative;" class="mb-6"><canvas id="chart_ui_${safeNameId}"></canvas></div>
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">Топ-5 повторяющихся (B2)</div>
-                    <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 mb-6 shadow-sm">${topDefectsHtml}</div>
+                    
                     <div class="text-[11px] font-bold text-red-500 uppercase mb-2">Критические дефекты (B3 / >1.5x)</div>
-                    <div class="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/50 rounded-xl p-3 mb-6 shadow-sm">${critDefectsHtml}</div>
-                    <div class="text-[11px] font-bold text-[var(--text-muted)] uppercase mb-2">Фотоотчет (Последние)</div>
-                    <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 mb-2 shadow-sm">${galleryHtml}</div>
+                    <div class="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/50 rounded-xl p-2 mb-4 shadow-sm">${renderContrPhotos(cTopB3, true)}</div>
+                    
+                    <div class="text-[11px] font-bold text-orange-500 uppercase mb-2">Повторяющиеся (B2)</div>
+                    <div class="bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/50 rounded-xl p-2 shadow-sm">${renderContrPhotos(cTopB2, false)}</div>
                 </div>
             </div>
         `;
-        chartConfigs.push({ id: `chart_ui_${safeNameId}`, type: 'line', labels: labels, data: dataUrk });
+        chartConfigs.push({ id: `chart_ui_${safeNameId}`, type: 'line', labels: cData.map((_, i) => `#${i+1}`), data: cData.map(item => item.metrics.final) });
     });
 
     html += '</div>';
     container.innerHTML = html;
 
-    // Отрисовка графиков
+    // Инициализация графиков
     const trendContrsData = buildTrendChartData(data, 'contractorName', selectedChartFilters.contrs, trendGroupings.contrs);
     const trendWorksData = buildTrendChartData(data, 'templateTitle', selectedChartFilters.works, trendGroupings.works);
 
@@ -3939,7 +3935,6 @@ function renderEngineeringSubTab(data) {
         chartInstances['chart_eng_doughnut'] = new Chart(ctxPie, { type: 'doughnut', data: { labels: ['B1', 'B2', 'B3'], datasets: [{ data: [tB1, tB2, tB3], backgroundColor: ['#3b82f6', '#f97316', '#ef4444'], borderWidth: 0 }] }, options: { animation: false, responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } } } } });
     }
 
-    // Отрисовка графиков подрядчиков
     chartConfigs.forEach(cfg => {
         const ctx = document.getElementById(cfg.id).getContext('2d');
         chartInstances[cfg.id] = new Chart(ctx, {
@@ -3960,16 +3955,15 @@ function renderEngineeringSubTab(data) {
     });
 }
 
-// === ПОДВКЛАДКА 3: ДАШБОРД РУКОВОДИТЕЛЯ (PDCA: CHECK & ACT) ===
+// === ПОДВКЛАДКА 3: ДАШБОРД РУКОВОДИТЕЛЯ (ONE-PAGER) ===
 function renderOnePagerSubTab(data) {
     const container = document.getElementById('onepager-content-container');
-    if(data.length === 0) { container.innerHTML = `<div class="text-center text-slate-500 text-sm py-10">Нет данных для анализа</div>`; return; }
+    if(data.length === 0) { container.innerHTML = `<div class="text-center text-slate-500 text-sm py-10 border border-[var(--card-border)] rounded-xl bg-[var(--card-bg)] shadow-sm mx-1">Нет данных для анализа</div>`; return; }
 
     const uniqueLocs = [...new Set(data.map(i => i.location))];
     const uniqueWorks = [...new Set(data.map(i => i.templateTitle))];
     const avgCoverage = uniqueWorks.length > 0 ? Math.round(data.length / uniqueWorks.length) : 0;
 
-    // 1. Расчет УрК и Рейтинга Подрядчиков
     const groupedC = {};
     data.forEach(item => { 
         groupedC[item.contractorName] = groupedC[item.contractorName] || []; 
@@ -3986,26 +3980,28 @@ function renderOnePagerSubTab(data) {
             if (m) {
                 sumUrk += m.finalC;
                 validContrs++;
-                ratingData.push({ name: cName, val: m.finalC });
-                if (!best || m.finalC > best.val) best = { name: cName, val: m.finalC };
+                ratingData.push({ name: cName, val: m.finalC, count: m.count, isPrelim: m.count < 7, metrics: m });
+                
+                if (!best || (m.finalC > best.val && m.count >= 7)) best = { name: cName, val: m.finalC };
                 if (!worst || m.finalC < worst.val) worst = { name: cName, val: m.finalC };
             }
         }
     }
+    
+    if (!best && ratingData.length > 0) {
+        const sorted = [...ratingData].sort((a,b) => b.val - a.val);
+        best = { name: sorted[0].name, val: sorted[0].val };
+    }
+
     const globalUrk = validContrs > 0 ? Math.round(sumUrk / validContrs) : Math.round(data.reduce((s, i) => s + (i.metrics?.final || 0), 0) / (data.length || 1));
     ratingData.sort((a,b) => b.val - a.val);
 
-    // 2. Динамика
     const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
     const midPoint = Math.floor(sortedData.length / 2);
     const calcSimpleUrk = (arr) => arr.length > 0 ? Math.round(arr.reduce((s, i) => s + (i.metrics?.final || 0), 0) / arr.length) : 0;
     const delta = (calcSimpleUrk(sortedData.slice(0, midPoint)) > 0 && calcSimpleUrk(sortedData.slice(midPoint)) > 0) ? (calcSimpleUrk(sortedData.slice(midPoint)) - calcSimpleUrk(sortedData.slice(0, midPoint))) : 0;
 
-    // 3. Сбор ТОП-5 Дефектов B3 и B2
-    let b3Map = {}; 
-    let b2Map = {};
-    let sumB3 = 0;
-
+    let b3Map = {}; let b2Map = {}; let sumB3 = 0;
     data.forEach(i => {
         if(i.metrics) sumB3 += i.metrics.n_B3_fail;
         if(i.state && i.details) {
@@ -4021,14 +4017,12 @@ function renderOnePagerSubTab(data) {
                     if(foundItem) defName = foundItem.n;
 
                     const photo = (i.photos && i.photos[id]) ? i.photos[id] : null;
-                    const contr = i.contractorName;
-
                     if (s === 'fail_escalated' || (i.metrics && i.metrics.n_B3_fail > 0)) {
-                        if (!b3Map[defName]) b3Map[defName] = { count: 0, photo: null, contr: contr, name: defName };
+                        if (!b3Map[defName]) b3Map[defName] = { count: 0, photo: null, contr: i.contractorName, name: defName };
                         b3Map[defName].count++;
                         if (photo) b3Map[defName].photo = photo; 
                     } else {
-                        if (!b2Map[defName]) b2Map[defName] = { count: 0, photo: null, contr: contr, name: defName };
+                        if (!b2Map[defName]) b2Map[defName] = { count: 0, photo: null, contr: i.contractorName, name: defName };
                         b2Map[defName].count++;
                         if (photo) b2Map[defName].photo = photo;
                     }
@@ -4040,7 +4034,6 @@ function renderOnePagerSubTab(data) {
     const topB3 = Object.values(b3Map).sort((a,b) => b.count - a.count).slice(0, 5);
     const topB2 = Object.values(b2Map).sort((a,b) => b.count - a.count).slice(0, 5);
 
-    // Функция генерации сетки фото для UI
     const renderUIPhotoCards = (arr, isCrit) => {
         if (arr.length === 0) return `<div class="text-center py-6 text-[var(--text-muted)] text-[11px] bg-[var(--hover-bg)] rounded-lg border border-dashed border-[var(--card-border)]">Дефектов не зафиксировано</div>`;
         while(arr.length < 5) { arr.push({ empty: true }); }
@@ -4048,13 +4041,10 @@ function renderOnePagerSubTab(data) {
         return `<div class="grid grid-cols-5 gap-1.5 min-[400px]:gap-2">
             ${arr.map(d => {
                 if (d.empty) return `<div class="border border-dashed border-[var(--card-border)] rounded-lg opacity-30 bg-[var(--card-bg)] min-h-[80px]"></div>`;
-                
                 const imgHtml = d.photo 
                     ? `<img src="${d.photo}" class="w-full h-14 min-[400px]:h-20 object-cover border-b border-[var(--card-border)] cursor-pointer active:scale-95" onclick="openPhotoViewer('${d.photo}')">` 
-                    : `<div class="w-full h-14 min-[400px]:h-20 bg-[var(--hover-bg)] flex items-center justify-center text-[var(--card-border)] text-[8px] border-b border-[var(--card-border)]">НЕТ ФОТО</div>`;
-                
+                    : `<div class="w-full h-14 min-[400px]:h-20 bg-[var(--hover-bg)] flex items-center justify-center text-[var(--card-border)] text-[8px] border-b border-[var(--card-border)] text-center px-1">НЕТ ФОТО</div>`;
                 const badgeColor = isCrit ? 'text-red-700 bg-red-100 border-red-200 dark:bg-red-900/50 dark:border-red-800' : 'text-orange-700 bg-orange-100 border-orange-200 dark:bg-orange-900/50 dark:border-orange-800';
-
                 return `
                 <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg overflow-hidden flex flex-col shadow-sm">
                     ${imgHtml}
@@ -4073,126 +4063,126 @@ function renderOnePagerSubTab(data) {
         </div>`;
     };
 
+    // УМНЫЙ ТЕКСТ УПРАВЛЕНЧЕСКОГО РЕШЕНИЯ
+    const pdcaKey = 'global_onepager_pdca';
+    let rawPdcaText = customExpertConclusions[pdcaKey] || "";
+
+    if (!customExpertConclusions[pdcaKey]) {
+        const redContrs = ratingData.filter(r => r.val < 70 || r.metrics.n_изделий_с_B3 > 0).map(r => r.name);
+        const greenContrs = ratingData.filter(r => r.val >= 85 && r.metrics.n_изделий_с_B3 === 0 && !r.isPrelim).map(r => r.name);
+        
+        rawPdcaText += `[АНАЛИТИКА ДАШБОРДА]\nСредний УрК по выбранным фильтрам: ${globalUrk}%.\nОхват контроля: ${data.length} независимых проверок.\n\n`;
+        
+        if (redContrs.length > 0) rawPdcaText += `🚨 В ЗОНЕ РИСКА (УрК < 70% или критический брак B3):\n${redContrs.join(', ')}\n\n`;
+        if (greenContrs.length > 0) rawPdcaText += `🏆 ОБРАЗЦОВЫЕ ПОДРЯДЧИКИ (УрК > 85%, полная выборка):\n${greenContrs.join(', ')}\n\n`;
+        
+        rawPdcaText += `[УПРАВЛЕНЧЕСКОЕ РЕШЕНИЕ]\n`;
+        if (redContrs.length > 0) {
+            rawPdcaText += `1. Ограничить или заблокировать подписание КС-2 для подрядчиков в красной зоне до полного устранения дефектов.\n`;
+            rawPdcaText += `2. Провести аудит квалификации персонала данных субподрядчиков.\n`;
+        } else if (globalUrk < 85) {
+            rawPdcaText += `Процесс находится в условно-допустимой зоне. Разрешено продолжение СМР, но финишная приемка невозможна до устранения системных дефектов B2.\n`;
+        } else {
+            rawPdcaText += `Качество высокое. Риски минимальны. Работы принимаются без ограничений.\n`;
+        }
+    }
+
+    let uiPdcaText = rawPdcaText.replace(/\n/g, '<br>').replace(/^\[(.*?)\]/gm, '<b class="text-slate-800 dark:text-white text-[11px] block mt-2 mb-1">$1</b>');
     const urkColor = globalUrk < 70 ? 'text-red-600' : (globalUrk < 85 ? 'text-orange-500' : 'text-green-600');
 
-    const getSelectHtml = (type) => `
-        <select onchange="updateTrendCharts('${type}', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-400 rounded px-1 py-1 shadow-sm outline-none">
-            <option value="WEEK" ${trendGroupings[type]==='WEEK'?'selected':''}>Недели</option>
-            <option value="MONTH" ${trendGroupings[type]==='MONTH'?'selected':''}>Месяцы</option>
-            <option value="QUARTER" ${trendGroupings[type]==='QUARTER'?'selected':''}>Кварталы</option>
-            <option value="YEAR" ${trendGroupings[type]==='YEAR'?'selected':''}>Годы</option>
-        </select>
-    `;
-
-    // 4. ТЕКСТ PDCA (С ВОЗМОЖНОСТЬЮ РЕДАКТИРОВАНИЯ)
-    const pdcaKey = 'global_onepager_pdca';
-    const defaultPdcaText = `СТАТУС: ${globalUrk < 70 ? 'Процесс вне контроля (<70%). Идет накопление брака, требуются жесткие меры.' : (globalUrk < 85 ? 'Условный допуск (70-84%). Есть системные ошибки, запрет на финишную приемку.' : 'Целевая зона (>=85%). Процесс стабилен, качество высокое.')}\n\nДИРЕКТИВА: ${globalUrk < 70 || sumB3 > 0 ? `Приостановить работы аутсайдера (${worst ? worst.name : 'н/д'}). Выдать предписание на демонтаж/исправление брака. Ограничить оплату КС-2.` : 'Работы выполняются в соответствии с регламентом. Продолжить СМР в текущем режиме.'}`;
-    
-    let rawPdcaText = customExpertConclusions[pdcaKey] || defaultPdcaText;
-    let uiPdcaText = rawPdcaText.replace(/\n/g, '<br>').replace(/(СТАТУС:|ДИРЕКТИВА:)/g, '<b>$1</b>');
-
-
-    // ================= ГЕНЕРАЦИЯ HTML ДЛЯ ИНТЕРФЕЙСА =================
     let html = `
         <div class="text-center border-b border-[var(--card-border)] pb-3 mb-4">
             <h2 class="text-[16px] min-[400px]:text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white">Сводный статус объекта</h2>
-            <div class="text-[10px] font-bold text-[var(--text-muted)] mt-1">Охват: ${data.length} проверок | ${uniqueLocs.length} изделий</div>
+            <div class="text-[10px] font-bold text-[var(--text-muted)] mt-1">База расчета: ${data.length} независимых проверок</div>
         </div>
         
         <div class="flex flex-col md:flex-row gap-4 items-stretch">
-            
-            <!-- ЛЕВАЯ КОЛОНКА (МЕТРИКИ, ТРЕНД, РЕЙТИНГ) -->
             <div class="flex-1 flex flex-col gap-4 md:w-1/2 md:border-r md:border-dashed md:border-[var(--card-border)] md:pr-4">
                 
-                <!-- Метрики 2x2 -->
                 <div class="grid grid-cols-2 gap-2 min-[400px]:gap-3">
                     <div class="bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-sm relative overflow-hidden flex flex-col justify-center">
-                        <div class="text-[9px] min-[400px]:text-[10px] uppercase font-black text-[var(--text-muted)] mb-1">Ср. УрК Объекта</div>
+                        <div class="text-[9px] uppercase font-black text-[var(--text-muted)] mb-1">Ср. УрК Объекта</div>
                         <div class="text-3xl min-[400px]:text-4xl font-black ${urkColor}">${globalUrk}%</div>
-                        ${delta !== 0 ? `<div class="absolute top-1 right-1 min-[400px]:top-2 min-[400px]:right-2 text-[8px] min-[400px]:text-[9px] font-black px-1.5 py-0.5 rounded ${delta > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30' : 'bg-red-100 text-red-700 dark:bg-red-900/30'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}%</div>` : ''}
+                        ${delta !== 0 ? `<div class="absolute top-1 right-1 min-[400px]:top-2 min-[400px]:right-2 text-[8px] min-[400px]:text-[9px] font-black px-1.5 py-0.5 rounded ${delta > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}%</div>` : ''}
+                        <div class="text-[7px] text-[var(--text-muted)] absolute bottom-1 inset-x-0 text-center">Динамика месяц к месяцу</div>
                     </div>
                     <div class="bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-sm flex flex-col justify-center">
-                        <div class="text-[9px] min-[400px]:text-[10px] uppercase font-black text-[var(--text-muted)] mb-1">Охват проверок</div>
+                        <div class="text-[9px] uppercase font-black text-[var(--text-muted)] mb-1">Глубина контроля</div>
                         <div class="text-3xl min-[400px]:text-4xl font-black text-blue-500">${avgCoverage}</div>
-                        <div class="text-[8px] text-[var(--text-muted)] mt-1">в среднем на вид работ</div>
+                        <div class="text-[8px] text-[var(--text-muted)] mt-1">проверок на 1 вид работ</div>
                     </div>
-                    
-                    ${appSettings.anaOpLeader ? `
-                    <div class="bg-green-50 dark:bg-green-900/20 rounded-xl p-2.5 border border-green-200 dark:border-green-800 text-center shadow-sm flex flex-col justify-center">
-                        <div class="text-[8px] min-[400px]:text-[9px] uppercase font-black text-green-700 dark:text-green-500 mb-1">🏆 Лидер качества</div>
-                        <div class="text-[11px] min-[400px]:text-xs font-black text-green-900 dark:text-green-300 truncate">${best ? best.name : 'Нет данных'}</div>
-                    </div>
-                    <div class="bg-red-50 dark:bg-red-900/20 rounded-xl p-2.5 border border-red-200 dark:border-red-800 text-center shadow-sm flex flex-col justify-center">
-                        <div class="text-[8px] min-[400px]:text-[9px] uppercase font-black text-red-700 dark:text-red-500 mb-1">⚠️ Зона риска</div>
-                        <div class="text-[11px] min-[400px]:text-xs font-black text-red-900 dark:text-red-300 truncate">${worst ? worst.name : 'Нет данных'}</div>
-                    </div>` : ''}
                 </div>
 
-                <!-- Тренд Подрядчиков -->
                 ${appSettings.anaOpTrend ? `
                 <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm flex flex-col">
                     <div class="flex justify-between items-center mb-2">
                         <div class="text-[10px] font-black text-[var(--text-muted)] uppercase">📉 Динамика подрядчиков</div>
-                        ${getSelectHtml('contrs')}
+                        <div class="flex gap-1">
+                            <button onclick="openChartFilterModal('contrs')" class="text-[9px] font-bold border border-slate-200 text-slate-600 bg-white rounded px-2 py-1 active:scale-95 shadow-sm">⚙️ Линии</button>
+                            <select onchange="updateTrendCharts('contrs', this.value)" class="text-[9px] font-bold border border-indigo-200 text-indigo-700 bg-white rounded px-1 py-1 shadow-sm outline-none">
+                                <option value="WEEK" ${trendGroupings.contrs==='WEEK'?'selected':''}>Недели</option>
+                                <option value="MONTH" ${trendGroupings.contrs==='MONTH'?'selected':''}>Месяцы</option>
+                                <option value="QUARTER" ${trendGroupings.contrs==='QUARTER'?'selected':''}>Кварталы</option>
+                                <option value="YEAR" ${trendGroupings.contrs==='YEAR'?'selected':''}>Годы</option>
+                            </select>
+                        </div>
                     </div>
                     <div style="height: 160px; position: relative;"><canvas id="chart_op_trend_contrs"></canvas></div>
                 </div>` : ''}
 
-                <!-- Рейтинг Подрядчиков (Гистограмма) -->
-                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm flex-1">
-                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-3">📊 Рейтинг (УрК)</div>
-                    <div class="space-y-2.5">
-                        ${ratingData.slice(0,5).map(r => `
+                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl p-3 shadow-sm flex-1 flex flex-col">
+                    <div class="text-[10px] font-black text-[var(--text-muted)] uppercase mb-3 flex justify-between items-center">
+                        📊 Рейтинг (УрК)
+                    </div>
+                    <div class="space-y-2.5 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 flex-1">
+                        ${ratingData.map(r => `
                             <div class="flex items-center gap-2">
-                                <div class="w-20 text-[9px] min-[400px]:text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate">${r.name}</div>
-                                <div class="flex-1 h-2.5 min-[400px]:h-3 bg-[var(--hover-bg)] rounded-full overflow-hidden border border-[var(--card-border)]">
+                                <div class="w-20 text-[9px] font-bold text-slate-700 dark:text-slate-300 truncate" title="${r.name}">${r.name}</div>
+                                <div class="flex-1 h-2.5 bg-[var(--hover-bg)] rounded-full overflow-hidden border border-[var(--card-border)] relative">
                                     <div class="h-full ${r.val < 70 ? 'bg-red-500' : (r.val < 85 ? 'bg-orange-500' : 'bg-green-500')}" style="width:${r.val}%"></div>
                                 </div>
-                                <div class="w-6 text-right text-[9px] min-[400px]:text-[10px] font-black ${r.val < 70 ? 'text-red-500' : (r.val < 85 ? 'text-orange-500' : 'text-green-500')}">${r.val}%</div>
+                                <div class="w-14 flex items-center justify-end gap-1">
+                                    ${r.isPrelim ? '<span class="text-[8px]" title="Предварительный рейтинг (Мало проверок)">⚠️</span>' : ''}
+                                    <span class="text-[10px] font-black ${r.val < 70 ? 'text-red-500' : (r.val < 85 ? 'text-orange-500' : 'text-green-500')}">${r.val}%</span>
+                                </div>
                             </div>
-                        `).join('') || '<div class="text-[10px] text-[var(--text-muted)] text-center py-2">Недостаточно данных</div>'}
+                        `).join('') || '<div class="text-[10px] text-[var(--text-muted)] text-center py-2">Недостаточно данных (мин. 3 проверки)</div>'}
                     </div>
                 </div>
 
             </div>
 
-            <!-- ПРАВАЯ КОЛОНКА (ТОП-5, ФОТО, PDCA) -->
             <div class="flex-1 flex flex-col gap-4 md:w-1/2">
                 
                 ${appSettings.anaOpTopDefects ? `
-                <!-- ТОП-5 B3 -->
                 <div class="flex-1 bg-red-50 dark:bg-red-900/10 border-2 border-red-200 dark:border-red-800/50 rounded-xl p-3 shadow-sm flex flex-col">
-                    <h3 class="margin-0 mb-3 font-black text-[10px] min-[400px]:text-[11px] color-red-700 text-red-700 dark:text-red-500 uppercase border-b border-red-200 dark:border-red-800 pb-2">
+                    <h3 class="margin-0 mb-3 font-black text-[10px] text-red-700 dark:text-red-500 uppercase border-b border-red-200 dark:border-red-800 pb-2">
                         🚨 ТОП-5 Критических дефектов (B3)
                     </h3>
-                    <div class="flex-1">
+                    <div class="flex-1 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
                         ${renderUIPhotoCards(topB3, true)}
                     </div>
                 </div>
 
-                <!-- ТОП-5 B2 -->
                 <div class="flex-1 bg-orange-50 dark:bg-orange-900/10 border-2 border-orange-200 dark:border-orange-800/50 rounded-xl p-3 shadow-sm flex flex-col">
-                    <h3 class="margin-0 mb-3 font-black text-[10px] min-[400px]:text-[11px] color-orange-700 text-orange-700 dark:text-orange-500 uppercase border-b border-orange-200 dark:border-orange-800 pb-2">
-                        🔄 ТОП-5 Повторяющихся (B2)
+                    <h3 class="margin-0 mb-3 font-black text-[10px] text-orange-700 dark:text-orange-500 uppercase border-b border-orange-200 dark:border-orange-800 pb-2">
+                        🔄 ТОП-5 Повторяющихся нарушений (B2)
                     </h3>
-                    <div class="flex-1">
+                    <div class="flex-1 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
                         ${renderUIPhotoCards(topB2, false)}
                     </div>
                 </div>
                 ` : ''}
 
-                <!-- Управленческое решение (PDCA) С КНОПКОЙ РЕДАКТИРОВАНИЯ -->
                 <div class="${globalUrk < 85 || sumB3 > 0 ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'} border-2 rounded-xl p-3 shadow-sm flex-none relative">
                     <div class="flex justify-between items-center border-b ${globalUrk < 85 || sumB3 > 0 ? 'border-orange-200 dark:border-orange-800' : 'border-green-200 dark:border-green-800'} pb-2 mb-2">
-                        <h3 class="margin-0 font-black text-[10px] min-[400px]:text-[11px] ${globalUrk < 85 || sumB3 > 0 ? 'text-orange-800 dark:text-orange-500' : 'text-green-800 dark:text-green-500'} uppercase">
+                        <h3 class="margin-0 font-black text-[10px] ${globalUrk < 85 || sumB3 > 0 ? 'text-orange-800 dark:text-orange-500' : 'text-green-800 dark:text-green-500'} uppercase">
                             🎯 Управленческое Решение
                         </h3>
-                        <button onclick="editExpertText('${pdcaKey}', 'hidden_pdca_text')" class="text-[9px] font-bold bg-white/50 border border-black/10 px-2 py-1 rounded shadow-sm active:scale-95 text-slate-700">✏️ Изменить</button>
+                        <button onclick="editExpertText('${pdcaKey}', 'hidden_pdca_text')" class="text-[9px] font-bold bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-2 py-1 rounded shadow-sm active:scale-95 text-slate-700 dark:text-slate-300">✏️ Изменить</button>
                     </div>
                     <textarea id="hidden_pdca_text" class="hidden">${rawPdcaText}</textarea>
-                    
-                    <div class="text-[10px] min-[400px]:text-[11px] line-height-relaxed text-slate-800 dark:text-slate-200 flex flex-col gap-2">
-                        ${sumB3 > 0 && !customExpertConclusions[pdcaKey] ? `<div class="text-red-600 dark:text-red-400"><b>🚨 КРИТИЧЕСКИЙ РИСК:</b> Выявлено <b>${sumB3}</b> инцидентов B3. Продолжение работ без устранения грозит финансовыми потерями.</div>` : ''}
+                    <div class="text-[11px] leading-relaxed text-slate-800 dark:text-slate-200 flex flex-col gap-1">
                         <div class="whitespace-pre-wrap">${uiPdcaText}</div>
                     </div>
                 </div>
@@ -4203,8 +4193,9 @@ function renderOnePagerSubTab(data) {
 
     container.innerHTML = html;
 
-    // Инициализация графиков
     if (appSettings.anaOpTrend) {
+        // Мы используем selectedChartFilters.contrs для графика (по умолчанию - Авто ТОП-5, либо выбранные вручную линии)
+        // Но сам список Рейтинга выше выводит ВСЕХ.
         const trendContrsData = buildTrendChartData(data, 'contractorName', selectedChartFilters.contrs, trendGroupings.contrs);
         const ctxTC = document.getElementById('chart_op_trend_contrs').getContext('2d');
         chartInstances['chart_op_trend_contrs'] = new Chart(ctxTC, { type: 'line', data: trendContrsData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 9} } } } } });
@@ -4450,25 +4441,24 @@ function generateSmartComment(scenario) {
     showToast("Текст успешно сгенерирован!");
 }
 
+// УМНЫЙ ГЕНЕРАТОР СЦЕНАРИЕВ ИИ (Математика 4.0)
 function buildSmartText(scenario, c, cName, tTitle, count) {
-    // ВНЕДРЕНИЕ БИЗНЕС-ЛОГИКИ УРк (70% и 85%)
     const hasB3 = c.n_изделий_с_B3 > 0;
-    // Наличие B3 безусловно переводит в красную зону
     const isRed = c.finalC < 70 || hasB3; 
     const isYellow = c.finalC >= 70 && c.finalC < 85 && !hasB3;
     const isGreen = c.finalC >= 85 && !hasB3;
 
-    const b3Str = hasB3 ? `🚨 КРИТИЧЕСКИЙ БРАК (B3): выявлено на ${c.n_изделий_с_B3} ед. Это блокирует дальнейшие операции!` : `Критический брак (B3) отсутствует.`;
+    const b3Str = hasB3 ? `🚨 КРИТИЧЕСКИЙ БРАК (B3): выявлено в ${c.n_изделий_с_B3} из ${count} проверок. Это блокирует дальнейшие операции!` : `Критический брак (B3) отсутствует.`;
     
     switch(scenario) {
         case 'strict':
-            return `ОФИЦИАЛЬНАЯ ПРЕТЕНЗИЯ (ПРЕДПИСАНИЕ)\n\nКому: Руководителю проекта от организации "${cName}".\nКасательно: Неудовлетворительное качество работ по виду "${tTitle}".\n\nПо результатам строительного контроля (выборка: ${count} ед.) Уровень Качества (УрК) составил ${c.finalC}%.\n\n${isRed ? '❌ ПОКАЗАТЕЛЬ НИЖЕ 70% ИЛИ ВЫЯВЛЕН B3. ПРОДОЛЖЕНИЕ РАБОТ ЗАПРЕЩЕНО.\nКачество находится в неуправляемом диапазоне. Требуется немедленная остановка СМР.' : (isYellow ? '⚠️ ПОКАЗАТЕЛЬ 70-84%. СТАТУС: "УСЛОВНО ВЫПОЛНЕНО".\nКачество в допустимом диапазоне для этапа СМР, однако финишная приемка невозможна до полного устранения дефектов.' : '✅ ПОКАЗАТЕЛЬ > 85%. РАБОТЫ ПРИНИМАЮТСЯ.')}\n\nФакты нарушений:\n- ${b3Str}\n- Системный повтор дефектов: ${c.maxFailRate.toFixed(1)}%\n\nТРЕБОВАНИЯ:\n1. Устранить все критические (B3) и значимые (B2) замечания.\n2. Предъявить исправленные объемы повторно.\nВ случае неустранения, данные дефекты напрямую повлияют на показатель "сдача клиенту с первого раза". Применить компенсационные удержания.`;
+            return `ОФИЦИАЛЬНАЯ ПРЕТЕНЗИЯ (ПРЕДПИСАНИЕ)\n\nКому: Руководителю проекта от организации "${cName}".\nКасательно: Неудовлетворительное качество работ по виду "${tTitle}".\n\nПо результатам независимого строительного контроля (база: ${count} проверок) Интегральный Уровень Качества (УрК) составил ${c.finalC}%.\n\n${isRed ? '❌ ПОКАЗАТЕЛЬ НИЖЕ 70% ИЛИ ВЫЯВЛЕН B3. ПРОДОЛЖЕНИЕ РАБОТ ЗАПРЕЩЕНО.\nКачество находится в неуправляемом диапазоне. Требуется немедленная остановка СМР.' : (isYellow ? '⚠️ ПОКАЗАТЕЛЬ 70-84%. СТАТУС: "УСЛОВНО ВЫПОЛНЕНО".\nКачество в допустимом диапазоне для этапа СМР, однако финишная приемка невозможна до полного устранения дефектов.' : '✅ ПОКАЗАТЕЛЬ > 85%. РАБОТЫ ПРИНИМАЮТСЯ.')}\n\nФакты нарушений:\n- ${b3Str}\n- Системный повтор дефектов: в ${c.maxFailRate.toFixed(1)}% проверок.\n\nТРЕБОВАНИЯ:\n1. Устранить все критические (B3) и значимые (B2) замечания.\n2. Предъявить исправленные объемы повторно к сдаче.\nВ случае неустранения, данные дефекты напрямую повлияют на показатель "сдача клиенту с первого раза". Применить компенсационные удержания.`;
             
         case 'tech':
-            return `ТЕХНИЧЕСКИЙ АУДИТ КАЧЕСТВА (МЕТОДИКА 70/85)\n\nПодрядчик: ${cName}\nРаздел: ${tTitle}\nВыборка: ${count} независимых проверок\n\n[МЕТРИКИ ИНЖИНИРИНГА]\n• Итоговый УрК: ${c.finalC}%\n• Коэф. системного брака (Ks): ${c.ks.toFixed(2)} (макс. частота дефекта ${c.maxFailRate.toFixed(1)}%)\n• Коэф. критичности (Kcrit): ${c.kcritC.toFixed(2)} (доля брака B3: ${c.rateB3.toFixed(1)}%)\n\n[СТАТУС И ВЫВОДЫ]\n${isRed ? '🔴 ПРОЦЕСС ЗАБЛОКИРОВАН (УрК < 70% или есть B3). Опасные и неуправляемые дефекты. Строительство данного участка необходимо остановить.' : (isYellow ? '🟡 ОПЕРАЦИОННЫЙ КОМПРОМИСС (УрК 70-84%). Технология соблюдается, но есть значимые отклонения. Допускается продолжение СМР (условный допуск), но финишная сдача невозможна.' : '🟢 ЦЕЛЕВОЙ ПОКАЗАТЕЛЬ (УрК >= 85%). Плотность дефектов минимальна. Остаточные дефекты носят косметический характер и не повлияют на сдачу с первого раза.')}`;
+            return `ТЕХНИЧЕСКИЙ АУДИТ КАЧЕСТВА (МЕТОДИКА 70/85)\n\nПодрядчик: ${cName}\nРаздел: ${tTitle}\nВыборка: ${count} независимых проверок\n\n[МЕТРИКИ ИНЖИНИРИНГА]\n• Итоговый УрК: ${c.finalC}% (Погрешность: ±${c.ci95_margin.toFixed(1)}%)\n• Коэф. системного брака (Ks): ${c.ks.toFixed(2)} (макс. частота дефекта ${c.maxFailRate.toFixed(1)}%)\n• Коэф. критичности (Kcrit): ${c.kcritC.toFixed(2)} (доля проверок с B3: ${c.rateB3.toFixed(1)}%)\n• Стабильность процесса: ${c.stabilityIndex}/100\n\n[СТАТУС И ВЫВОДЫ]\n${isRed ? '🔴 ПРОЦЕСС ЗАБЛОКИРОВАН (УрК < 70% или есть B3). Опасные и неуправляемые дефекты. Строительство данного участка необходимо остановить.' : (isYellow ? '🟡 ОПЕРАЦИОННЫЙ КОМПРОМИСС (УрК 70-84%). Технология соблюдается, но есть значимые отклонения. Допускается продолжение СМР (условный допуск), но финишная сдача невозможна.' : '🟢 ЦЕЛЕВОЙ ПОКАЗАТЕЛЬ (УрК >= 85%). Плотность дефектов минимальна. Остаточные дефекты носят косметический характер и не повлияют на сдачу с первого раза.')}`;
             
         case 'boss':
-            return `ИНФОРМАЦИОННАЯ СПРАВКА ДЛЯ РУКОВОДСТВА\n\n🏗 Подрядчик: ${cName}\n📊 Бизнес-прогноз: ${isRed ? '🔴 ВЫСОКИЙ РИСК СРЫВА ПЕРЕДАЧИ КЛИЕНТУ' : (isYellow ? '🟡 ТРЕБУЮТСЯ ДОРАБОТКИ ПЕРЕД ФИНИШЕМ' : '🟢 ВЫСОКАЯ ВЕРОЯТНОСТЬ СДАЧИ С 1-ГО РАЗА')}\n📉 Рейтинг (УрК): ${c.finalC}%\n\nКлючевые тезисы:\n1. ${b3Str}\n2. ${isRed ? 'Работы остановлены. Идет развитие опасных дефектов.' : (isYellow ? 'Этап СМР продолжается, но на финише возможен "дефектный хвост". Нужен контроль устранения.' : 'Отличный результат. Достигнута точка оптимума, ресурсы на избыточный "перфекционизм" не тратятся.')}\n\nРезюме:\n${isRed ? 'Рекомендуется применить штрафы/удержания. Подрядчик не справляется.' : (isYellow ? 'Подрядчик работает удовлетворительно. Необходим контроль закрытия предписаний.' : 'Надежный партнер. Опережающий индикатор УрК гарантирует успешную передачу объекта.')}`;
+            return `ИНФОРМАЦИОННАЯ СПРАВКА ДЛЯ РУКОВОДСТВА\n\n🏗 Подрядчик: ${cName}\n📊 Бизнес-прогноз: ${isRed ? '🔴 ВЫСОКИЙ РИСК СРЫВА ПЕРЕДАЧИ КЛИЕНТУ' : (isYellow ? '🟡 ТРЕБУЮТСЯ ДОРАБОТКИ ПЕРЕД ФИНИШЕМ' : '🟢 ВЫСОКАЯ ВЕРОЯТНОСТЬ СДАЧИ С 1-ГО РАЗА')}\n📉 Интегральный УрК: ${c.finalC}%\n\nКлючевые тезисы:\n1. ${b3Str}\n2. ${isRed ? 'Работы остановлены. Идет развитие опасных дефектов.' : (isYellow ? 'Этап СМР продолжается, но на финише возможен "дефектный хвост". Нужен контроль устранения.' : 'Отличный результат. Достигнута точка оптимума, ресурсы на избыточный "перфекционизм" не тратятся.')}\n\nРезюме:\n${isRed ? 'Рекомендуется применить штрафы/удержания. Подрядчик не справляется.' : (isYellow ? 'Подрядчик работает удовлетворительно. Необходим контроль закрытия предписаний.' : 'Надежный партнер. Опережающий индикатор УрК гарантирует успешную передачу объекта.')}`;
             
         case 'action_plan':
             return `ПЛАН КОРРЕКТИРУЮЩИХ МЕРОПРИЯТИЙ (PDCA)\n\nПодрядчик: ${cName} | УрК: ${c.finalC}% (Цель: >85%)\n\nШАГ 1. БЛОКИРОВКА (${b3Str})\n- ${hasB3 ? 'Остановить работы на участках с B3 до устранения.' : 'Ограничений по B3 нет.'}\n\nШАГ 2. ПЕРЕХОД ИЗ СМР В ФИНИШ (Текущий статус: ${isYellow ? 'Условно выполнено' : (isRed ? 'Не принято' : 'Принято')})\n- Устранить все дефекты B2. Наличие не устраненного B2 блокирует подписание финального акта.\n\nШАГ 3. ПРОФИЛАКТИКА СИСТЕМНОГО БРАКА (Частота: ${c.maxFailRate.toFixed(1)}%)\n- Провести аудит квалификации исполнителей.\n- Оценить наличие и соблюдение ТК на рабочих местах.`;
@@ -4477,7 +4467,7 @@ function buildSmartText(scenario, c, cName, tTitle, count) {
             return `СЛУЖЕБНАЯ ЗАПИСКА (ОПЛАТА И КС-2)\n\nПодрядчик: ${cName}\nВид работ: ${tTitle} | Итоговый УрК: ${c.finalC}%\n\nЗАКЛЮЧЕНИЕ СТРОИТЕЛЬНОГО КОНТРОЛЯ:\n${isRed ? '🔴 ЗАПРЕТ НА ПОДПИСАНИЕ КС-2. УрК ниже 70% или выявлен критический дефект. Применить компенсационные удержания.' : (isYellow ? '🟡 УСЛОВНЫЙ ДОПУСК К КС-2 (Этап СМР). Разрешается частичная оплата, но финальный расчет (финишная сдача) заблокирован до доведения УрК до 85%.' : '🟢 ОПЛАТА БЕЗ ОГРАНИЧЕНИЙ. УрК >= 85%. Работы выполнены экономически и технически рационально, остаточные дефекты косметические.')}\n\n${b3Str}`;
             
         default:
-            return `ЭКСПЕРТНОЕ ЗАКЛЮЧЕНИЕ\n\nКачество работ подрядчика "${cName}" оценивается на ${c.finalC}%.\n\n[Бизнес-метрика]\n${isRed ? 'Остановка работ (<70%).' : (isYellow ? 'Условный допуск СМР (70-84%). Финишная сдача невозможна.' : 'Готовность к сдаче клиенту с 1-го раза (>=85%).')}\n\n[Проблемы]\n• ${c.maxFailRate >= 20 ? `Системный брак: ${c.maxFailRate.toFixed(1)}%.` : 'Системных отклонений не выявлено.'}\n• ${b3Str}\n\n[Вывод]\n${isRed ? 'Требуется полная переделка.' : (isYellow ? 'Устранить B2 перед финишем.' : 'Работы приняты.')}`;
+            return `ЭКСПЕРТНОЕ ЗАКЛЮЧЕНИЕ\n\nКачество работ подрядчика "${cName}" оценивается на ${c.finalC}%.\n\n[Бизнес-метрика]\n${isRed ? 'Остановка работ (<70%).' : (isYellow ? 'Условный допуск СМР (70-84%). Финишная сдача невозможна.' : 'Готовность к сдаче клиенту с 1-го раза (>=85%).')}\n\n[Проблемы]\n• ${c.maxFailRate >= 20 ? `Системный брак: в ${c.maxFailRate.toFixed(1)}% проверок.` : 'Системных отклонений не выявлено.'}\n• ${b3Str}\n\n[Вывод]\n${isRed ? 'Требуется полная переделка.' : (isYellow ? 'Устранить B2 перед финишем.' : 'Работы приняты.')}`;
     }
 }
 
@@ -4597,114 +4587,335 @@ function exportPdfRating(data) {
 }
 
 // 2. PDF: Инженерный Анализ
+// === PDF-ВЫГРУЗКА (ИНЖЕНЕРНЫЙ ОТЧЕТ С ЗАЩИТОЙ ОТ РАЗРЫВОВ И ПОЛНЫМИ ДАННЫМИ) ===
 function exportPdfEngineering(data) {
-    const stageData = {}; const criticalPhotos = []; const systemicPhotos = []; const critList = [];
+    if(data.length === 0) return showToast('Нет данных для выгрузки');
+
+    const contrDataMap = {};
     let tB1 = 0, tB2 = 0, tB3 = 0, tOk = 0;
+    
+    // Глобальные метрики для реестров
+    const globalStageData = {}; 
+    const globalCritList = [];
 
     data.forEach(unit => {
-        const sKey = `${unit.templateTitle} | ${unit.stageName}`;
-        if(!stageData[sKey]) stageData[sKey] = { checks: 0, sumUrk: 0, b3Count: 0 };
-        stageData[sKey].checks++;
-        if(unit.metrics) { stageData[sKey].sumUrk += unit.metrics.final; stageData[sKey].b3Count += unit.metrics.n_B3_fail; tB1 += unit.metrics.n_B1_fail; tB2 += unit.metrics.n_B2_fail; tB3 += unit.metrics.n_B3_fail; }
+        if(!contrDataMap[unit.contractorName]) contrDataMap[unit.contractorName] = [];
+        contrDataMap[unit.contractorName].push(unit);
+        
+        if(unit.metrics) { 
+            tB1 += unit.metrics.n_B1_fail; tB2 += unit.metrics.n_B2_fail; tB3 += unit.metrics.n_B3_fail; 
+        }
+        if(unit.state) {
+            Object.values(unit.state).forEach(s => { if(s === 'ok') tOk++; });
+        }
 
+        // Сбор глобальных данных по этапам
+        const sKey = `${unit.templateTitle} | ${unit.stageName}`;
+        if(!globalStageData[sKey]) globalStageData[sKey] = { checks: 0, sumUrk: 0 };
+        globalStageData[sKey].checks++;
+        if(unit.metrics) globalStageData[sKey].sumUrk += unit.metrics.final;
+
+        // Сбор глобального реестра критических дефектов B3
         if(unit.state && unit.details) {
             Object.keys(unit.state).forEach(itemId => {
                 const state = unit.state[itemId];
-                if(state === 'ok') tOk++;
-                if(state === 'fail' || state === 'fail_escalated') {
-                    const txt = unit.details[itemId]?.comment || 'Без описания';
-                    if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state==='fail')) critList.push({ loc: unit.location, contr: unit.contractorName, text: txt });
-                    if(unit.photos && unit.photos[itemId]) {
-                        const pData = { src: unit.photos[itemId], loc: unit.location, text: txt, date: new Date(unit.date).getTime() };
-                        if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state==='fail')) criticalPhotos.push(pData);
-                        else systemicPhotos.push(pData);
-                    }
+                if(state === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && state === 'fail')) {
+                    let commentText = unit.details[itemId]?.comment || 'Без комментария';
+                    globalCritList.push({ 
+                        loc: unit.location, 
+                        contr: unit.contractorName, 
+                        text: commentText, 
+                        date: new Date(unit.date).toLocaleDateString('ru-RU') 
+                    });
                 }
             });
         }
     });
 
-    const topB3 = criticalPhotos.sort((a,b) => b.date - a.date).slice(0, 5);
-    const topB2 = systemicPhotos.sort((a,b) => b.date - a.date).slice(0, 5);
-
-    const cBar = document.getElementById('chart_eng_causes');
-    const cPie = document.getElementById('chart_eng_doughnut');
-    const cTrendC = document.getElementById('chart_eng_trend_contrs');
-    const cTrendW = document.getElementById('chart_eng_trend_works');
-    
-    const imgBar = cBar ? `<img style="width:100%; max-height:200px; object-fit:contain;" src="${cBar.toDataURL('image/png')}">` : '';
-    const imgPie = cPie ? `<img style="width:100%; max-height:200px; object-fit:contain;" src="${cPie.toDataURL('image/png')}">` : '';
-    const imgTrendC = cTrendC ? `<img style="width:100%; max-height:200px; object-fit:contain;" src="${cTrendC.toDataURL('image/png')}">` : '';
-    const imgTrendW = cTrendW ? `<img style="width:100%; max-height:200px; object-fit:contain;" src="${cTrendW.toDataURL('image/png')}">` : '';
-
-    let rawSmartText = customExpertConclusions['global_engineering_advice'] || "Смарт-анализ не сгенерирован.";
+    let rawSmartText = document.getElementById('hidden_eng_text')?.value || "Нет данных для формирования смарт-анализа.";
     let formattedSmartText = rawSmartText.replace(/\n/g, "<br>").replace(/^\[(.*?)\]/gm, '<div style="color:#4f46e5; font-size:12px; font-weight:900; margin-top:10px; margin-bottom:2px;">$1</div>');
 
-    let stagesHtml = Object.keys(stageData).map(k => {
-        const avg = Math.round(stageData[k].sumUrk / stageData[k].checks);
-        return `<tr><td>${k}</td><td class="text-center">${stageData[k].checks}</td><td class="text-center font-bold" style="color:${avg<70?'#dc2626':(avg<85?'#f59e0b':'#16a34a')}">${avg}%</td><td class="text-center">${stageData[k].b3Count>0?'🚨 Да':'Нет'}</td></tr>`;
+    let contrHtmlBlocks = '';
+
+    for (let cName in contrDataMap) {
+        const cData = contrDataMap[cName];
+        let cFailCounts = {}; let cB3Counts = {};
+        let cStageData = {}; 
+        let cStages = new Set();
+        
+        cData.forEach(unit => {
+            const stName = unit.stageName || 'Этап не указан';
+            cStages.add(stName);
+            
+            if(!cStageData[stName]) cStageData[stName] = { checks: 0, sumUrk: 0, ok: 0, fail: 0, b1: 0, b2: 0, b3: 0 };
+            cStageData[stName].checks++;
+
+            if(unit.metrics) { 
+                cStageData[stName].sumUrk += unit.metrics.final;
+                cStageData[stName].b1 += unit.metrics.n_B1_fail;
+                cStageData[stName].b2 += unit.metrics.n_B2_fail;
+                cStageData[stName].b3 += unit.metrics.n_B3_fail;
+            }
+
+            if(unit.state) {
+                Object.keys(unit.state).forEach(id => {
+                    const s = unit.state[id];
+                    if (s === 'ok') cStageData[stName].ok++;
+                    if (s === 'fail' || s === 'fail_escalated') {
+                        cStageData[stName].fail++;
+                        let defName = "Дефект";
+                        const tType = unit.templateKey.split('_')[0];
+                        const tKey = unit.templateKey.replace(tType + '_', '');
+                        const cl = tType === 'sys' && SYSTEM_TEMPLATES[tKey] ? SYSTEM_TEMPLATES[tKey].groups : (userTemplates[tKey] ? userTemplates[tKey].groups : []);
+                        const foundItem = getFlatList(cl).find(x => x.id == id);
+                        if(foundItem) defName = foundItem.n;
+
+                        const photo = (unit.photos && unit.photos[id]) ? unit.photos[id] : null;
+
+                        if (s === 'fail_escalated' || (unit.metrics && unit.metrics.n_B3_fail > 0 && s==='fail')) {
+                            if(!cB3Counts[defName]) cB3Counts[defName] = { count: 0, photo: null, name: defName };
+                            cB3Counts[defName].count++;
+                            if(photo) cB3Counts[defName].photo = photo;
+                        } else {
+                            if(!cFailCounts[defName]) cFailCounts[defName] = { count: 0, photo: null, name: defName };
+                            cFailCounts[defName].count++;
+                            if(photo) cFailCounts[defName].photo = photo;
+                        }
+                    }
+                });
+            }
+        });
+
+        const cTopB3 = Object.values(cB3Counts).sort((a,b) => b.count - a.count).slice(0, 5);
+        const cTopB2 = Object.values(cFailCounts).sort((a,b) => b.count - a.count).slice(0, 5);
+
+        // Генерация таблицы детализации
+        let cStagesPdfHtml = Object.keys(cStageData).map(k => {
+            const d = cStageData[k];
+            const avgUrk = Math.round(d.sumUrk / d.checks);
+            const urkColor = avgUrk < 70 ? '#dc2626' : (avgUrk < 85 ? '#f59e0b' : '#16a34a');
+            return `<tr style="border-bottom:1px solid #cbd5e1; background: #fff;">
+                <td style="padding:6px; font-size:9px; border-right:1px solid #cbd5e1;">${k}</td>
+                <td style="padding:6px; text-align:center; font-size:9px; border-right:1px solid #cbd5e1;">${d.checks}</td>
+                <td style="padding:6px; text-align:center; font-size:10px; font-weight:900; color:${urkColor}; border-right:1px solid #cbd5e1;">${avgUrk}%</td>
+                <td style="padding:6px; text-align:center; font-size:9px; color:#16a34a; border-right:1px solid #cbd5e1;">${d.ok}</td>
+                <td style="padding:6px; text-align:center; font-size:9px; color:#ef4444; border-right:1px solid #cbd5e1;">${d.fail}</td>
+                <td style="padding:6px; text-align:center; font-size:9px; color:#64748b; border-right:1px solid #cbd5e1;">${d.b1}</td>
+                <td style="padding:6px; text-align:center; font-size:9px; color:#f59e0b; border-right:1px solid #cbd5e1;">${d.b2}</td>
+                <td style="padding:6px; text-align:center; font-size:9px; color:#dc2626; font-weight:bold;">${d.b3}</td>
+            </tr>`;
+        }).join('');
+
+        const renderPdfPhotos = (arr) => {
+            if(arr.length === 0) return '<div style="text-align:center; padding:20px; font-size:11px; color:#94a3b8; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;">Дефектов не зафиксировано</div>';
+            
+            const paddedArr = [...arr];
+            while (paddedArr.length < 5) paddedArr.push({ empty: true });
+
+            let tdHtml = paddedArr.map(d => {
+                if (d.empty) return `<td style="width: 20%; padding: 4px;"><div style="border:1px dashed #cbd5e1; border-radius:6px; opacity:0.3; background:#f8fafc; height:120px;"></div></td>`;
+                
+                const imgHtml = d.photo ? `<img src="${d.photo}" style="width:100%; height:80px; object-fit:cover; border-bottom:1px solid #cbd5e1;">` : `<div style="width:100%; height:80px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:#cbd5e1; font-size:9px; border-bottom:1px solid #cbd5e1;">НЕТ ФОТО</div>`;
+                return `<td style="width: 20%; padding: 4px; vertical-align: top;">
+                    <div style="background:white; border:1px solid #cbd5e1; border-radius:6px; overflow:hidden; box-shadow:0 2px 4px rgba(0,0,0,0.05); height:120px;">
+                        ${imgHtml}
+                        <div style="padding:4px; font-size:8px; color:#1e293b; font-weight:bold; line-height:1.2; overflow:hidden; height: 32px;">${d.name} <span style="color:#64748b;">(${d.count} шт)</span></div>
+                    </div>
+                </td>`;
+            }).join('');
+            return `<table style="width: 100%; table-layout: fixed; border-spacing: 0;"><tr>${tdHtml}</tr></table>`;
+        };
+
+        let metricsHtml = "";
+        if (cData.length >= 3) {
+            const m = getContractorMetrics(cData, userTemplates);
+            if (m) {
+                const color = m.finalC < 70 ? '#dc2626' : (m.finalC < 85 ? '#f59e0b' : '#16a34a');
+                metricsHtml = `
+                    <table style="width: 100%; margin-bottom: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px;">
+                        <tr>
+                            <td style="width: 50%; vertical-align: middle;">
+                                <div style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:bold; margin-bottom:5px;">УрК Подрядчика</div>
+                                <div style="font-size:36px; font-weight:900; color:${color}; line-height:1;">${m.finalC}%</div>
+                            </td>
+                            <td style="width: 25%; padding: 5px;">
+                                <div style="background:white; padding:10px; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
+                                    <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:bold;">Штраф (Ks)</div>
+                                    <div style="font-size:14px; font-weight:900; color:${m.ks < 1 ? '#dc2626' : '#1e293b'};">${m.ks.toFixed(2)}</div>
+                                </div>
+                            </td>
+                            <td style="width: 25%; padding: 5px;">
+                                <div style="background:white; padding:10px; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
+                                    <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:bold;">Штраф (Kcrit)</div>
+                                    <div style="font-size:14px; font-weight:900; color:${m.kcritC < 1 ? '#dc2626' : '#1e293b'};">${m.kcritC.toFixed(2)}</div>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>`;
+            }
+        } else {
+            metricsHtml = `<div style="background:#fffbeb; color:#92400e; padding:15px; border-radius:8px; border:1px solid #fde68a; font-size:11px; font-weight:bold; margin-bottom:15px; text-align:center;">Собрано ${cData.length} проверок. Для расчета рейтинга нужно минимум 3.</div>`;
+        }
+
+        const safeNameId = cName.replace(/\W/g, '_') + '_' + Object.keys(contrDataMap).indexOf(cName);
+        const cChart = document.getElementById(`chart_ui_${safeNameId}`);
+        const cImg = cChart ? `<img style="width:100%; max-height:140px; object-fit:contain; margin-bottom:15px;" src="${cChart.toDataURL('image/png')}">` : '';
+
+        contrHtmlBlocks += `
+            <div style="page-break-inside: avoid; border:2px solid #1e293b; border-radius:12px; overflow:hidden; margin-bottom:30px; display: block; width: 100%;">
+                <div style="background:#1e293b; color:white; padding:10px 15px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-size:14px; font-weight:900; text-transform:uppercase;">🏗️ ${cName}</div>
+                    <div style="background:#334155; padding:4px 8px; border-radius:6px; font-size:9px; font-weight:bold; border:1px solid #475569;">Выборка: ${cData.length} пров.</div>
+                </div>
+                
+                <div style="padding:15px; background:white;">
+                    ${metricsHtml}
+                    
+                    <div style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; margin-bottom:8px;">📊 Детализация по этапам</div>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1px solid #cbd5e1;">
+                        <thead style="background: #f1f5f9;">
+                            <tr>
+                                <th style="padding:6px; font-size:9px; text-align:left; border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1;">Этап</th>
+                                <th style="padding:6px; font-size:8px; border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1;">Пров.</th>
+                                <th style="padding:6px; font-size:8px; border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1;">УрК</th>
+                                <th style="padding:6px; font-size:8px; color:#16a34a; border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1;">OK</th>
+                                <th style="padding:6px; font-size:8px; color:#ef4444; border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1;">FAIL</th>
+                                <th style="padding:6px; font-size:8px; border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1;">B1</th>
+                                <th style="padding:6px; font-size:8px; color:#f59e0b; border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1;">B2</th>
+                                <th style="padding:6px; font-size:8px; color:#dc2626; border-bottom:1px solid #cbd5e1;">B3</th>
+                            </tr>
+                        </thead>
+                        <tbody>${cStagesPdfHtml}</tbody>
+                    </table>
+
+                    ${cImg ? `<div style="font-size:10px; font-weight:bold; color:#64748b; text-transform:uppercase; margin-bottom:8px;">📉 График качества</div>${cImg}` : ''}
+                    
+                    <table style="width: 100%; border-spacing: 15px 0; margin-left: -15px; margin-right: -15px;">
+                        <tr>
+                            <td style="width: 50%; vertical-align: top;">
+                                <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px;">
+                                    <div style="font-size:10px; font-weight:bold; color:#dc2626; text-transform:uppercase; margin-bottom:8px; border-bottom:1px solid #fca5a5; padding-bottom:4px;">🚨 Критические (B3)</div>
+                                    ${renderPdfPhotos(cTopB3, true)}
+                                </div>
+                            </td>
+                            <td style="width: 50%; vertical-align: top;">
+                                <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:10px;">
+                                    <div style="font-size:10px; font-weight:bold; color:#ea580c; text-transform:uppercase; margin-bottom:8px; border-bottom:1px solid #fcd34d; padding-bottom:4px;">🔄 Повторяющиеся (B2)</div>
+                                    ${renderPdfPhotos(cTopB2, false)}
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    // Формирование Глобальной детализации по этапам
+    let globalStagesPdfHtml = Object.keys(globalStageData).map(k => {
+        const d = globalStageData[k];
+        const avgUrk = Math.round(d.sumUrk / d.checks);
+        const urkColor = avgUrk < 70 ? '#dc2626' : (avgUrk < 85 ? '#f59e0b' : '#16a34a');
+        return `<tr style="border-bottom:1px solid #cbd5e1; background: #fff;">
+            <td style="padding:6px; font-size:10px; font-weight:bold; border-right:1px solid #cbd5e1; color:#334155;">${k}</td>
+            <td style="padding:6px; text-align:center; font-size:10px; border-right:1px solid #cbd5e1; color:#475569;">${d.checks}</td>
+            <td style="padding:6px; text-align:center; font-size:11px; font-weight:900; color:${urkColor}; border-right:1px solid #cbd5e1;">${avgUrk}%</td>
+        </tr>`;
     }).join('');
 
-    const renderPdfGallery = (photos, title, borderColor, bgColor) => {
-        if(photos.length === 0) return '';
-        return `
-        <div class="avoid-break mt-20" style="background:${bgColor}; border:1px solid ${borderColor}; padding:15px; border-radius:10px;">
-            <h3 style="margin-top:0; border-bottom:2px solid ${borderColor}; padding-bottom:5px; color:#1e293b; font-size:14px;">📸 ${title}</h3>
-            <div class="photo-grid">
-                ${photos.map(p => `<div class="photo-card" style="border-color:${borderColor};"><img src="${p.src}"><div class="photo-label"><b>${p.loc}</b><br><span style="color:#475569;">${p.text.replace(/^\[.*?\]\s*/, '')}</span></div></div>`).join('')}
+    let globalStagesBlock = `
+    <div class="avoid-break" style="margin-bottom: 25px; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden;">
+        <div style="background: #f1f5f9; padding: 10px 15px; border-bottom: 1px solid #cbd5e1; font-size: 11px; font-weight: bold; color: #475569; text-transform: uppercase;">
+            Глобальная Детализация по этапам
+        </div>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead style="background: #f8fafc;">
+                <tr>
+                    <th style="padding:8px; font-size:9px; text-align:left; border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1; color:#64748b; text-transform:uppercase;">Этап контроля</th>
+                    <th style="padding:8px; font-size:9px; border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1; color:#64748b; text-transform:uppercase;">Проверок</th>
+                    <th style="padding:8px; font-size:9px; border-right:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1; color:#64748b; text-transform:uppercase;">УрК</th>
+                </tr>
+            </thead>
+            <tbody>${globalStagesPdfHtml}</tbody>
+        </table>
+    </div>`;
+
+    // Формирование Реестра критических инцидентов (B3)
+    let critListBlock = '';
+    if (globalCritList.length > 0) {
+        let critRows = globalCritList.map(c => `
+            <div style="background:white; border: 1px solid #fecaca; padding: 10px; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); page-break-inside: avoid;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 4px;">
+                    <span style="font-weight:900; font-size:11px; color:#b91c1c;">${c.loc}</span>
+                    <span style="font-size:9px; font-weight:bold; background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:4px; border:1px solid #fca5a5;">${c.contr}</span>
+                </div>
+                <div style="font-size:10px; color:#334155; font-style:italic; margin-bottom:4px;">"${c.text}"</div>
+                <div style="font-size:8px; color:#94a3b8;">${c.date}</div>
             </div>
+        `).join('');
+
+        critListBlock = `
+        <div class="avoid-break" style="background:#fef2f2; border:1px solid #fca5a5; border-radius:10px; padding:15px; margin-bottom: 25px;">
+            <h3 style="margin:0 0 12px 0; font-size:11px; font-weight:bold; color:#dc2626; text-transform:uppercase; border-bottom:1px solid #fecaca; padding-bottom:6px;">🚨 Реестр критических инцидентов (B3)</h3>
+            <div>${critRows}</div>
         </div>`;
-    };
+    }
+
+    const cTrendC = document.getElementById('chart_eng_trend_contrs');
+    const cTrendW = document.getElementById('chart_eng_trend_works');
+    const cCauses = document.getElementById('chart_eng_causes');
+    const cDough = document.getElementById('chart_eng_doughnut');
+
+    const imgTrendC = cTrendC ? `<img style="width:100%; max-height:160px; object-fit:contain;" src="${cTrendC.toDataURL('image/png')}">` : '';
+    const imgTrendW = cTrendW ? `<img style="width:100%; max-height:160px; object-fit:contain;" src="${cTrendW.toDataURL('image/png')}">` : '';
+    const imgCauses = cCauses ? `<img style="width:100%; max-height:160px; object-fit:contain;" src="${cCauses.toDataURL('image/png')}">` : '';
+    const imgDough = cDough ? `<img style="width:100%; max-height:130px; object-fit:contain;" src="${cDough.toDataURL('image/png')}">` : '';
 
     const content = `
-        <h2 class="section-title">Инженерный Анализ (Отчет)</h2>
-        <div class="avoid-break" style="background:#f8fafc; border:2px solid #cbd5e1; padding:15px; border-radius:10px; margin-bottom:20px;">
-            <h3 style="margin:0 0 10px 0; color:#0f172a; font-size:14px;">🤖 Заключение и План действий</h3>
+        <h2 class="section-title">Комплексный Инженерный Отчет</h2>
+        
+        <div style="page-break-inside: avoid; background:#f8fafc; border:2px solid #cbd5e1; padding:15px; border-radius:10px; margin-bottom:20px;">
+            <h3 style="margin:0 0 10px 0; color:#0f172a; font-size:14px; text-transform:uppercase;">🤖 Интеллектуальный Анализ (Методика 70/85)</h3>
             <div style="font-size:12px; line-height:1.5;">${formattedSmartText}</div>
         </div>
-        ${renderPdfGallery(topB3, "Критические дефекты (B3)", "#fecaca", "#fef2f2")}
-        ${renderPdfGallery(topB2, "Системные отклонения (B2)", "#fed7aa", "#fff7ed")}
 
-        <div class="grid-3 mt-20 mb-20 avoid-break">
-            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:bold;">Доля брака</div><div style="font-size:24px; font-weight:900;">${Math.round((tB1+tB2+tB3)/(tOk+tB1+tB2+tB3)*100 || 0)}%</div></div>
-            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:bold;">Плотность B2</div><div style="font-size:24px; font-weight:900; color:#f59e0b;">${(tB2/data.length || 0).toFixed(1)}</div></div>
-            <div style="background:#fef2f2; border:1px solid #fecaca; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:10px; color:#991b1b; text-transform:uppercase; font-weight:bold;">Индекс B3</div><div style="font-size:24px; font-weight:900; color:#dc2626;">${(tB3/data.length*100 || 0).toFixed(0)}%</div></div>
-        </div>
-
-        <div class="grid-2 mt-20 mb-20 avoid-break">
-            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:11px; font-weight:bold; margin-bottom:10px; text-transform:uppercase;">Тренд Подрядчиков</div>${imgTrendC}</div>
-            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:11px; font-weight:bold; margin-bottom:10px; text-transform:uppercase;">Тренд Видов Работ</div>${imgTrendW}</div>
-        </div>
-
-        <div class="grid-2 mt-20 mb-20 avoid-break">
-            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:11px; font-weight:bold; margin-bottom:10px; text-transform:uppercase;">Корневые причины</div>${imgBar}</div>
-            <div style="background:#f8fafc; border:1px solid #cbd5e1; padding:15px; border-radius:8px; text-align:center;"><div style="font-size:11px; font-weight:bold; margin-bottom:10px; text-transform:uppercase;">Структура нарушений</div>${imgPie}</div>
-        </div>
-
-        ${critList.length > 0 ? `
-        <div class="avoid-break mt-20 mb-20" style="background:#fef2f2; border:1px solid #fecaca; padding:15px; border-radius:8px;">
-            <h3 style="margin:0 0 10px 0; color:#dc2626; font-size:14px;">🚨 Реестр критических инцидентов (B3)</h3>
-            ${critList.map(c => `<div style="background:white; border:1px solid #fecaca; padding:8px; border-radius:6px; margin-bottom:5px; font-size:11px;"><b>${c.loc}</b> (${c.contr}): ${c.text}</div>`).join('')}
-        </div>` : ''}
-
-        <table class="data-table mt-20 avoid-break">
-            <thead><tr><th>Этап контроля</th><th>Проверок</th><th>Средний УрК</th><th>Крит. дефекты (B3)</th></tr></thead>
-            <tbody>${stagesHtml}</tbody>
+        <table style="page-break-inside: avoid; width: 100%; border-spacing: 15px 0; margin-left: -15px; margin-right: -15px; margin-bottom: 20px;">
+            <tr>
+                <td style="width: 50%; background:#f8fafc; border:1px solid #cbd5e1; padding:12px; border-radius:8px; text-align:center;">
+                    <div style="font-size:10px; font-weight:bold; margin-bottom:8px; text-transform:uppercase;">Тренд Подрядчиков</div>${imgTrendC}
+                </td>
+                <td style="width: 50%; background:#f8fafc; border:1px solid #cbd5e1; padding:12px; border-radius:8px; text-align:center;">
+                    <div style="font-size:10px; font-weight:bold; margin-bottom:8px; text-transform:uppercase;">Тренд Видов Работ</div>${imgTrendW}
+                </td>
+            </tr>
         </table>
+
+        ${(imgCauses || imgDough) ? `
+        <table style="page-break-inside: avoid; width: 100%; border-spacing: 15px 0; margin-left: -15px; margin-right: -15px; margin-bottom: 25px;">
+            <tr>
+                ${imgCauses ? `<td style="width: 50%; background:#f8fafc; border:1px solid #cbd5e1; padding:12px; border-radius:8px; text-align:center;"><div style="font-size:10px; font-weight:bold; margin-bottom:8px; text-transform:uppercase;">Причины брака (Парето)</div>${imgCauses}</td>` : ''}
+                ${imgDough ? `<td style="width: 50%; background:#f8fafc; border:1px solid #cbd5e1; padding:12px; border-radius:8px; text-align:center; vertical-align:middle;"><div style="font-size:10px; font-weight:bold; margin-bottom:8px; text-transform:uppercase;">Доля брака: ${Math.round((tB1+tB2+tB3)/(tOk+tB1+tB2+tB3)*100 || 0)}%</div>${imgDough}</td>` : ''}
+            </tr>
+        </table>` : ''}
+
+        ${critListBlock}
+        ${globalStagesBlock}
+
+        <h2 class="section-title mt-20" style="page-break-inside: avoid; background:transparent; border-bottom:3px solid #1e293b; color:#1e293b; border-radius:0; padding-left:0;">Детализация подрядчиков</h2>
+        ${contrHtmlBlocks}
     `;
     printPdfShell("Инженерный Отчет", content);
 }
 
 
-// 3. PDF: One-Pager для Руководства
+/// === PDF-ВЫГРУЗКА (ONE-PAGER) ===
+// 100% соответствует экрану: Рейтинг показывает всех, блоки фото - ТОП-5, текст PDCA берется из поля
 function exportPdfOnePager(data) {
     if(data.length === 0) return showToast('Нет данных для выгрузки');
 
-    // 1. МЕТРИКИ: Охват и База
     const uniqueWorks = [...new Set(data.map(i => i.templateTitle))];
     const avgCoverage = uniqueWorks.length > 0 ? Math.round(data.length / uniqueWorks.length) : 0;
 
-    // 2. МЕТРИКИ: УрК Подрядчиков и Рейтинг
     const groupedC = {};
     data.forEach(item => { 
         groupedC[item.contractorName] = groupedC[item.contractorName] || []; 
@@ -4712,7 +4923,6 @@ function exportPdfOnePager(data) {
     });
     
     let sumUrk = 0, validContrs = 0;
-    let best = null, worst = null;
     const ratingData = [];
 
     for(let cName in groupedC) {
@@ -4721,33 +4931,20 @@ function exportPdfOnePager(data) {
             if (m) {
                 sumUrk += m.finalC;
                 validContrs++;
-                ratingData.push({ name: cName, val: m.finalC, count: m.count });
-                if (!best || m.finalC > best.val) best = { name: cName, val: m.finalC };
-                if (!worst || m.finalC < worst.val) worst = { name: cName, val: m.finalC };
+                ratingData.push({ name: cName, val: m.finalC, count: m.count, isPrelim: m.count < 7 });
             }
         }
     }
-    const globalUrk = validContrs > 0 ? Math.round(sumUrk / validContrs) : Math.round(data.reduce((s, i) => s + (i.metrics?.final || 0), 0) / (data.length || 1));
     
-    // Сортируем рейтинг по убыванию
+    const globalUrk = validContrs > 0 ? Math.round(sumUrk / validContrs) : Math.round(data.reduce((s, i) => s + (i.metrics?.final || 0), 0) / (data.length || 1));
     ratingData.sort((a,b) => b.val - a.val);
 
-    // 3. МЕТРИКИ: Динамика (1-я половина выборки vs 2-я половина)
     const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
     const midPoint = Math.floor(sortedData.length / 2);
-    const firstHalf = sortedData.slice(0, midPoint);
-    const secondHalf = sortedData.slice(midPoint);
-    
     const calcSimpleUrk = (arr) => arr.length > 0 ? Math.round(arr.reduce((s, i) => s + (i.metrics?.final || 0), 0) / arr.length) : 0;
-    const u1 = calcSimpleUrk(firstHalf);
-    const u2 = calcSimpleUrk(secondHalf);
-    const delta = (u1 > 0 && u2 > 0) ? (u2 - u1) : 0;
+    const delta = (calcSimpleUrk(sortedData.slice(0, midPoint)) > 0 && calcSimpleUrk(sortedData.slice(midPoint)) > 0) ? (calcSimpleUrk(sortedData.slice(midPoint)) - calcSimpleUrk(sortedData.slice(0, midPoint))) : 0;
 
-    // 4. ДЕФЕКТЫ: Сбор ТОП-5 B3 и B2 с фото
-    let b3Map = {}; 
-    let b2Map = {};
-    let sumB3 = 0;
-
+    let b3Map = {}; let b2Map = {}; let sumB3 = 0;
     data.forEach(i => {
         if(i.metrics) sumB3 += i.metrics.n_B3_fail;
         if(i.state && i.details) {
@@ -4763,14 +4960,12 @@ function exportPdfOnePager(data) {
                     if(foundItem) defName = foundItem.n;
 
                     const photo = (i.photos && i.photos[id]) ? i.photos[id] : null;
-                    const contr = i.contractorName;
-
                     if (s === 'fail_escalated' || (i.metrics && i.metrics.n_B3_fail > 0)) {
-                        if (!b3Map[defName]) b3Map[defName] = { count: 0, photo: null, contr: contr, name: defName };
+                        if (!b3Map[defName]) b3Map[defName] = { count: 0, photo: null, contr: i.contractorName, name: defName };
                         b3Map[defName].count++;
                         if (photo) b3Map[defName].photo = photo; 
                     } else {
-                        if (!b2Map[defName]) b2Map[defName] = { count: 0, photo: null, contr: contr, name: defName };
+                        if (!b2Map[defName]) b2Map[defName] = { count: 0, photo: null, contr: i.contractorName, name: defName };
                         b2Map[defName].count++;
                         if (photo) b2Map[defName].photo = photo;
                     }
@@ -4782,24 +4977,23 @@ function exportPdfOnePager(data) {
     const topB3 = Object.values(b3Map).sort((a,b) => b.count - a.count).slice(0, 5);
     const topB2 = Object.values(b2Map).sort((a,b) => b.count - a.count).slice(0, 5);
 
-    // Функция генерации фото-сеток
     const renderPhotoCards = (arr, isCrit) => {
         if (arr.length === 0) return `<div style="text-align:center; padding:30px; color:#94a3b8; font-size:12px;">Нет зафиксированных дефектов</div>`;
         while(arr.length < 5) { arr.push({ empty: true }); }
 
-        return `<div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:10px; height:100%;">
+        return `<div style="display:grid; grid-template-columns: repeat(5, 1fr); gap:10px;">
             ${arr.map(d => {
-                if (d.empty) return `<div style="border:1px dashed #cbd5e1; border-radius:8px; opacity:0.3; background:#f8fafc;"></div>`;
+                if (d.empty) return `<div style="border:1px dashed #cbd5e1; border-radius:8px; opacity:0.3; background:#f8fafc; height:140px;"></div>`;
                 const imgHtml = d.photo 
                     ? `<img src="${d.photo}" style="width:100%; height:90px; object-fit:cover; border-bottom:1px solid #e2e8f0;">` 
                     : `<div style="width:100%; height:90px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; color:#cbd5e1; font-size:10px; border-bottom:1px solid #e2e8f0;">НЕТ ФОТО</div>`;
                 const badgeColor = isCrit ? '#dc2626' : '#d97706';
                 const badgeBg = isCrit ? '#fef2f2' : '#fff7ed';
                 return `
-                <div style="background:white; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+                <div style="background:white; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 2px 4px rgba(0,0,0,0.05); page-break-inside: avoid; height:140px;">
                     ${imgHtml}
                     <div style="padding:6px; flex:1; display:flex; flex-direction:column; justify-content:space-between;">
-                        <div style="font-size:9px; font-weight:bold; color:#0f172a; line-height:1.2; margin-bottom:4px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">${d.name}</div>
+                        <div style="font-size:9px; font-weight:bold; color:#0f172a; line-height:1.2; margin-bottom:4px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${d.name}</div>
                         <div>
                             <div style="font-size:8px; color:#64748b; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">👤 ${d.contr}</div>
                             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -4813,56 +5007,45 @@ function exportPdfOnePager(data) {
         </div>`;
     };
 
-    // 5. График Трендов
     const cTC = document.getElementById('chart_op_trend_contrs');
     const imgTC = cTC ? `<img style="width:100%; height:150px; object-fit:contain;" src="${cTC.toDataURL('image/png')}">` : '';
 
     const urkColor = globalUrk < 70 ? '#dc2626' : (globalUrk < 85 ? '#f59e0b' : '#16a34a');
+    
+    // Получаем текст прямо с экрана из скрытого инпута
+    const pdcaTextRaw = document.getElementById('hidden_pdca_text')?.value || "Нет данных для формирования решения.";
+    const pdfFormattedText = pdcaTextRaw.replace(/^\[(.*?)\]/gm, '<div style="font-size: 11px; font-weight: bold; color: #854d0e; text-transform: uppercase; margin-top: 10px; margin-bottom: 4px;">$1</div>').replace(/\n/g, '<br>');
 
-    // ================= ГЕНЕРАЦИЯ HTML ДЛЯ PDF =================
     const content = `
         <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #1e293b; padding-bottom:10px; margin-bottom:15px;">
             <div>
                 <h1 style="font-size:20px; margin:0; color:#0f172a; text-transform:uppercase;">Сводный статус объекта (Executive Summary)</h1>
                 <p style="color:#64748b; font-size:11px; margin:4px 0 0 0; font-weight:bold;">Комплексный отчет для Руководителя</p>
             </div>
-            <div style="text-align:right; font-size:10px; color:#64748b;">Охват: <b>${data.length} проверок</b></div>
+            <div style="text-align:right; font-size:10px; color:#64748b;">База: <b>${data.length} независимых проверок</b></div>
         </div>
         
-        <div style="display: flex; gap: 15px; height: 100%; align-items: stretch;">
+        <div style="display: flex; gap: 15px; height: 100%; align-items: stretch; margin-bottom: 20px;">
             
             <!-- ЛЕВАЯ КОЛОНКА (50%): МЕТРИКИ, ТРЕНД, РЕЙТИНГ -->
             <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; border-right: 2px dashed #e2e8f0; padding-right: 15px;">
                 
-                <!-- Метрики -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <!-- Средний УрК -->
                     <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; position: relative;">
                         <div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 900;">Ср. Уровень Качества</div>
                         <div style="font-size: 36px; font-weight: 900; color: ${urkColor}; margin-top: 5px; line-height: 1;">${globalUrk}%</div>
                         <div style="position: absolute; top: 12px; right: 12px; font-size: 9px; font-weight: bold; padding: 3px 6px; border-radius: 4px; ${delta < 0 ? 'background:#fef2f2; color:#dc2626;' : 'background:#f0fdf4; color:#16a34a;'}">
-                            ${delta > 0 ? '▲' : (delta < 0 ? '▼' : '')} ${Math.abs(delta)}% к пред.
+                            ${delta > 0 ? '▲' : (delta < 0 ? '▼' : '')} ${Math.abs(delta)}%
                         </div>
+                        <div style="position: absolute; bottom: 8px; left: 12px; font-size: 7px; color: #94a3b8; text-transform: uppercase;">Динамика месяц к месяцу</div>
                     </div>
-                    <!-- Охват -->
                     <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1;">
-                        <div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 900;">Средний Охват</div>
+                        <div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 900;">Глубина контроля</div>
                         <div style="font-size: 36px; font-weight: 900; color: #3b82f6; margin-top: 5px; line-height: 1;">${avgCoverage}</div>
                         <div style="font-size: 8px; color: #94a3b8; margin-top: 5px;">проверок на 1 вид работ</div>
                     </div>
-                    <!-- Лидер -->
-                    <div style="background: #f0fdf4; padding: 12px; border-radius: 10px; border: 1px solid #bbf7d0;">
-                        <div style="font-size: 9px; color: #166534; text-transform: uppercase; font-weight: 900;">🏆 Лидер качества</div>
-                        <div style="font-size: 13px; font-weight: 900; color: #14532d; margin-top: 5px;">${best ? best.name : 'Нет данных'}</div>
-                    </div>
-                    <!-- Риск -->
-                    <div style="background: #fef2f2; padding: 12px; border-radius: 10px; border: 1px solid #fecaca;">
-                        <div style="font-size: 9px; color: #991b1b; text-transform: uppercase; font-weight: 900;">⚠️ Зона риска</div>
-                        <div style="font-size: 13px; font-weight: 900; color: #7f1d1d; margin-top: 5px;">${worst ? worst.name : 'Нет данных'}</div>
-                    </div>
                 </div>
 
-                <!-- График Трендов -->
                 <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; display: flex; flex-direction: column;">
                     <div style="font-size: 10px; font-weight: 900; color: #0f172a; text-transform: uppercase; margin-bottom: 5px;">📉 Динамика подрядчиков</div>
                     <div style="flex: 1; display: flex; align-items: center; justify-content: center;">
@@ -4870,17 +5053,19 @@ function exportPdfOnePager(data) {
                     </div>
                 </div>
 
-                <!-- НОВОЕ: Рейтинг Подрядчиков (Гистограмма) -->
+                <!-- Рейтинг выводит ВСЕХ -->
                 <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; flex: 1;">
                     <div style="font-size: 10px; font-weight: 900; color: #0f172a; text-transform: uppercase; margin-bottom: 10px;">📊 Рейтинг Подрядчиков (УрК)</div>
                     <div style="display:flex; flex-direction:column; gap:8px;">
-                        ${ratingData.slice(0,5).map(r => `
+                        ${ratingData.map(r => `
                             <div style="display:flex; align-items:center; gap:10px;">
                                 <div style="width:110px; font-size:10px; font-weight:bold; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.name}</div>
                                 <div style="flex:1; background:#e2e8f0; height:14px; border-radius:7px; overflow:hidden; position:relative; border:1px solid #cbd5e1;">
                                     <div style="width:${r.val}%; background:${r.val < 70 ? '#ef4444' : (r.val < 85 ? '#f59e0b' : '#22c55e')}; height:100%; border-radius:7px;"></div>
                                 </div>
-                                <div style="width:30px; text-align:right; font-size:11px; font-weight:900; color:${r.val < 70 ? '#ef4444' : (r.val < 85 ? '#f59e0b' : '#22c55e')};">${r.val}%</div>
+                                <div style="width:35px; text-align:right; font-size:11px; font-weight:900; color:${r.val < 70 ? '#ef4444' : (r.val < 85 ? '#f59e0b' : '#22c55e')};">
+                                    ${r.isPrelim ? '<span style="font-size:8px;">⚠️</span>' : ''} ${r.val}%
+                                </div>
                             </div>
                         `).join('') || '<div style="font-size:10px; color:#94a3b8;">Недостаточно данных для рейтинга (нужно 3 проверки на подрядчика)</div>'}
                     </div>
@@ -4911,15 +5096,13 @@ function exportPdfOnePager(data) {
                     </div>
                 </div>
 
-                <!-- НОВОЕ: Управленческое решение (PDCA) -->
-                <div style="background: ${globalUrk < 85 || sumB3 > 0 ? '#fffbeb' : '#f0fdf4'}; border: 2px solid ${globalUrk < 85 || sumB3 > 0 ? '#fde68a' : '#bbf7d0'}; border-radius: 10px; padding: 12px; flex: 0 0 auto;">
+                <!-- Управленческое решение (Текст с экрана) -->
+                <div style="background: ${globalUrk < 85 || sumB3 > 0 ? '#fffbeb' : '#f0fdf4'}; border: 2px solid ${globalUrk < 85 || sumB3 > 0 ? '#fde68a' : '#bbf7d0'}; border-radius: 10px; padding: 12px; flex: 0 0 auto; page-break-inside: avoid;">
                     <h3 style="margin: 0 0 8px 0; font-size: 11px; color: ${globalUrk < 85 || sumB3 > 0 ? '#b45309' : '#166534'}; text-transform: uppercase; border-bottom: 1px solid ${globalUrk < 85 || sumB3 > 0 ? '#fde047' : '#86efac'}; padding-bottom: 4px;">
                         🎯 Управленческое Решение и Риски
                     </h3>
                     <div style="font-size: 11px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 6px;">
-                        ${sumB3 > 0 ? `<div style="color:#dc2626;"><b>🚨 КРИТИЧЕСКИЙ РИСК:</b> Выявлено <b>${sumB3}</b> инцидентов B3. Продолжение работ без устранения грозит финансовыми и репутационными потерями.</div>` : ''}
-                        <div><b>📉 СТАТУС:</b> ${globalUrk < 70 ? 'Процесс вне контроля (<70%). Идет накопление брака, требуются жесткие меры.' : (globalUrk < 85 ? 'Условный допуск (70-84%). Есть системные ошибки, запрет на финишную приемку.' : 'Целевая зона (>=85%). Процесс стабилен, качество высокое.')}</div>
-                        <div style="background:white; padding:6px; border-radius:4px; border:1px solid #cbd5e1; margin-top:2px;"><b>🔨 ДИРЕКТИВА:</b> ${globalUrk < 70 || sumB3 > 0 ? `Приостановить работы аутсайдера (<b>${worst ? worst.name : 'н/д'}</b>). Выдать предписание на немедленный демонтаж/исправление брака. Ограничить оплату КС-2.` : 'Работы выполняются в соответствии с регламентом. Продолжить СМР в текущем режиме.'}</div>
+                        <div style="white-space: pre-wrap;">${pdfFormattedText}</div>
                     </div>
                 </div>
 
@@ -4989,7 +5172,42 @@ function exportPdfRating(data) {
     `;
     printPdfShell("Рейтинг Подрядчиков", content);
 }
+// 5. PDF: Таблица Сырых Данных (База)
+function exportPdfData(data) {
+    if(data.length === 0) return showToast('Нет данных для выгрузки');
 
+    const sortedData = [...data].sort((a,b) => new Date(b.date) - new Date(a.date));
+    
+    let rowsHtml = sortedData.map((r, i) => {
+        const d = new Date(r.date).toLocaleDateString('ru-RU');
+        const m = r.metrics;
+        const color = m ? (m.final < 70 ? '#dc2626' : (m.final < 85 ? '#f59e0b' : '#16a34a')) : '#475569';
+        
+        return `
+        <tr class="avoid-break">
+            <td class="text-center">${i + 1}</td>
+            <td>${d}</td>
+            <td><b>${r.contractorName}</b></td>
+            <td>${r.location}</td>
+            <td>${r.stageName}</td>
+            <td>${r.inspectorName || '-'}</td>
+            <td class="text-center font-bold" style="color: ${color};">${m ? m.final + '%' : '-'}</td>
+            <td class="text-center">B1:${m.n_B1_fail} | B2:${m.n_B2_fail} | B3:${m.n_B3_fail}</td>
+        </tr>`;
+    }).join('');
+
+    const content = `
+        <h2 class="section-title">Сырые данные (База проверок)</h2>
+        <div style="margin-bottom: 10px; font-size: 12px; color: #64748b;">Выгружено проверок: <b>${data.length} шт.</b></div>
+        <table class="data-table">
+            <thead>
+                <tr><th>#</th><th>Дата</th><th>Подрядчик</th><th>Локация</th><th>Этап</th><th>Инспектор</th><th>УрК</th><th>Дефекты</th></tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+    `;
+    printPdfShell("База проверок", content);
+}
 // === МАСТЕР-ШАБЛОН ДЛЯ ПЕЧАТИ (A3 LANDSCAPE) ===
 function printPdfShell(title, content) {
     const printWindow = window.open('', '_blank');
@@ -6309,9 +6527,13 @@ function openTwiConstructor(editId = null) {
 
     const selectEl = document.getElementById('twi-checklist-select');
     let options = '<option value="" disabled selected>Выберите вид работ...</option>';
-    const allTemplates = { ...SYSTEM_TEMPLATES, ...userTemplates };
-    for (let key in allTemplates) {
-        options += `<option value="${key}">${allTemplates[key].title}</option>`;
+    
+    // ИСПРАВЛЕНИЕ: Добавляем правильные префиксы sys_ и user_
+    for (let key in SYSTEM_TEMPLATES) {
+        options += `<option value="sys_${key}">${SYSTEM_TEMPLATES[key].title}</option>`;
+    }
+    for (let key in userTemplates) {
+        options += `<option value="user_${key}">${userTemplates[key].title}</option>`;
     }
     selectEl.innerHTML = options;
 
@@ -6332,9 +6554,8 @@ function openTwiConstructor(editId = null) {
             document.getElementById('twi-title-input').value = card.title;
             selectEl.value = card.checklistKey;
             
-            // Вызываем заполнение пунктов чек-листа и сразу подставляем сохраненный
             if(card.type === 'INSPECTOR') populateTwiItemSelect(card.itemId);
-            else populateTwiItemSelect(); // Для остальных просто заполняем, чтобы было
+            else populateTwiItemSelect();
 
             changeTwiType(card.type || 'WORKER');
 
@@ -6346,14 +6567,12 @@ function openTwiConstructor(editId = null) {
             } else if (card.type === 'PDF') {
                 if (card.pdfData) renderPdfFile(card.pdfName, card.pdfSize, card.pdfData);
             } else {
-                // WORKER
                 card.steps.forEach(step => addTwiStep(step));
             }
         }
     } else {
-        // Создание новой
         changeTwiType('INSPECTOR');
-        addTwiStep(); // Пустой шаг для Worker, на случай если он переключится
+        addTwiStep(); 
         populateTwiItemSelect();
     }
 }

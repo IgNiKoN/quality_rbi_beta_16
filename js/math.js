@@ -6,10 +6,15 @@ function getFlatList(checklist) {
     return checklist.flatMap(g => g.items); 
 }
 
-// РАСЧЕТ УРК ИЗДЕЛИЯ (СТРОГО БЕЗ ИЗМЕНЕНИЙ ИЗ v15)
+// === БЛОК 1: ТЕКУЩИЙ УРК ОСМОТРА ===
 function getProductMetrics(productState, customChecklist) {
-    let totalCheckedW = 0, earnedW = 0, checkedCount = 0;
-    let n_B1_fail = 0, n_B2_checked = 0, n_B2_fail = 0, n_B3_fail = 0, b3_found = false;
+    let W_tot = 0; 
+    let W_ok = 0;  
+    let checkedCount = 0;
+    
+    let n_B1_fail = 0;
+    let n_B2_chk = 0, n_B2_fail = 0;
+    let n_B3_fail = 0, b3_found = false;
     let escalated_found = false;
 
     const flatList = getFlatList(customChecklist);
@@ -21,13 +26,15 @@ function getProductMetrics(productState, customChecklist) {
             let currentWeight = i.w;
             let isB3 = (i.w === 3), isB2 = (i.w === 2), isB1 = (i.w === 1);
             
+            // fail_escalated всегда считается как B3
             if (s === 'fail_escalated') { currentWeight = 3; isB3 = true; isB2 = false; escalated_found = true; }
             
-            totalCheckedW += currentWeight;
-            if (isB2) n_B2_checked++;
+            W_tot += currentWeight;
+            if (isB2) n_B2_chk++;
             
-            if (s === 'ok') { earnedW += currentWeight; } 
-            else if (s === 'fail' || s === 'fail_escalated') {
+            if (s === 'ok') { 
+                W_ok += currentWeight; 
+            } else if (s === 'fail' || s === 'fail_escalated') {
                 if (isB1) n_B1_fail++;
                 if (isB2) n_B2_fail++;
                 if (isB3) { n_B3_fail++; b3_found = true; }
@@ -37,43 +44,46 @@ function getProductMetrics(productState, customChecklist) {
 
     if (checkedCount === 0) return null;
 
-    let baseUrk = totalCheckedW > 0 ? (earnedW / totalCheckedW) : 0;
-    let kc = 1.0;
-    if (n_B2_checked >= 3 && n_B2_checked <= 5) {
-        if (n_B2_fail === 2) kc = 0.85;
-        else if (n_B2_fail >= 3) kc = 0.70;
-    } else if (n_B2_checked >= 6) {
-        let rateB2 = (n_B2_fail / n_B2_checked) * 100;
-        if (rateB2 >= 50.0) kc = 0.50;
-        else if (rateB2 >= 20.0) kc = 0.70;
-        else if (rateB2 >= 0.1) kc = 0.95;
+    let baseUrk = (W_ok / W_tot) * 100;
+    let Urk_base = Math.round(baseUrk);
+
+    let Kc = 1.0;
+    if (n_B2_chk > 0) {
+        let R_B2 = n_B2_fail / n_B2_chk;
+        if (R_B2 > 0 && R_B2 < 0.20) Kc = 0.95;
+        else if (R_B2 >= 0.20 && R_B2 < 0.50) Kc = 0.85;
+        else if (R_B2 >= 0.50) Kc = 0.70;
     }
 
-    let kcrit = b3_found ? 0.50 : 1.0;
-    let rawPercent = Math.round((baseUrk * kc * kcrit) * 100);
-    let final = totalCheckedW > 0 ? rawPercent : 0;
+    let Kcrit = b3_found ? 0.50 : 1.00;
+    let Urk_inspect = Math.round(baseUrk * Kc * Kcrit);
 
-    if (n_B2_fail > 0 || kc < 1.0 || kcrit < 1.0) { if (final > 84) final = 84; }
+    if (n_B2_fail > 0 || b3_found || Kc < 1.0 || Kcrit < 1.0) { 
+        Urk_inspect = Math.min(Urk_inspect, 84); 
+    }
 
     let statusTxt = "", statusCls = "", isDanger = false, reason = "Соответствует нормативам";
     let warnings = [];
 
-    if (b3_found || final < 70) { 
+    if (b3_found || Urk_inspect < 70) { 
         statusTxt = "БРАК / СТОП"; statusCls = "tag-red"; isDanger = true; 
         if (escalated_found) reason = "Обнаружено превышение >1.5 (Авто B3)";
         else if (b3_found) reason = "Обнаружен критический дефект (B3)";
-        else reason = "Низкий УрК (менее 70%) из-за скопления дефектов";
+        else reason = "Низкий УрК (<70%) из-за концентрации дефектов";
         warnings.push("❌ Обнаружен критический дефект. Требуется немедленное исправление.");
-    } else if (final >= 85) { 
+    } else if (Urk_inspect >= 85) { 
         statusTxt = "ПРИНЯТО"; statusCls = "tag-green"; 
     } else { 
         statusTxt = "ИСПРАВИТЬ"; statusCls = "tag-yellow"; 
-        if (kc < 1.0) reason = `Снижение (Kc=${kc}) из-за скопления дефектов B2`;
-        else reason = `Снижение (Потолок 84%) из-за наличия ${n_B2_fail} дефектов B2`;
+        reason = `Условный допуск (Потолок 84%). Наличие значимых дефектов B2.`;
         warnings.push("⚠ Обнаружены значимые дефекты. Итог снижен.");
     }
 
-    return { final, baseUrkPerc: Math.round(baseUrk * 100), checkedCount, totalCount: flatList.length, n_B1_fail, n_B2_fail, n_B3_fail, b3_found, kc, kcrit, statusTxt, statusCls, isDanger, reason, warnings, escalated_found };
+    return { 
+        final: Urk_inspect, baseUrkPerc: Urk_base, checkedCount, totalCount: flatList.length, 
+        n_B1_fail, n_B2_fail, n_B3_fail, b3_found, kc: Kc, kcrit: Kcrit, 
+        statusTxt, statusCls, isDanger, reason, warnings, escalated_found 
+    };
 }
 
 // Волатильность
@@ -84,121 +94,110 @@ function calcVolatility(arr) {
     return Math.sqrt(variance);
 }
 
-// РАСЧЕТ УРК ПОДРЯДЧИКА
+// === БЛОК 2 и 3: ИНТЕГРАЛЬНЫЙ УРК ПОДРЯДЧИКА И ДОСТОВЕРНОСТЬ ===
 function getContractorMetrics(customArray, userTemplatesData = {}) {
-    // Получаем уникальные изделия (по локации)
-    const uniqueLocations = [...new Set(customArray.map(i => i.location))];
-    const count = uniqueLocations.length; // Количество изделий (пока берем все, потом разделим на завершенные)
-    
-    // Временно, пока мы не внедрили агрегацию везде, используем старый расчет по массиву,
-    // но внедряем новые пороги достоверности и волатильность
-    if (count < 3) return null; // Снижаем жесткий блок с 7 до 3, чтобы расчеты запускались раньше (но достоверность будет низкой)
+    const N = customArray.length;
+    if (N === 0) return null;
+
+    let urkValues = [];
+    let N_B3 = 0; 
+    let itemStats = {}; 
+
+    customArray.forEach(inspection => {
+        if (inspection.metrics) {
+            urkValues.push(inspection.metrics.final);
+            if (inspection.metrics.b3_found) N_B3++;
+        }
+        if (inspection.state) {
+            Object.keys(inspection.state).forEach(itemId => {
+                const s = inspection.state[itemId];
+                if (!itemStats[itemId]) itemStats[itemId] = { chk: 0, fail: 0 };
+                itemStats[itemId].chk++;
+                if (s === 'fail' || s === 'fail_escalated') itemStats[itemId].fail++;
+            });
+        }
+    });
+
+    let sumUrk = urkValues.reduce((a, b) => a + b, 0);
+    let Urk_contr_base = Math.round(sumUrk / N);
 
     const tKey = customArray[0].templateKey;
     const type = tKey.split('_')[0];
     const key = tKey.replace(type + '_', '');
     const specificChecklist = type === 'sys' && SYSTEM_TEMPLATES[key] ? SYSTEM_TEMPLATES[key].groups : (userTemplatesData[key] ? userTemplatesData[key].groups : []);
-    
     const flatList = getFlatList(specificChecklist);
 
-    let sumOkWeights = 0, sumTotalWeights = 0, n_изделий_с_B3 = 0;
-    let failCounts = {}; let urkList = []; 
-    flatList.forEach(i => failCounts[i.id] = 0);
-
-    // Группируем записи по изделиям для правильного расчета подрядчика
-    uniqueLocations.forEach(loc => {
-        const productRecords = customArray.filter(i => i.location === loc);
-        let hasB3_in_this_unit = false;
-        let unitUrkSum = 0;
-        
-        productRecords.forEach(unit => {
-            if(unit.metrics) unitUrkSum += unit.metrics.final;
-            flatList.forEach(i => {
-                const s = unit.state[i.id];
-                if (s) {
-                    let w = i.w;
-                    if (s === 'fail_escalated') w = 3;
-                    sumTotalWeights += w;
-                    if (s === 'ok') sumOkWeights += w;
-                    else if (s === 'fail' || s === 'fail_escalated') {
-                        failCounts[i.id]++;
-                        if (w === 3) hasB3_in_this_unit = true;
-                    }
-                }
-            });
-        });
-        
-        // Усредненный УрК изделия для волатильности
-        urkList.push(Math.round(unitUrkSum / productRecords.length)); 
-        if (hasB3_in_this_unit) n_изделий_с_B3++;
+    let max_R_i = 0;
+    flatList.forEach(i => {
+        if (i.w >= 2 && itemStats[i.id] && itemStats[i.id].chk > 0) { 
+            let R_i = (itemStats[i.id].fail / itemStats[i.id].chk) * 100;
+            if (R_i > max_R_i) max_R_i = R_i;
+        }
     });
 
-    let baseUrkContr = sumTotalWeights > 0 ? (sumOkWeights / sumTotalWeights) : 0;
-    let maxFailRate = 0;
-    flatList.forEach(i => { if (i.w >= 2) { let rate = (failCounts[i.id] / count) * 100; if (rate > maxFailRate) maxFailRate = rate; }});
+    let R_sys = max_R_i;
+    let Ks = 1.0;
+    if (R_sys >= 60.0) Ks = 0.50;
+    else if (R_sys >= 40.0) Ks = 0.70;
+    else if (R_sys >= 20.0) Ks = 0.85;
+    else if (R_sys >= 10.0) Ks = 0.95;
 
-    let rSys = maxFailRate, ks = 1.0;
-    if (rSys >= 50.0) ks = 0.50;
-    else if (rSys >= 20.0) ks = 0.70;
-    else if (rSys >= 0.1) ks = 0.95;
+    let R_B3 = (N_B3 / N) * 100;
+    let KB3 = 1.0;
+    if (R_B3 >= 30.0) KB3 = 0.50;
+    else if (R_B3 >= 20.0) KB3 = 0.70;
+    else if (R_B3 >= 10.0) KB3 = 0.85;
+    else if (R_B3 >= 5.0) KB3 = 0.90;
+    else if (R_B3 > 0) KB3 = 0.95;
 
-    let rateB3 = (n_изделий_с_B3 / count) * 100, kcritC = 1.0;
-    if (count < 5) {
-        if (n_изделий_с_B3 > 0) kcritC = 1.0; // Для <5 изделий блокировка 84% ниже
-    } else {
-        if (rateB3 >= 30.0) kcritC = 0.50;
-        else if (rateB3 >= 20.0) kcritC = 0.70;
-        else if (rateB3 >= 10.0) kcritC = 0.85;
-        else if (rateB3 >= 5.0) kcritC = 0.95;
-    }
-
-    let finalC = Math.round((baseUrkContr * ks * kcritC) * 100);
+    let Urk_contr = Math.round(Urk_contr_base * Ks * KB3);
     let capApplied = false;
     
-    // Блокировка 84% при понижающих коэф или наличии B3 при малом кол-ве
-    if (ks < 1.0 || kcritC < 1.0 || (count < 5 && n_изделий_с_B3 > 0)) { 
-        if (finalC > 84) { finalC = 84; capApplied = true; } 
+    if (Ks < 1.00 || KB3 < 1.00) {
+        if (Urk_contr > 84) { Urk_contr = 84; capApplied = true; }
     }
 
-    // ВОЛАТИЛЬНОСТЬ И ИНДЕКС СТАБИЛЬНОСТИ
-    let volatility = calcVolatility(urkList);
-    let stabilityIndex = Math.round(Math.max(0, Math.min(100, 100 - volatility - (rateB3 * 0.5))));
-
-    // НОВЫЕ ПОРОГИ ДОСТОВЕРНОСТИ И КОРРЕКТИРОВКА
-    let confStatus = "Низкая достоверность";
-    let confCls = "conf-low";
-    
-    if (count >= 15) { confStatus = "Высокая достоверность"; confCls = "conf-high"; }
-    else if (count >= 7) { confStatus = "Средняя достоверность"; confCls = "conf-med"; }
-
-    // Умная корректировка достоверности от волатильности
-    if (volatility > 15 && confStatus === 'Высокая достоверность') {
-        confStatus = 'Средняя достоверность'; confCls = "conf-med";
-    } else if (volatility > 15 && confStatus === 'Средняя достоверность') {
-        confStatus = 'Низкая достоверность'; confCls = "conf-low";
-    } else if (volatility < 5 && confStatus === 'Средняя достоверность') {
-        confStatus = 'Высокая достоверность'; confCls = "conf-high";
+    let s = 0; let E = 0; 
+    if (N >= 2) {
+        let mean = sumUrk / N;
+        let variance = urkValues.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (N - 1);
+        s = Math.sqrt(variance);
+        E = 1.96 * (s / Math.sqrt(N));
     }
 
-    let reason = "Стабильное качество, без штрафов";
-    if (capApplied) reason = "Применен потолок 84% (Наличие B3 или системный брак)";
-    else if (rSys >= 20.0) reason = `Снижение из-за системного брака (повторяемость ${rSys.toFixed(1)}%)`;
-    else if (rateB3 >= 20.0) reason = `Снижение из-за высокой доли изделий с B3 (${rateB3.toFixed(1)}%)`;
-    else if (stabilityIndex < 70) reason = "Снижение из-за нестабильности качества (Высокая волатильность)";
+    let confidenceLevel = 'Низкая достоверность';
+    let confCls = 'conf-low';
+    if (N >= 15 && E <= 5) { confidenceLevel = 'Высокая достоверность'; confCls = 'conf-high'; } 
+    else if ((N >= 7 && N < 15) || (E > 5 && E <= 10)) { confidenceLevel = 'Средняя достоверность'; confCls = 'conf-med'; }
 
-    let riskStatus = "Низкий риск", riskCls = "risk-low";
-    if (finalC < 70 || rateB3 >= 20.0 || stabilityIndex < 70) { riskStatus = "Высокий риск"; riskCls = "risk-high"; }
-    else if (finalC <= 84 || rateB3 >= 10.0 || stabilityIndex <= 84) { riskStatus = "Средний риск"; riskCls = "risk-med"; }
+    let stabilityIndex = Math.max(0, Math.min(100, 100 - 1.5 * s));
+    stabilityIndex = Math.round(stabilityIndex);
 
     let statusTxt = "В РАБОТЕ", statusCls = "tag-blue", isRedZone = false;
-    if (ks <= 0.70 || rateB3 >= 30.0 || finalC < 70 || n_изделий_с_B3 >= 3) { statusTxt = "КРАСНАЯ ЗОНА"; statusCls = "tag-red"; isRedZone = true; } 
-    else if (finalC >= 85) { statusTxt = "ОБРАЗЦОВОЕ КАЧЕСТВО"; statusCls = "tag-green"; } 
-    else { statusTxt = "ЖЕЛТАЯ ЗОНА"; statusCls = "tag-yellow"; }
+    let riskStatus = "Низкий риск", riskCls = "risk-low";
 
-    return { finalC, baseUrkContrPerc: Math.round(baseUrkContr * 100), count, maxFailRate: rSys, ks, kcritC, rateB3, n_изделий_с_B3, statusTxt, statusCls, isRedZone, confStatus, confCls, volatility, stabilityIndex, riskStatus, riskCls, reason };
+    if (Urk_contr < 70 || R_B3 >= 20.0 || R_sys >= 40.0) { 
+        statusTxt = "КРАСНАЯ ЗОНА"; statusCls = "tag-red"; isRedZone = true; riskStatus = "Высокий риск"; riskCls = "risk-high";
+    } else if (Urk_contr >= 85 && R_B3 === 0 && R_sys < 10.0) { 
+        statusTxt = "ОБРАЗЦОВОЕ КАЧЕСТВО"; statusCls = "tag-green"; 
+    } else { 
+        statusTxt = "ЖЕЛТАЯ ЗОНА"; statusCls = "tag-yellow"; 
+        if (Urk_contr <= 84 || R_B3 >= 10.0 || stabilityIndex <= 84) { riskStatus = "Средний риск"; riskCls = "risk-med"; }
+    }
+
+    let reason = "Стабильное качество, без существенных штрафов";
+    if (capApplied) reason = "Применен потолок 84% (Наличие критических или системных дефектов)";
+    else if (R_sys >= 20.0) reason = `Снижение из-за системного брака (повторяемость ${R_sys.toFixed(1)}%)`;
+    else if (R_B3 >= 10.0) reason = `Снижение из-за доли осмотров с B3 (${R_B3.toFixed(1)}%)`;
+
+    return { 
+        finalC: Urk_contr, baseUrkContrPerc: Urk_contr_base, count: N, maxFailRate: R_sys, 
+        ks: Ks, kcritC: KB3, rateB3: R_B3, n_изделий_с_B3: N_B3, statusTxt, statusCls, isRedZone, 
+        confStatus: confidenceLevel, confCls, stdDev: s, ci95_margin: E, volatility: s, stabilityIndex, riskStatus, riskCls, reason 
+    };
 }
 
-// ГЕНЕРАТОР ЭКСПЕРТНОГО ЗАКЛЮЧЕНИЯ ИИ (Без изменений из v15)
+// ГЕНЕРАТОР ЭКСПЕРТНОГО ЗАКЛЮЧЕНИЯ ИИ (Математика 4.0)
 function getExpertConclusion(c, contractorName, templateTitle, count, safeId, customExpertConclusions = {}) {
     const expertKey = contractorName + "_||_" + templateTitle;
     const isRed = c.finalC < 70 || c.rateB3 >= 30 || c.isRedZone;
@@ -211,33 +210,32 @@ function getExpertConclusion(c, contractorName, templateTitle, count, safeId, cu
     const qualText = isRed ? 'НИЗКОЕ' : (isYellow ? 'ПРИЕМЛЕМОЕ' : 'ВЫСОКОЕ');
     const emoji = isRed ? '🔴' : (isYellow ? '🟡' : '🟢');
 
-    let b3Text = c.n_изделий_с_B3 > 0 ? `🚨 КРИТИЧЕСКИЙ УРОВЕНЬ: ${c.n_изделий_с_B3} из ${count} изделий (${c.rateB3.toFixed(1)}%) содержат дефекты категории B3. Это недопустимо для приемки объекта.` : '';
+    let b3Text = c.n_изделий_с_B3 > 0 ? `🚨 КРИТИЧЕСКИЙ УРОВЕНЬ: в ${c.n_изделий_с_B3} из ${count} независимых проверок (${c.rateB3.toFixed(1)}%) обнаружены дефекты категории B3. Это недопустимо для приемки объекта.` : '';
 
     let probsText = [];
-    if (c.maxFailRate >= 20) probsText.push(`• 🔄 ВЫЯВЛЕН СИСТЕМНЫЙ БРАК: дефект повторяется в ${c.maxFailRate.toFixed(1)}% случаев. Коэффициент системности Ks = ${c.ks.toFixed(2)}`);
-    if (c.volatility >= 10) probsText.push(`• 📉 НЕСТАБИЛЬНОСТЬ КАЧЕСТВА: волатильность ${c.volatility.toFixed(1)} пункта`);
+    if (c.maxFailRate >= 20) probsText.push(`• 🔄 СИСТЕМНЫЙ БРАК: дефект повторяется в ${c.maxFailRate.toFixed(1)}% проверок. Коэффициент системности Ks = ${c.ks.toFixed(2)}`);
+    if (c.volatility >= 10) probsText.push(`• 📉 НЕСТАБИЛЬНОСТЬ: высокая волатильность результатов (${c.volatility.toFixed(1)} пункта). Качество скачет от проверки к проверке.`);
     if (probsText.length === 0) probsText.push(`• ✅ Значимых системных отклонений и скачков качества не выявлено.`);
 
     let recomsText = [];
     if (isRed || c.n_изделий_с_B3 > 0) {
-        recomsText.push("• НЕМЕДЛЕННО: Провести комиссионное обследование всех изделий с B3. Составить акт с фотофиксацией.");
-        recomsText.push("• Провести внеплановый инструктаж по устранению системной ошибки.");
-        recomsText.push("• Усилить входной контроль материалов.");
+        recomsText.push("• НЕМЕДЛЕННО: Остановить работы. Провести комиссионное обследование участков с B3.");
+        recomsText.push("• Заблокировать подписание КС-2 до устранения коренных причин.");
     } else if (isYellow) {
-        recomsText.push("• Усилить операционный контроль.");
-        recomsText.push("• Обратить внимание на повторяющиеся дефекты B2.");
+        recomsText.push("• Усилить операционный контроль на местах.");
+        recomsText.push("• Обязать подрядчика провести 100% внутреннюю ревизию перед финишной сдачей.");
     } else {
         recomsText.push("• Продолжить работы в текущем режиме.");
         recomsText.push("• Применять текущую практику подрядчика как эталонную.");
     }
 
-    let verdictText = isRed ? "🔴 РЕКОМЕНДАЦИЯ: Работы ОСТАНОВЛЕНЫ. Требуется замена бригады/подрядчика.\n\nСТОП-РАБОТЫ до устранения критических нарушений!" :
-                      (isYellow ? "🟡 РЕКОМЕНДАЦИЯ: Взять на особый контроль. Приемка только после устранения B2." :
-                                  "🟢 РЕКОМЕНДАЦИЯ: Работы принимаются без ограничений.");
+    let verdictText = isRed ? "🔴 РЕКОМЕНДАЦИЯ: Работы ОСТАНОВЛЕНЫ. Процесс вне контроля.\n\nСТОП-РАБОТЫ до устранения критических нарушений!" :
+                      (isYellow ? "🟡 РЕКОМЕНДАЦИЯ: Условный допуск. Приемка только после устранения системных B2." :
+                                  "🟢 РЕКОМЕНДАЦИЯ: Работы выполняются в зеленой зоне. Принимаются без ограничений.");
 
-    let plainText = `🧠 ЭКСПЕРТНОЕ ЗАКЛЮЧЕНИЕ\n\n${emoji} Качество работ подрядчика "${contractorName}" по виду "${templateTitle}" оценивается как ${qualText} (${c.finalC}%).\n\n` +
+    let plainText = `🧠 ЭКСПЕРТНОЕ ЗАКЛЮЧЕНИЕ\n\n${emoji} Качество работ подрядчика "${contractorName}" по виду "${templateTitle}" оценивается как ${qualText} (${c.finalC}% ±${c.ci95_margin.toFixed(1)}%).\n\n` +
     (b3Text ? `[КРИТИЧЕСКИЙ УРОВЕНЬ]\n${b3Text}\n\n` : '') +
-    `[Выявленные проблемы]\n${probsText.join('\n')}\n\n[Рекомендации]\n${recomsText.join('\n')}\n\n[Вердикт]\n${verdictText}\n\nСгенерировано на основе ${count} проверок`;
+    `[Выявленные проблемы]\n${probsText.join('\n')}\n\n[Рекомендации]\n${recomsText.join('\n')}\n\n[Вердикт]\n${verdictText}\n\nСгенерировано на основе ${count} независимых проверок`;
 
     let isCustom = false;
     if (customExpertConclusions[expertKey]) {
@@ -267,7 +265,7 @@ function getExpertConclusion(c, contractorName, templateTitle, count, safeId, cu
     } else {
         contentUiHtml = `
             <div class="p-3 min-[400px]:p-4">
-                <div class="text-[12px] font-bold mb-4 leading-relaxed" style="color: ${mainColor};">${emoji} Качество работ подрядчика "${contractorName}" по виду "${templateTitle}" оценивается как ${qualText} (${c.finalC}%).</div>
+                <div class="text-[12px] font-bold mb-4 leading-relaxed" style="color: ${mainColor};">${emoji} Качество работ подрядчика "${contractorName}" по виду "${templateTitle}" оценивается как ${qualText} (${c.finalC}%). Погрешность: ±${c.ci95_margin.toFixed(1)}%.</div>
                 ${b3Text ? `<div class="border border-red-200 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg mb-3 text-red-800 dark:text-red-400 text-[11px] font-bold leading-snug shadow-sm">${b3Text}</div>` : ''}
                 <div class="border border-[var(--card-border)] bg-[var(--hover-bg)] p-3 rounded-lg mb-3 shadow-sm">
                     <div class="text-[10px] font-black text-slate-500 uppercase mb-2">🔍 Выявленные проблемы</div>
@@ -281,13 +279,13 @@ function getExpertConclusion(c, contractorName, templateTitle, count, safeId, cu
                     <div class="text-[10px] font-black uppercase mb-2" style="color: ${mainColor};">🎯 Вердикт</div>
                     <div class="text-[11px] font-bold leading-snug">${verdictText.replace(/\n/g, '<br>')}</div>
                 </div>
-                <div class="text-right text-[9px] text-slate-400 font-bold uppercase mt-3">Сгенерировано на основе ${count} проверок</div>
+                <div class="text-right text-[9px] text-slate-400 font-bold uppercase mt-3">База расчета: ${count} независимых проверок</div>
             </div>`;
         
         pdfHtml = `
             <div style="margin-top: 20px; margin-bottom: 25px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; padding: 15px; page-break-inside: avoid;">
                 <h3 style="margin-top: 0; font-size: 14px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">🧠 ЭКСПЕРТНОЕ ЗАКЛЮЧЕНИЕ ИИ</h3>
-                <div style="font-size: 13px; font-weight: bold; margin-bottom: 15px; line-height: 1.4; color: ${mainColor};">${emoji} Качество работ подрядчика "${contractorName}" оценивается как ${qualText} (${c.finalC}%).</div>
+                <div style="font-size: 13px; font-weight: bold; margin-bottom: 15px; line-height: 1.4; color: ${mainColor};">${emoji} Качество работ подрядчика "${contractorName}" оценивается как ${qualText} (${c.finalC}%). Доверительный интервал: ±${c.ci95_margin.toFixed(1)}%.</div>
                 ${b3Text ? `<div style="border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; padding: 10px; border-radius: 6px; font-size: 12px; font-weight: bold; margin-bottom: 10px;">${b3Text}</div>` : ''}
                 <div style="border: 1px solid #e2e8f0; background: white; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
                     <div style="font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 5px;">🔍 Выявленные проблемы</div>
@@ -307,7 +305,7 @@ function getExpertConclusion(c, contractorName, templateTitle, count, safeId, cu
     const uiHtml = `
         <div class="mt-6 border border-[var(--card-border)] bg-[var(--card-bg)] rounded-xl shadow-sm overflow-hidden mb-6">
             <div class="bg-[var(--hover-bg)] border-b border-[var(--card-border)] p-2 flex justify-between items-center gap-2">
-                <div class="font-black text-[10px] min-[400px]:text-[11px] uppercase tracking-widest flex items-center gap-1 min-w-0 truncate ml-1">🧠 Заключение</div>
+                <div class="font-black text-[10px] min-[400px]:text-[11px] uppercase tracking-widest flex items-center gap-1 min-w-0 truncate ml-1">🧠 Смарт-Анализ</div>
                 <div class="flex gap-1 shrink-0">
                     <button onclick="editExpertText('${expertKey}', 'text_expert_${safeId}')" class="text-[10px] font-bold bg-[var(--card-bg)] border border-[var(--card-border)] px-2 py-1.5 rounded shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1">
                         ✏️<span class="hidden min-[400px]:inline"> Редак.</span>
@@ -324,69 +322,39 @@ function getExpertConclusion(c, contractorName, templateTitle, count, safeId, cu
 
     return { uiHtml, pdfHtml };
 }
-// --- НОВЫЕ ФУНКЦИИ ДЛЯ ЭТАПА 1 (МАТЕМАТИКА И АГРЕГАЦИЯ) ---
 
-/**
- * Агрегация всех этапов одного изделия.
- * Находит все разрозненные этапы для одной локации, сливает их воедино и считает УрК изделия.
- */
+// === АГРЕГАЦИЯ И ЭТАПЫ (Из старого кода) ===
 function getProductAggregated(location, contractorName, templateKey, historyArray, fullChecklist) {
     const productStages = historyArray.filter(i => 
         i.location === location && 
         i.contractorName === contractorName && 
         i.templateKey === templateKey
     );
-
     if (productStages.length === 0) return null;
-
-    // Сливаем состояния всех этапов в один общий объект
     let mergedState = {};
-    productStages.forEach(stage => {
-        mergedState = { ...mergedState, ...stage.state };
-    });
-
-    // Прогоняем слитое состояние через базовый калькулятор
+    productStages.forEach(stage => { mergedState = { ...mergedState, ...stage.state }; });
     return getProductMetrics(mergedState, fullChecklist);
 }
 
-/**
- * Расчет сводных метрик по конкретному ЭТАПУ (stageId).
- * Используется для графиков и аналитики в разрезе этапов.
- */
 function getStageMetrics(stageId, historyArray) {
     const stageRecords = historyArray.filter(i => i.stageId === stageId);
     if (stageRecords.length === 0) return null;
 
-    let totalUrk = 0;
-    let sumB3 = 0;
-    let totalChecks = stageRecords.length;
-
+    let totalUrk = 0; let sumB3 = 0; let totalChecks = stageRecords.length;
     stageRecords.forEach(record => {
-        if (record.metrics) {
-            totalUrk += record.metrics.final;
-            sumB3 += record.metrics.n_B3_fail;
-        }
+        if (record.metrics) { totalUrk += record.metrics.final; sumB3 += record.metrics.n_B3_fail; }
     });
 
-    // Расчет волатильности этапа
     const urkValues = stageRecords.map(r => r.metrics ? r.metrics.final : 0);
     const volatility = calcVolatility(urkValues);
 
-    // Базовая достоверность этапа
     let stageConfidence = 'Низкая достоверность';
     if (totalChecks >= 10) stageConfidence = 'Высокая достоверность';
     else if (totalChecks >= 3) stageConfidence = 'Средняя достоверность';
 
-    // Корректировка достоверности по волатильности
     if (volatility > 15 && stageConfidence === 'Высокая достоверность') stageConfidence = 'Средняя достоверность';
     else if (volatility > 15 && stageConfidence === 'Средняя достоверность') stageConfidence = 'Низкая достоверность';
     else if (volatility < 5 && stageConfidence === 'Средняя достоверность') stageConfidence = 'Высокая достоверность';
 
-    return {
-        avgFinal: Math.round(totalUrk / totalChecks),
-        count: totalChecks,
-        totalB3: sumB3,
-        volatility: volatility,
-        confidence: stageConfidence
-    };
+    return { avgFinal: Math.round(totalUrk / totalChecks), count: totalChecks, totalB3: sumB3, volatility: volatility, confidence: stageConfidence };
 }

@@ -975,7 +975,7 @@
 
                 <!-- ЭКРАН 2: КОНСТРУКТОР TWI (Скрыт по умолчанию) -->
                 <div id="twi-constructor-view"
-                    class="hidden bg-[var(--bg-main)] absolute inset-0 z-50 min-h-screen pb-20">
+                    class="hidden bg-[var(--bg-main)] absolute inset-0 z-50 min-h-screen pb-32">
                     <div
                         class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 mb-4 shadow-sm sticky top-[70px] z-40 flex justify-between items-center">
                         <button onclick="closeTwiConstructor()"
@@ -1244,39 +1244,128 @@
                     <!-- РАЗДЕЛ 4: ФОРМУЛЫ И МАТЕМАТИКА -->
                     <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
                         <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
-                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> 4. Формулы расчетов и Коэффициенты</span>
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> 4. Полная Математическая Модель (Формулы)</span>
                             <span class="transition group-open:rotate-180 text-slate-400">▼</span>
                         </summary>
                         <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
                             
-                            <p class="mb-4">Итоговая оценка всегда формируется путем умножения <b>Базового процента</b> на <b>Штрафные коэффициенты</b>. Если штрафов нет (коэффициент 1.0), то балл не снижается.</p>
+                            <p class="mb-4">Система RBI Quality использует двухэтапную математическую модель оценки: сначала оценивается <b>качество конкретного изделия</b> в момент осмотра, а затем, набрав статистику, система оценивает <b>надежность самого подрядчика</b> в целом.</p>
 
-                            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 mb-4 shadow-inner">
-                                <div class="font-black text-indigo-800 dark:text-indigo-400 uppercase text-[10px] mb-2">Формула УрК Изделия (Для одной проверки)</div>
-                                <div class="font-mono font-bold bg-white dark:bg-slate-800 text-center py-2 rounded border border-indigo-100 dark:border-indigo-700">УрК = База × Kc × Kcrit</div>
+                            <!-- БЛОК 1: ВЕСА ДЕФЕКТОВ -->
+                            <h4 class="font-black text-slate-800 dark:text-white uppercase mb-2 text-[11px] border-b border-slate-200 dark:border-slate-700 pb-1">1. Категории и веса дефектов</h4>
+                            <p class="text-[11px] mb-3">Каждый пункт чек-листа имеет свой "вес" в зависимости от степени влияния на безопасность и эксплуатацию:</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6 text-[10px]">
+                                <div class="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm">
+                                    <span class="font-black text-blue-600 block mb-1">B1 (Вес: 1) — Мелкий дефект</span>
+                                    Эстетические отклонения. Не влияют на эксплуатацию и прочность. Легко устранимы.
+                                </div>
+                                <div class="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-orange-200 dark:border-orange-800 shadow-sm">
+                                    <span class="font-black text-orange-600 block mb-1">B2 (Вес: 2) — Значимый дефект</span>
+                                    Нарушение технологии. Снижает долговечность, требует обязательного устранения до скрытия работ.
+                                </div>
+                                <div class="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-red-200 dark:border-red-800 shadow-sm">
+                                    <span class="font-black text-red-600 block mb-1">B3 (Вес: 3) — Критический дефект</span>
+                                    Угроза обрушения, промерзания или затопления. Блокирует любые дальнейшие работы.
+                                </div>
                             </div>
-                            <ul class="list-disc pl-4 space-y-2 text-[11px] mb-6">
-                                <li><b>База:</b> Отношение суммы весов пройденных пунктов к сумме весов всех проверенных пунктов.</li>
-                                <li><b>Kc (Концентрация):</b> Штрафует за "кучность" ошибок на одном изделии.<br>
-                                    — Допущено 2 ошибки B2 ➔ <code>Kc = 0.85</code><br>
-                                    — Допущено 3+ ошибок B2 ➔ <code>Kc = 0.70</code></li>
-                                <li><b>Kcrit (Критичность):</b> Штрафует за опасный брак.<br>
-                                    — Найден хотя бы один дефект B3 ➔ <code>Kcrit = 0.50</code> (срезает качество вдвое).</li>
+
+                            <!-- БЛОК 2: УРК ИЗДЕЛИЯ -->
+                            <h4 class="font-black text-indigo-700 dark:text-indigo-400 uppercase mb-2 text-[11px] border-b border-indigo-200 dark:border-indigo-800 pb-1 mt-6">2. ЭТАП I: Расчет УрК Изделия (Конкретная проверка)</h4>
+                            
+                            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 mb-3 shadow-inner">
+                                <div class="font-mono font-black text-indigo-800 dark:text-indigo-300 text-center text-[12px] mb-1">УрК_изд = MIN( (База × Kc × Kcrit), Cap84 )</div>
+                                <div class="text-[9px] text-center text-indigo-600 dark:text-indigo-400 font-bold">Итоговый балл за осмотр не может быть выше 84%, если сработал хоть один штраф.</div>
+                            </div>
+
+                            <ul class="space-y-3 text-[11px] mb-6">
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-indigo-600 dark:text-indigo-400 text-[12px]">А. Базовый процент (База)</b><br>
+                                    Рассчитывается как: <code>(Сумма весов пунктов "OK" / Сумма весов всех проверенных пунктов) × 100</code>.<br>
+                                    <i class="text-slate-500 mt-1 block">Пример: Проверили 5 пунктов B2 (общий вес 10). 4 сдали (вес 8), 1 завалили. База = 8/10 = 80%.</i>
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-orange-600 dark:text-orange-500 text-[12px]">Б. Штраф за Концентрацию дефектов (Kc)</b><br>
+                                    Система оценивает <b>долю брака B2</b>. Если на одном участке инспектор находит много значимых ошибок, это говорит о полной потере контроля технологического процесса.
+                                    <ul class="list-disc pl-5 mt-1 text-slate-600 dark:text-slate-400 space-y-1">
+                                        <li>Доля брака B2 < 20% ➔ <b class="text-slate-800 dark:text-slate-200">Kc = 0.95</b> <span class="text-[9px]">(Минимальный штраф)</span></li>
+                                        <li>Доля брака B2 от 20% до 49% ➔ <b class="text-slate-800 dark:text-slate-200">Kc = 0.85</b> <span class="text-[9px]">(Умеренный штраф)</span></li>
+                                        <li>Доля брака B2 ≥ 50% ➔ <b class="text-slate-800 dark:text-slate-200">Kc = 0.70</b> <span class="text-[9px]">(Жесткий штраф)</span></li>
+                                    </ul>
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-red-600 dark:text-red-500 text-[12px]">В. Штраф за Критичность (Kcrit)</b><br>
+                                    Срабатывает в двух случаях: <b>1)</b> Найден дефект категории B3. <b>2)</b> Сработало "Правило >1.5х" (Инспектор вручную эскалировал дефект B2 до статуса критического из-за грубого превышения допуска).
+                                    <div class="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 p-2 rounded mt-2 border border-red-100 dark:border-red-900">
+                                        Наличие хотя бы одного B3 мгновенно срезает весь накопленный уровень качества в два раза: <b class="text-[12px]">Kcrit = 0.50</b>. Такое изделие автоматически падает в "Красную зону" (<70%).
+                                    </div>
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-slate-800 dark:text-slate-300 text-[12px]">Г. Правило "Стеклянного потолка" (Cap84)</b><br>
+                                    Если был обнаружен хотя бы один дефект B2 или B3 (то есть были применены штрафы Kc или Kcrit), итоговый балл за проверку <b>программно ограничивается максимумом в 84%</b>. "Зеленая" оценка (85-100%) ставится исключительно за безупречную работу.
+                                </li>
                             </ul>
 
-                            <div class="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 mb-4 shadow-inner">
-                                <div class="font-black text-emerald-800 dark:text-emerald-400 uppercase text-[10px] mb-2">Формула УрК Подрядчика (По группе проверок)</div>
-                                <div class="font-mono font-bold bg-white dark:bg-slate-800 text-center py-2 rounded border border-emerald-100 dark:border-emerald-700">УрК = Ср.База × Ks × Kcrit</div>
+                            <!-- БЛОК 3: УРК ПОДРЯДЧИКА -->
+                            <h4 class="font-black text-emerald-700 dark:text-emerald-400 uppercase mb-2 text-[11px] border-b border-emerald-200 dark:border-emerald-800 pb-1 mt-6">3. ЭТАП II: Расчет УрК Подрядчика (Рейтинг)</h4>
+                            
+                            <div class="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 mb-3 shadow-inner">
+                                <div class="font-mono font-black text-emerald-800 dark:text-emerald-300 text-center text-[12px] mb-1">УрК_подр = MIN( (Средняя_База × Ks × KB3), Cap84 )</div>
+                                <div class="text-[9px] text-center text-emerald-600 dark:text-emerald-400 font-bold">Интегральный рейтинг считается на основе массива сохраненных проверок.</div>
                             </div>
-                            <ul class="list-disc pl-4 space-y-2 text-[11px] mb-6">
-                                <li><b>Ks (Системность):</b> Штраф за то, что подрядчик наступает на одни и те же грабли.<br>
-                                    Система ищет самый "популярный" дефект B2. Если он повторяется:<br>
-                                    — Более чем в 20% проверок ➔ <code>Ks = 0.70</code><br>
-                                    — Более чем в 50% проверок ➔ <code>Ks = 0.50</code></li>
-                                <li><b>Kcrit (Критичность для массива):</b> Считается доля изделий, где был обнаружен B3.<br>
-                                    — Брак B3 есть в >10% изделий ➔ <code>Kcrit = 0.85</code><br>
-                                    — Брак B3 есть в >30% изделий ➔ <code>Kcrit = 0.50</code></li>
+
+                            <ul class="space-y-3 text-[11px] mb-6">
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-emerald-600 dark:text-emerald-500 text-[12px]">А. Средняя База</b><br>
+                                    Среднее арифметическое итоговых УрК всех проверок данного подрядчика по данному виду работ.
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-orange-600 dark:text-orange-500 text-[12px]">Б. Штраф за Системность брака (Ks)</b><br>
+                                    Система сканирует все акты и ищет <b>конкретный пункт чек-листа</b> (дефект B2), который подрядчик заваливает чаще всего. Если ошибка постоянно повторяется на разных этажах — значит подрядчик не борется с коренной причиной (наступает на одни и те же грабли).
+                                    <ul class="list-disc pl-5 mt-1 text-slate-600 dark:text-slate-400 space-y-1">
+                                        <li>Повтор одного дефекта в 10%–19% актов ➔ <b class="text-slate-800 dark:text-slate-200">Ks = 0.95</b></li>
+                                        <li>Повтор в 20%–39% актов ➔ <b class="text-slate-800 dark:text-slate-200">Ks = 0.85</b></li>
+                                        <li>Повтор в 40%–59% актов ➔ <b class="text-slate-800 dark:text-slate-200">Ks = 0.70</b></li>
+                                        <li>Повтор в ≥60% актов ➔ <b class="text-slate-800 dark:text-slate-200">Ks = 0.50</b></li>
+                                    </ul>
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-red-600 dark:text-red-500 text-[12px]">В. Штраф за Глобальную Критичность (KB3)</b><br>
+                                    Считается доля проверок (в процентах от выборки), в которых был найден хотя бы один B3. Если подрядчик регулярно допускает критический брак, его рейтинг обрушивается.
+                                    <ul class="list-disc pl-5 mt-1 text-slate-600 dark:text-slate-400 space-y-1">
+                                        <li>B3 есть в < 5% проверок ➔ <b class="text-slate-800 dark:text-slate-200">KB3 = 0.95</b></li>
+                                        <li>B3 есть в 5%–9% проверок ➔ <b class="text-slate-800 dark:text-slate-200">KB3 = 0.90</b></li>
+                                        <li>B3 есть в 10%–19% проверок ➔ <b class="text-slate-800 dark:text-slate-200">KB3 = 0.85</b></li>
+                                        <li>B3 есть в 20%–29% проверок ➔ <b class="text-slate-800 dark:text-slate-200">KB3 = 0.70</b></li>
+                                        <li>B3 есть в ≥30% проверок ➔ <b class="text-slate-800 dark:text-slate-200">KB3 = 0.50</b></li>
+                                    </ul>
+                                </li>
                             </ul>
+
+                            <!-- БЛОК 4: ЗАЩИТА ВЫБОРОК -->
+                            <h4 class="font-black text-amber-600 dark:text-amber-500 uppercase mb-2 text-[11px] border-b border-amber-200 dark:border-amber-800 pb-1 mt-6">🛡️ Защита от малых выборок (Правило 3 и 7)</h4>
+                            <p class="text-[11px] mb-3">Чтобы исключить ложные рейтинги (когда подрядчика хвалят или штрафуют всего по одной-двум проверкам), в системе работает жесткая статистическая защита:</p>
+
+                            <div class="space-y-2 text-[11px]">
+                                <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-slate-800 dark:text-white uppercase text-[10px]">Менее 3 проверок (Сбор данных)</b><br>
+                                    Система <b>полностью отказывается</b> рассчитывать рейтинг подрядчика, применять штрафы Ks и KB3 и выводить его на дашборды. Считается, что данных статистически недостаточно для любых выводов.
+                                </div>
+                                <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                                    <b class="text-amber-800 dark:text-amber-400 uppercase text-[10px]">От 3 до 6 проверок (Предварительный рейтинг)</b><br>
+                                    Рейтинг рассчитывается и появляется в Аналитике, но жестко помечается тегом <b>"⚠️ Предварительно"</b>. Доверительный интервал еще слишком широк. На этом этапе подрядчик не может получить значок "🏆 Лидера", даже если его УрК равен 100%.
+                                </div>
+                                <div class="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                                    <b class="text-green-800 dark:text-green-400 uppercase text-[10px]">7 и более проверок (Достоверный рейтинг)</b><br>
+                                    Полноценный рейтинг. Погрешность математически сведена к минимуму. Формируется Индекс стабильности. Включается логика присуждения Лидерства.
+                                </div>
+                            </div>
+                            
+                            <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] mt-4">
+                                <b class="text-slate-800 dark:text-white uppercase mb-1 block">Доп. Метрики (Индекс стабильности и Погрешность)</b>
+                                В карточке подрядчика дополнительно рассчитываются:<br>
+                                <b>1) Погрешность (±E):</b> Считается по формуле Доверительного интервала 95%. Показывает статистический разброс.<br>
+                                <b>2) Индекс Стабильности (0-100):</b> Считается на основе Волатильности (стандартного отклонения). Если качество подрядчика скачет от 50% до 100%, индекс падает. Если он стабильно сдает на 85%, индекс высокий.
+                            </div>
                         </div>
                     </details>
 
