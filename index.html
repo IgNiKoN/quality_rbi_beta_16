@@ -463,11 +463,12 @@
 
         <!-- ВКЛАДКА 1: ОСМОТР -->
         <div id="tab-audit" class="view-section active">
-            <!-- Пустое состояние -->
-            <div id="empty-checklist-state" class="text-center py-10 ios-panel border border-slate-200/50 dark:border-slate-700/50 rounded-[20px] shadow-sm mb-6 mt-4">
+            <!-- Пустое состояние (Оригинальный дизайн, компактная версия) -->
+            <div id="empty-checklist-state" class="text-center py-5 ios-panel border border-slate-200/50 dark:border-slate-700/50 rounded-[20px] shadow-sm mb-4 mt-2 mx-1">
                 
-                <div class="w-16 h-16 mx-auto bg-indigo-50 dark:bg-indigo-900/30 rounded-[16px] flex items-center justify-center mb-5 border border-indigo-100 dark:border-indigo-800">
-                    <svg class="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <!-- Уменьшенная иконка -->
+                <div class="w-12 h-12 mx-auto bg-indigo-50 dark:bg-indigo-900/30 rounded-[12px] flex items-center justify-center mb-3 border border-indigo-100 dark:border-indigo-800">
+                    <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                         <polyline points="14 2 14 8 20 8"></polyline>
                         <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -476,28 +477,28 @@
                     </svg>
                 </div>
                 
-                <div class="text-lg font-black uppercase tracking-tight">Добро пожаловать</div>
-                <div class="text-xs text-[var(--text-muted)] mt-2 mb-8">Выберите вариант для старта работы:</div>
+                <div class="text-[15px] font-black uppercase tracking-tight text-slate-800 dark:text-white">Добро пожаловать</div>
+                <div class="text-[10px] text-[var(--text-muted)] mt-1 mb-4">Выберите вариант для старта работы:</div>
 
-                <div class="border-t border-[var(--card-border)] pt-6 px-6 space-y-4">
+                <div class="border-t border-[var(--card-border)] pt-4 px-4 space-y-3">
                     
-                    <button onclick="startInteractiveTutorial()" class="w-full bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-50 dark:hover:bg-slate-700 transition-all border border-indigo-100 dark:border-indigo-800 shadow-sm active:scale-95 flex justify-center items-center gap-2">
+                    <button onclick="startInteractiveTutorial()" class="w-full bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-50 dark:hover:bg-slate-700 transition-all border border-indigo-100 dark:border-indigo-800 shadow-sm active:scale-95 flex justify-center items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         Обучение
                     </button>
                     
-                    <button onclick="startDemoMode()" class="w-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 flex justify-center items-center gap-2">
+                    <button onclick="startDemoMode()" class="w-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 flex justify-center items-center gap-2">
                         <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><path d="M6 12h4"></path><path d="M8 10v4"></path><line x1="15" y1="13" x2="15.01" y2="13"></line><line x1="18" y1="11" x2="18.01" y2="11"></line></svg>
                         Демо-режим
                     </button>
 
-                    <button onclick="goToFAQ()" class="w-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 flex justify-center items-center gap-2">
+                    <button onclick="goToFAQ()" class="w-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 flex justify-center items-center gap-2">
                         <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
                         База знаний
                     </button>
 
-                    <div class="relative pt-4 mt-2">
-                        <div class="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-[13px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md active:scale-95 flex justify-center items-center gap-2">
+                    <div class="relative pt-3 mt-1">
+                        <div class="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-[12px] uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md active:scale-95 flex justify-center items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
                             Начать проверку
                         </div>
@@ -1154,7 +1155,7 @@
                 <div id="nodes-list-container" class="grid grid-cols-2 md:grid-cols-3 gap-3 pb-8"></div>
             </div>
 
-            <!-- ПОДВКЛАДКА 5: FAQ И ЛОГИКА РАСЧЕТОВ -->
+            <!-- ПОДВКЛАДКА 5: FAQ И ЛОГИКА РАСЧЕТОВ (ОБНОВЛЕННЫЙ БОЛЬШОЙ FAQ) -->
             <div id="ref-sub-faq" class="ref-sub-section hidden mx-1 mt-4 pb-8">
 
                 <div class="text-center mb-6 mt-2">
@@ -1165,43 +1166,419 @@
 
                 <div class="space-y-3">
 
-                    <!-- РАЗДЕЛ 1: СУТЬ УПРАВЛЕНИЯ КАЧЕСТВОМ -->
+                    <!-- РАЗДЕЛ 1: ВВЕДЕНИЕ И ФИЛОСОФИЯ -->
                     <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
                         <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
-                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> 1. Суть Управления Качеством</span>
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> 1. Введение: философия RBI Quality</span>
                             <span class="transition group-open:rotate-180 text-slate-400">▼</span>
                         </summary>
                         <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
-                            <p class="mb-4">В строительстве часто путают <b>Контроль качества (Технадзор)</b> и <b>Управление качеством (Quality Management)</b>.</p>
                             
-                            <div class="space-y-3 mb-4">
+                            <h4 class="font-black text-slate-800 dark:text-white uppercase mb-2 text-[11px] border-b border-slate-200 dark:border-slate-700 pb-1">Контроль качества vs Управление качеством</h4>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                                 <div class="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
-                                    <span class="font-black text-red-600 dark:text-red-400 text-[10px] uppercase mb-1 block">Контроль качества (Старый подход)</span>
-                                    Это работа "постфактум". Инспектор приходит на готовый объект, берет рулетку, находит кривую стену, пишет предписание и заставляет всё сломать. Итог: сорванные сроки, убытки подрядчика, конфликт на стройке.
+                                    <span class="font-black text-red-600 dark:text-red-400 text-[10px] uppercase mb-1 block">Контроль качества (старый подход)</span>
+                                    <p class="text-[11px] mb-2">Работа <b>постфактум</b>. Инспектор приходит на готовый объект, находит дефект, пишет предписание и заставляет всё сломать.</p>
+                                    <p class="text-[11px] font-bold text-red-700 dark:text-red-300">Итог: сорванные сроки, убытки, конфликты.</p>
                                 </div>
                                 <div class="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
-                                    <span class="font-black text-green-600 dark:text-green-400 text-[10px] uppercase mb-1 block">Управление качеством (Подход RBI)</span>
-                                    Это работа "на опережение". Система оцифровывает каждую проверку. Если подрядчик три раза ошибся в зазорах, приложение строит график Парето и "кричит": <b>Здесь системная проблема!</b> Мы останавливаем работу, проводим обучение (показываем TWI-карту), меняем технологию и только потом разрешаем строить дальше.
+                                    <span class="font-black text-green-600 dark:text-green-400 text-[10px] uppercase mb-1 block">Управление качеством (подход RBI)</span>
+                                    <p class="text-[11px] mb-2">Работа <b>на опережение</b>. Система оцифровывает каждую проверку, выявляет системные проблемы и позволяет устранить корневую причину до того, как брак станет массовым.</p>
+                                    <p class="text-[11px] font-bold text-green-700 dark:text-green-300">Итог: снижение стоимости плохого качества (Cost of Poor Quality), стабильный график.</p>
                                 </div>
                             </div>
-                            <p class="font-bold text-slate-800 dark:text-white mb-2 text-[11px] uppercase">Главная задача инженера по качеству:</p>
-                            <ul class="list-disc pl-4 space-y-1.5 text-[11px]">
-                                <li>Не просто найти брак, а <b>исключить корневую причину</b> его появления.</li>
-                                <li>Снизить <b>Cost of Poor Quality (Стоимость плохого качества)</b> — переделки стоят денег и времени.</li>
+
+                            <p class="mb-3 text-[11px]"><b>RBI Quality</b> — это риск-ориентированная система управления качеством на основе данных (Data-Driven Quality Management), построенная на принципах статистического контроля процессов (SPC) и цикла PDCA.</p>
+                            
+                            <ul class="list-none space-y-2 text-[11px] mb-4">
+                                <li class="bg-white dark:bg-slate-800 p-2.5 rounded border border-slate-200 dark:border-slate-700 shadow-sm"><b>📊 Data-Driven:</b> все решения принимаются на основе объективных цифр, а не субъективных мнений.</li>
+                                <li class="bg-white dark:bg-slate-800 p-2.5 rounded border border-slate-200 dark:border-slate-700 shadow-sm"><b>📈 SPC:</b> система анализирует вариабельность процесса, отличает случайные ошибки от системных сбоев.</li>
+                                <li class="bg-white dark:bg-slate-800 p-2.5 rounded border border-slate-200 dark:border-slate-700 shadow-sm"><b>🔄 PDCA (Plan-Do-Check-Act):</b> модель встроена в цикл непрерывного улучшения — от планирования контроля до управленческих решений и последующей проверки их эффективности.</li>
                             </ul>
+
+                            <h4 class="font-black text-slate-800 dark:text-white uppercase mb-2 text-[11px] border-b border-slate-200 dark:border-slate-700 pb-1 mt-4">Роль инженера по качеству</h4>
+                            <p class="text-[11px] mb-2">Инженер по качеству в системе RBI Quality — не «человек с рулеткой», а <b>независимый аудитор и аналитик</b>. Его задача:</p>
+                            <ul class="list-disc pl-5 space-y-1 text-[11px] mb-3">
+                                <li>Проводить выборочные инспекции по чек-листам.</li>
+                                <li>Выявлять системные проблемы и корневые причины брака.</li>
+                                <li>Развивать компетенции команд и систему управления качеством компании</li>
+                                <li>Предоставлять команде и руководству <b>объективную картину рисков</b> на объекте.</li>
+                            </ul>
+                            <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 p-2.5 rounded text-[11px] text-indigo-800 dark:text-indigo-300">
+                                <b>Важно:</b> Операционное устранение дефектов ведётся в отдельной системе (ПК "СК") силами прорабов и технадзоров. <b>RBI Quality</b> — надзорный контур, верифицирующий эффективность этих процессов.
+                            </div>
                         </div>
                     </details>
 
-                    <!-- РАЗДЕЛ 2: ПОЧЕМУ 70% И 85% -->
+                    <!-- РАЗДЕЛ 2: ГЛОССАРИЙ -->
                     <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
                         <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
-                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg> 2. Почему именно 70% и 85%?</span>
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> 2. Глоссарий: все термины и показатели</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] bg-slate-50 dark:bg-slate-900/30 overflow-x-auto">
+                            
+                            <h4 class="font-bold text-[11px] uppercase mb-2">Категории дефектов</h4>
+                            <table class="w-full text-left text-[11px] mb-5 bg-white dark:bg-slate-800 border border-[var(--card-border)]">
+                                <thead><tr class="bg-[var(--hover-bg)] text-slate-500"><th class="p-2 border-r border-[var(--card-border)]">Термин</th><th class="p-2 border-r border-[var(--card-border)] text-center">Вес</th><th class="p-2">Описание</th></tr></thead>
+                                <tbody>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-black text-blue-600 border-r border-[var(--card-border)]">B1</td><td class="p-2 text-center border-r border-[var(--card-border)]">1</td><td class="p-2"><b>Мелкий дефект.</b> Эстетические отклонения, не влияющие на прочность и эксплуатацию.</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-black text-orange-600 border-r border-[var(--card-border)]">B2</td><td class="p-2 text-center border-r border-[var(--card-border)]">2</td><td class="p-2"><b>Значимый дефект.</b> Нарушение технологии, снижающее долговечность. Требует обязательного устранения.</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-black text-red-600 border-r border-[var(--card-border)]">B3</td><td class="p-2 text-center border-r border-[var(--card-border)]">3</td><td class="p-2"><b>Критический дефект.</b> Угроза безопасности (обрушение, протечка, промерзание). Блокирует дальнейшие работы.</td></tr>
+                                </tbody>
+                            </table>
+
+                            <h4 class="font-bold text-[11px] uppercase mb-2">Показатели Этапа I (один осмотр)</h4>
+                            <table class="w-full text-left text-[11px] mb-5 bg-white dark:bg-slate-800 border border-[var(--card-border)]">
+                                <thead><tr class="bg-[var(--hover-bg)] text-slate-500"><th class="p-2 border-r border-[var(--card-border)]">Показатель</th><th class="p-2">Вопрос, на который отвечает</th></tr></thead>
+                                <tbody>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">База</td><td class="p-2">Сколько процентов от максимально возможного веса набрано по пунктам «OK»?</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">Kc</td><td class="p-2">Много ли значимых дефектов (B2) сконцентрировано в одном месте?</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">Kcrit</td><td class="p-2">Был ли критический дефект (B3) или эскалация (>1.5x)?</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">Cap84</td><td class="p-2">Есть ли основания ограничить оценку 84% из-за наличия B2/B3?</td></tr>
+                                    <tr class="border-t border-[var(--card-border)] bg-indigo-50 dark:bg-indigo-900/20"><td class="p-2 font-black text-indigo-700 dark:text-indigo-400 border-r border-[var(--card-border)]">УрК_изд</td><td class="p-2 font-bold">Итоговая оценка конкретной проверки (0–100%).</td></tr>
+                                </tbody>
+                            </table>
+
+                            <h4 class="font-bold text-[11px] uppercase mb-2">Показатели Этапа II (рейтинг подрядчика)</h4>
+                            <table class="w-full text-left text-[11px] mb-5 bg-white dark:bg-slate-800 border border-[var(--card-border)]">
+                                <thead><tr class="bg-[var(--hover-bg)] text-slate-500"><th class="p-2 border-r border-[var(--card-border)] w-1/3">Показатель</th><th class="p-2">Вопрос, на который отвечает</th></tr></thead>
+                                <tbody>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">Средняя_База</td><td class="p-2">Каков средний УрК_изд по всем проверкам подрядчика?</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">Ks</td><td class="p-2">Насколько часто повторяется один и тот же дефект B2?</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">KB3</td><td class="p-2">Какова доля проверок, в которых обнаружен хотя бы один B3?</td></tr>
+                                    <tr class="border-t border-[var(--card-border)] bg-emerald-50 dark:bg-emerald-900/20"><td class="p-2 font-black text-emerald-700 dark:text-emerald-400 border-r border-[var(--card-border)]">УрК_подр</td><td class="p-2 font-bold">Интегральный рейтинг подрядчика (0–100%).</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">S</td><td class="p-2">Стандартное отклонение оценок — мера разброса.</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">Доверительный интервал (±E)</td><td class="p-2">Насколько широк «коридор» возможных значений рейтинга при 95% вероятности?</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">Индекс стабильности</td><td class="p-2">Насколько предсказуемо качество подрядчика от проверки к проверке?</td></tr>
+                                </tbody>
+                            </table>
+
+                            <h4 class="font-bold text-[11px] uppercase mb-2">Интегральные показатели объекта и прочее</h4>
+                            <table class="w-full text-left text-[11px] bg-white dark:bg-slate-800 border border-[var(--card-border)]">
+                                <tbody>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)] w-1/3">Доля работ в Красной зоне</td><td class="p-2">Какой процент контрольных точек выполнен подрядчиками с УрК_подр < 70%?</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-black text-red-600 dark:text-red-400 border-r border-[var(--card-border)]">ИКО (Индекс критичности)</td><td class="p-2">Насколько высок совокупный риск продолжения работ на всём объекте?</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">TWI</td><td class="p-2">Визуальные стандарты работы (карты технадзора, инструкции рабочего).</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">PWA</td><td class="p-2">Технология, позволяющая установить приложение на телефон из браузера и работать офлайн.</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 font-bold border-r border-[var(--card-border)]">Бэкап (JSON)</td><td class="p-2">Файл, содержащий все данные приложения для обмена между устройствами.</td></tr>
+                                </tbody>
+                            </table>
+
+                        </div>
+                    </details>
+
+                    <!-- РАЗДЕЛ 3: ПОЛНАЯ МАТЕМАТИЧЕСКАЯ МОДЕЛЬ -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> 3. Полная математическая модель</span>
                             <span class="transition group-open:rotate-180 text-slate-400">▼</span>
                         </summary>
                         <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
-                            <p class="mb-4">В приложении используются жесткие, научно обоснованные пороги отсечения. Это не школьные оценки "5, 4, 3", это три зоны риска для бизнеса.</p>
+                            <!-- 3.0 НОВЫЙ БЛОК: ИЕРАРХИЯ ОЦЕНОК -->
+                            <h4 class="font-black text-slate-800 dark:text-white uppercase mb-3 text-[12px] border-b border-slate-200 dark:border-slate-700 pb-1">3.0. Иерархия: Четкое разделение уровней оценки</h4>
+                            
+                            <div class="space-y-3 mb-6">
+                                <!-- Уровень 1 -->
+                                <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3 shadow-sm">
+                                    <div class="font-black text-[12px] text-indigo-700 dark:text-indigo-400 mb-2 uppercase flex items-center gap-1.5">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                        Уровень 1: Качество конкретного изделия (УрК_изд)
+                                    </div>
+                                    <div class="space-y-1.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-300">
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-indigo-100 dark:border-indigo-800/50 pb-1.5"><div class="font-bold text-indigo-600 dark:text-indigo-400">Что измеряет</div><div class="sm:col-span-2">Соответствие нормам и технологии одного проверенного участка/комнаты/узла в момент осмотра.</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-indigo-100 dark:border-indigo-800/50 pb-1.5"><div class="font-bold text-indigo-600 dark:text-indigo-400">Учитывает</div><div class="sm:col-span-2">Вес дефектов (B1/B2/B3), их концентрацию (Kc), наличие критических нарушений (Kcrit) и правило «стеклянного потолка» (Cap84).</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-indigo-100 dark:border-indigo-800/50 pb-1.5"><div class="font-bold text-indigo-600 dark:text-indigo-400">Не учитывает</div><div class="sm:col-span-2">Историю подрядчика, повторяемость ошибок, стабильность.</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-indigo-100 dark:border-indigo-800/50 pb-1.5"><div class="font-bold text-indigo-600 dark:text-indigo-400">Вопрос, на который отвечает</div><div class="sm:col-span-2 italic font-medium">«Можно ли эту стену красить / сдавать / закрывать актом прямо сейчас?»</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1"><div class="font-bold text-indigo-600 dark:text-indigo-400">Для кого</div><div class="sm:col-span-2">Инженер по качеству, прораб, приёмщик работ.</div></div>
+                                    </div>
+                                </div>
 
-                            <div class="space-y-3 mb-4">
+                                <!-- Уровень 2 -->
+                                <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3 shadow-sm">
+                                    <div class="font-black text-[12px] text-emerald-700 dark:text-emerald-400 mb-2 uppercase flex items-center gap-1.5">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                        Уровень 2: Качество подрядчика (УрК_подр)
+                                    </div>
+                                    <div class="space-y-1.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-300">
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-emerald-100 dark:border-emerald-800/50 pb-1.5"><div class="font-bold text-emerald-600 dark:text-emerald-400">Что измеряет</div><div class="sm:col-span-2">Надёжность и предсказуемость подрядчика на основе всех его проверок по конкретному виду работ.</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-emerald-100 dark:border-emerald-800/50 pb-1.5"><div class="font-bold text-emerald-600 dark:text-emerald-400">Учитывает</div><div class="sm:col-span-2">Средний уровень его работ (Средняя_База), системность брака (Ks — повторяемость одного B2) и частоту критических аварий (KB3 — доля проверок с B3).</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-emerald-100 dark:border-emerald-800/50 pb-1.5"><div class="font-bold text-emerald-600 dark:text-emerald-400">Не учитывает</div><div class="sm:col-span-2">Разовые случайные успехи или провалы, которые не повторяются.</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-emerald-100 dark:border-emerald-800/50 pb-1.5"><div class="font-bold text-emerald-600 dark:text-emerald-400">Вопрос, на который отвечает</div><div class="sm:col-span-2 italic font-medium">«Можно ли доверять этому подрядчику следующие 10 объектов и спать спокойно?»</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1"><div class="font-bold text-emerald-600 dark:text-emerald-400">Для кого</div><div class="sm:col-span-2">Руководитель проекта, начальник участка, тендерный отдел.</div></div>
+                                    </div>
+                                </div>
+
+                                <!-- Уровень 3 -->
+                                <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 shadow-sm">
+                                    <div class="font-black text-[12px] text-red-700 dark:text-red-400 mb-2 uppercase flex items-center gap-1.5">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                                        Уровень 3: Качество объекта (ИКО и Доля Красной зоны)
+                                    </div>
+                                    <div class="space-y-1.5 text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-300">
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-red-100 dark:border-red-800/50 pb-1.5"><div class="font-bold text-red-600 dark:text-red-400">Что измеряет</div><div class="sm:col-span-2">Совокупный уровень риска на всём объекте с учётом вклада каждого подрядчика.</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-red-100 dark:border-red-800/50 pb-1.5"><div class="font-bold text-red-600 dark:text-red-400">Учитывает</div><div class="sm:col-span-2">Рейтинги всех подрядчиков (УрК_подр), их стабильность, наличие критических дефектов (B3) и объём выполненных ими проверок.</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-red-100 dark:border-red-800/50 pb-1.5"><div class="font-bold text-red-600 dark:text-red-400">Не учитывает</div><div class="sm:col-span-2">Мелкие детали отдельных проверок, которые не влияют на общую картину рисков.</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-red-100 dark:border-red-800/50 pb-1.5"><div class="font-bold text-red-600 dark:text-red-400">Вопрос, на который отвечает</div><div class="sm:col-span-2 italic font-medium">«Насколько безопасно продолжать стройку в целом? Где сейчас "пожар", требующий вмешательства директора?»</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1"><div class="font-bold text-red-600 dark:text-red-400">Для кого</div><div class="sm:col-span-2">Директор филиала, технический заказчик, инвестор.</div></div>
+                                    </div>
+                                </div>
+
+                                <!-- Вспомогательный показатель -->
+                                <div class="bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl p-3 shadow-sm">
+                                    <div class="font-black text-[12px] text-slate-700 dark:text-slate-300 mb-2 uppercase flex items-center gap-1.5">
+                                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        Вспомогательный показатель: Средняя_База
+                                    </div>
+                                    <div class="space-y-1.5 text-[10px] sm:text-[11px] text-slate-600 dark:text-slate-400">
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-slate-200 dark:border-slate-700 pb-1.5"><div class="font-bold text-slate-500">Что измеряет</div><div class="sm:col-span-2">Среднее арифметическое всех УрК_изд подрядчика <span class="underline">до применения</span> штрафов Ks и KB3.</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-slate-200 dark:border-slate-700 pb-1.5"><div class="font-bold text-slate-500">Показывает</div><div class="sm:col-span-2">Потенциальное качество работы подрядчика «в вакууме», если бы у него не было системных ошибок и аварий.</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1 border-b border-slate-200 dark:border-slate-700 pb-1.5"><div class="font-bold text-slate-500">Где используется</div><div class="sm:col-span-2">Только в детальной аналитике для инженера по качеству, чтобы понять природу рейтинга (руки кривые или одна привычка).</div></div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-1"><div class="font-bold text-slate-500 text-red-500 dark:text-red-400">Не является</div><div class="sm:col-span-2 font-bold">Самостоятельным KPI и не должно выводиться на основные дашборды.</div></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Суммаризация "Коротко:" -->
+                                <div class="bg-indigo-600 text-white rounded-xl p-3 shadow-md">
+                                    <div class="font-black text-[12px] uppercase mb-2 tracking-widest text-indigo-100">Резюме (Коротко):</div>
+                                    <ul class="space-y-1.5 text-[11px] font-bold">
+                                        <li class="flex gap-2">➔ <span><span class="text-indigo-200">УрК_изд</span> — качество продукта.</span></li>
+                                        <li class="flex gap-2">➔ <span><span class="text-indigo-200">УрК_подр</span> — качество процесса и исполнителя.</span></li>
+                                        <li class="flex gap-2">➔ <span><span class="text-indigo-200">ИКО</span> — качество управления рисками на объекте.</span></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <!-- /КОНЕЦ 3.0 НОВЫЙ БЛОК -->
+                            <!-- Этап 1 -->
+                            <h4 class="font-black text-indigo-700 dark:text-indigo-400 uppercase mb-2 text-[11px] border-b border-indigo-200 dark:border-indigo-800 pb-1">3.1. Этап I: Оценка конкретной проверки (УрК_изд)</h4>
+                            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 mb-4 shadow-inner text-center font-mono font-black text-indigo-800 dark:text-indigo-300 text-[11px]">
+                                УрК_изд = MIN( База × Kc × Kcrit , Cap84 )
+                            </div>
+
+                            <ul class="space-y-3 text-[11px] mb-6">
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-indigo-600 dark:text-indigo-400 text-[12px] block mb-1">А. Базовый процент (База)</b>
+                                    <code class="block bg-slate-100 dark:bg-slate-900 p-2 rounded mb-2">База = ( Σ Вес_пунктов_OK / Σ Вес_всех_проверенных_пунктов ) × 100%</code>
+                                    <i class="text-slate-500">Пример: Проверено 5 пунктов: B2(2), B2(2), B1(1), B3(3), B1(1). Сумма весов = 9. Провален один B2 (вес 2). Вес OK = 7. База = (7/9)×100% = 77,8%.</i>
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-orange-600 dark:text-orange-500 text-[12px] block mb-1">Б. Штраф за концентрацию дефектов (Kc)</b>
+                                    Применяется только к дефектам категории B2.
+                                    <table class="w-full mt-2 text-center border border-slate-200 dark:border-slate-700">
+                                        <tr class="bg-slate-50 dark:bg-slate-900 text-[10px] font-bold"><td class="p-1 border-r border-slate-200 dark:border-slate-700">Доля проваленных B2</td><td class="p-1">Kc</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">&lt; 20%</td><td class="p-1">0,95</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">20% – 49%</td><td class="p-1">0,85</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700 font-bold">≥ 50%</td><td class="p-1 font-bold">0,70</td></tr>
+                                    </table>
+                                    <i class="text-[10px] text-slate-500 block mt-1">Если проверенных пунктов B2 нет, Kc = 1,0.</i>
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-red-600 dark:text-red-500 text-[12px] block mb-1">В. Штраф за критичность (Kcrit)</b>
+                                    Срабатывает при наличии B3 или эскалации B2 (>1.5x). При срабатывании: <b>Kcrit = 0,50</b>. Иначе Kcrit = 1,0.
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-slate-800 dark:text-slate-300 text-[12px] block mb-1">Г. Правило «Стеклянного потолка» (Cap84)</b>
+                                    Если в проверке обнаружен хотя бы один дефект B2 или B3, итоговая оценка не может превышать 84%.
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-slate-800 dark:text-slate-300 text-[12px] block mb-1">Д. Правило «>1.5x» (Эскалация дефекта B2 до B3)</b>
+                                    Если инженер обнаруживает дефект категории B2, но фактическое отклонение от нормативного допуска превышает установленное значение более чем в 1,5 раза, он вправе вручную применить эскалацию. В этом случае дефект в расчётах системы приравнивается к B3 (Критический).
+                                </li>
+                            </ul>
+
+                            <!-- Этап 2 -->
+                            <h4 class="font-black text-emerald-700 dark:text-emerald-400 uppercase mb-2 text-[11px] border-b border-emerald-200 dark:border-emerald-800 pb-1 mt-6">3.2. Этап II: Рейтинг подрядчика (УрК_подр)</h4>
+                            <div class="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 mb-4 shadow-inner text-center font-mono font-black text-emerald-800 dark:text-emerald-300 text-[11px]">
+                                УрК_подр = MIN( Средняя_База × Ks × KB3 , Cap84 )
+                            </div>
+
+                            <ul class="space-y-3 text-[11px] mb-6">
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-emerald-600 dark:text-emerald-500 text-[12px] block mb-1">А. Средняя База</b>
+                                    Среднее арифметическое всех значений УрК_изд по всем проверкам данного подрядчика.
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-orange-600 dark:text-orange-500 text-[12px] block mb-1">Б. Штраф за системность брака (Ks)</b>
+                                    Находится конкретный пункт B2, который подрядчик проваливает чаще всего.
+                                    <table class="w-full mt-2 text-center border border-slate-200 dark:border-slate-700">
+                                        <tr class="bg-slate-50 dark:bg-slate-900 text-[10px] font-bold"><td class="p-1 border-r border-slate-200 dark:border-slate-700">Частота повторения одного B2</td><td class="p-1">Ks</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">&lt; 10%</td><td class="p-1">1,00</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">10% – 19%</td><td class="p-1">0,95</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">20% – 39%</td><td class="p-1">0,85</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">40% – 59%</td><td class="p-1">0,70</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700 font-bold">≥ 60%</td><td class="p-1 font-bold">0,50</td></tr>
+                                    </table>
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-red-600 dark:text-red-500 text-[12px] block mb-1">В. Штраф за глобальную критичность (KB3)</b>
+                                    Рассчитывается как доля проверок (в %), в которых обнаружен хотя бы один дефект B3.
+                                    <table class="w-full mt-2 text-center border border-slate-200 dark:border-slate-700">
+                                        <tr class="bg-slate-50 dark:bg-slate-900 text-[10px] font-bold"><td class="p-1 border-r border-slate-200 dark:border-slate-700">Доля проверок с B3</td><td class="p-1">KB3</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">&lt; 5%</td><td class="p-1">1,00</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">5% – 9%</td><td class="p-1">0,95</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">10% – 19%</td><td class="p-1">0,90</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">20% – 29%</td><td class="p-1">0,85</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700">30% – 39%</td><td class="p-1">0,70</td></tr>
+                                        <tr><td class="p-1 border-r border-slate-200 dark:border-slate-700 font-bold">≥ 40%</td><td class="p-1 font-bold">0,50</td></tr>
+                                    </table>
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-slate-800 dark:text-slate-300 text-[12px] block mb-1">Г. Применение Cap84 на уровне подрядчика</b>
+                                    Если применены штрафы Ks &lt; 1,0 или KB3 &lt; 1,0, итоговый УрК_подр не может превышать 84%.
+                                </li>
+                            </ul>
+
+                            <h4 class="font-black text-slate-800 dark:text-white uppercase mb-2 text-[11px] border-b border-slate-200 dark:border-slate-700 pb-1 mt-6">3.3. Дополнительные метрики</h4>
+                            <div class="space-y-2 text-[11px]">
+                                <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-slate-800 dark:text-white uppercase text-[10px] mb-1 block">Стандартное отклонение (S)</b>
+                                    Мера разброса оценок УрК_изд вокруг среднего. Чем больше S, тем менее предсказуем подрядчик.
+                                </div>
+                                <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-slate-800 dark:text-white uppercase text-[10px] mb-1 block">Доверительный интервал (±E)</b>
+                                    <code class="block mb-1 bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">E = t_крит × ( S / √N )</code>
+                                    где t_крит — коэффициент Стьюдента для 95% доверительной вероятности (зависит от N - количества проверок).
+                                </div>
+                                <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                                    <b class="text-slate-800 dark:text-white uppercase text-[10px] mb-1 block">Индекс стабильности</b>
+                                    <code class="block mb-2 bg-white dark:bg-slate-900 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Индекс = MAX( 0 ; 1 – S / 50 ) × 100%</code>
+                                    <div class="grid grid-cols-2 gap-1 text-[10px] text-center">
+                                        <div class="bg-green-100 text-green-800 py-1 rounded">80–100% (Высокая)</div>
+                                        <div class="bg-yellow-100 text-yellow-800 py-1 rounded">60–79% (Средняя)</div>
+                                        <div class="bg-orange-100 text-orange-800 py-1 rounded">40–59% (Низкая)</div>
+                                        <div class="bg-red-100 text-red-800 py-1 rounded">&lt; 40% (Критическая)</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 3.4 НОВЫЙ БЛОК: ИКО -->
+                            <h4 class="font-black text-red-700 dark:text-red-400 uppercase mb-2 text-[11px] border-b border-red-200 dark:border-red-800 pb-1 mt-6">3.4. Этап III: Индекс критичности объекта (ИКО)</h4>
+                            
+                            <div class="bg-white dark:bg-slate-800 p-3 rounded-lg border-l-4 border-l-red-500 border border-slate-200 dark:border-slate-700 shadow-sm mb-4">
+                                <b class="text-[12px] text-slate-800 dark:text-white block mb-1">Как правильно понимать ИКО?</b>
+                                <p class="text-[11px] text-slate-700 dark:text-slate-300">
+                                    <b>ИКО — это средневзвешенная «опасность» всех подрядчиков на объекте. </b><br>
+                                    Опасность каждого подрядчика считается как вероятность того, что он создаст проблему на объекте. ИКО не усредняет оценки качества напрямую, он оценивает совокупный риск стройки.
+                                </p>
+                            </div>
+
+                            <div class="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800 mb-4 shadow-inner text-center font-mono font-black text-red-800 dark:text-red-300 text-[10px] sm:text-[11px]">
+                                <div class="mb-2">Опасность_подр = 1 – [ УрК_подр × Стабильность × (1 – 0.5 × Наличие_B3) ]</div>
+                                <div>ИКО_Объекта = Σ ( Опасность_подр_i × N_i ) / Σ N_i</div>
+                            </div>
+
+                            <ul class="space-y-3 text-[11px] mb-2">
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-red-600 dark:text-red-400 text-[12px] block mb-1">Шаг 1: Считаем «Опасность» каждого подрядчика (от 0 до 1)</b>
+                                    Почему мы вычитаем из единицы (1 - ...)? Потому что УрК и Стабильность — это метрики "здоровья". Если здоровье 100% (1.0), то опасность равна 0. Если подрядчик работает плохо и нестабильно, математика переводит это в высокий уровень угрозы.
+                                    <div class="mt-2 bg-red-100/50 dark:bg-red-900/10 p-2 rounded border border-red-100 dark:border-red-800/30">
+                                        <b>Множитель B3:</b> Если подрядчик допускает критические аварии (Есть_B3), его остаточное "здоровье" программно срезается вдвое (× 0.5), и его Опасность моментально взлетает к единице.
+                                    </div>
+                                </li>
+                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-indigo-600 dark:text-indigo-400 text-[12px] block mb-1">Шаг 2: Взвешиваем опасности по объему работы (N_i)</b>
+                                    Где <b>N_i</b> — это количество проведенных проверок у конкретного подрядчика.<br>
+                                    Опасный подрядчик (с высоким индексом Опасности), у которого 100 проверенных точек на объекте, утащит общий ИКО в красную зону гораздо быстрее, чем опасный подрядчик, который сделал всего 5 точек. Система учитывает масштаб проблемы.
+                                </li>
+                                 <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-indigo-600 dark:text-indigo-400 text-[12px] block mb-1">Шаг 3: НАХОДИТСЯ В ПРОРАБОТКЕ</b>
+                                    
+Текущее взвешивание по количеству проверок имеет ограничение: оно не различает критичность разных видов работ. Ошибка в несущих конструкциях и ошибка в покраске стен при таком подходе имеют одинаковый вес, если по ним проведено одинаковое число проверок.
+
+В следующей версии методики планируется:
+
+Привязать каждый вид работ (шаблон проверки) к разделу (фасад, кровля, инженерия и т.д.).
+
+Назначить каждому разделу вес критичности на основе статистики гарантийных дефектов (чем дороже и чаще ломается — тем выше вес).
+
+Заменить N_i на Σ (Вес_раздела × Количество_проверок_в_разделе) для каждого подрядчика.
+
+Это позволит ИКО точнее отражать реальный уровень риска: ошибка в фасаде будет «весить» больше, чем ошибка в отделке.
+                                <li class="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                                    <b class="text-slate-800 dark:text-white text-[12px] block mb-1">Интерпретация ИКО для руководства:</b>
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-center text-[10px]">
+                                        <div class="bg-green-100 text-green-800 py-1.5 rounded font-bold border border-green-200">ИКО &lt; 0.30<br>🟢 Низкий риск</div>
+                                        <div class="bg-yellow-100 text-yellow-800 py-1.5 rounded font-bold border border-yellow-200">ИКО 0.30 – 0.60<br>🟡 Повышенный риск</div>
+                                        <div class="bg-red-100 text-red-800 py-1.5 rounded font-bold border border-red-200">ИКО ≥ 0.60<br>🔴 Высокий риск (Пожар)</div>
+                                    </div>
+                                </li>
+                            </ul>
+                            <!-- /КОНЕЦ 3.4 НОВЫЙ БЛОК: ИКО -->
+                        </div>
+                    </details>
+
+                    <!-- РАЗДЕЛ 4: ПРОСТО О СЛОЖНОМ (ПРИМЕРЫ И АНАЛОГИИ) -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 4. Просто о сложном: объяснение на примерах</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] bg-slate-50 dark:bg-slate-900/30">
+                            
+                            <h4 class="font-black text-slate-800 dark:text-white uppercase mb-3 text-[11px] border-b border-slate-200 dark:border-slate-700 pb-1">3 Типа Подрядчиков (Примеры)</h4>
+                            
+                            <div class="space-y-3 mb-6">
+                                <div class="bg-white dark:bg-slate-800 border-l-4 border-l-green-500 rounded-lg p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+                                    <div class="font-black text-[12px] text-green-700 dark:text-green-400 mb-1">🛠️ Иваныч — «Золотые руки»</div>
+                                    <p class="text-[11px] text-slate-600 dark:text-slate-300">Делает всё аккуратно, но иногда ошибается. Из 10 проверок один раз допустил B2 (забыл промазать угол), получил 84%. Остальные — 100%. Система видит: повторяющихся ошибок нет, B3 нет. <b>Рейтинг: 93%. Иваныч надёжен.</b></p>
+                                </div>
+                                <div class="bg-white dark:bg-slate-800 border-l-4 border-l-orange-500 rounded-lg p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+                                    <div class="font-black text-[12px] text-orange-700 dark:text-orange-400 mb-1">🤦 Петрович — «Тупой троечник»</div>
+                                    <p class="text-[11px] text-slate-600 dark:text-slate-300">Никогда не делает B3, но всегда плохо проглаживает стык. В 7 из 10 проверок — один и тот же B2. Средняя База ≈ 82%, но из-за системности Ks = 0,70. <b>Рейтинг: 57%.</b> Система наказывает не за единичный брак, а за нежелание учиться.</p>
+                                </div>
+                                <div class="bg-white dark:bg-slate-800 border-l-4 border-l-red-500 rounded-lg p-3 shadow-sm border border-slate-200 dark:border-slate-700">
+                                    <div class="font-black text-[12px] text-red-700 dark:text-red-400 mb-1">💣 Степаныч — «Камикадзе»</div>
+                                    <p class="text-[11px] text-slate-600 dark:text-slate-300">Кладёт плитку хорошо, но раз в пятилетку попадает в трубу (B3). Из 5 проверок: 4 × 100%, 1 × 50% (из-за B3). Средняя База = 90%, но доля B3 = 20% → KB3 = 0,85. <b>Рейтинг: 63%.</b> Степаныч опасен, несмотря на высокий средний балл.</p>
+                                </div>
+                            </div>
+
+                            <h4 class="font-black text-slate-800 dark:text-white uppercase mb-3 text-[11px] border-b border-slate-200 dark:border-slate-700 pb-1">Математика на пальцах (Аналогии)</h4>
+
+                            <div class="space-y-4">
+                                <div>
+                                    <b class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 block mb-1">База — «Сколько стены сделано правильно?»</b>
+                                    <p class="text-[11px] text-slate-700 dark:text-slate-300">Штукатур сдал всё (весом на 7 баллов), кроме ровности поверхности (вес 2). База = 7/9 = 78%. Это как если бы стены покрасили, но они бугристые — жить можно, но переделывать придётся.</p>
+                                </div>
+                                
+                                <div>
+                                    <b class="text-[11px] font-bold text-orange-600 dark:text-orange-400 block mb-1">Kc — Штраф за «кучность» ошибок</b>
+                                    <p class="text-[11px] text-slate-700 dark:text-slate-300">Если в одной комнате кривые стены, кривые углы и трещины — это не «мелкие недочёты», это брак всей комнаты. Из двух важных пунктов провалены оба = 100% брака среди B2. Штраф Kc = 0,70.</p>
+                                </div>
+
+                                <div>
+                                    <b class="text-[11px] font-bold text-red-600 dark:text-red-400 block mb-1">Kcrit — Штраф за «катастрофу»</b>
+                                    <p class="text-[11px] text-slate-700 dark:text-slate-300">Вы готовите ужин. Если пересолили суп — неприятно, но есть можно (B2). А если в супе оказался осколок стекла (B3) — вы выливаете всё, потому что это опасно. Kcrit = 0,50 — это реакция на «стекло в супе».</p>
+                                </div>
+
+                                <div>
+                                    <b class="text-[11px] font-bold text-slate-800 dark:text-white block mb-1">Cap84 — «Стеклянный потолок»</b>
+                                    <p class="text-[11px] text-slate-700 dark:text-slate-300">Аналогия из ГАИ: вы сдали вождение, но не включили поворотник. Инспектор говорит: «Права не получишь. Ошибка перечёркивает "отлично"». В стройке работа с дефектом не может получить зеленый статус (>84%).</p>
+                                </div>
+
+                                <div>
+                                    <b class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block mb-1">Ks — Штраф за «системность»</b>
+                                    <p class="text-[11px] text-slate-700 dark:text-slate-300">Если ваш ребёнок 10 раз приносит из школы «двойку» по одному предмету, вы не говорите: «Ну, бывает». Вы понимаете: он не понял тему. Так и система «кричит» прорабу: «Научи штукатуров уровню!», снижая рейтинг.</p>
+                                </div>
+
+                                <div>
+                                    <b class="text-[11px] font-bold text-red-600 dark:text-red-400 block mb-1">KB3 — Штраф за «глобальную критичность»</b>
+                                    <p class="text-[11px] text-slate-700 dark:text-slate-300">Если водитель 3 раза из 10 поездок попадает в ДТП, страховая компания откажет ему в полисе. Подрядчик опасен для объекта, его рейтинг падает.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- РАЗДЕЛ 5: ПОРОГИ И ИКО -->
+                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg> 5. Пороги, Зоны риска и ИКО</span>
+                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
+                        </summary>
+                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
+                            
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2 uppercase text-[11px]">Зоны риска</h4>
+                            <div class="space-y-2 mb-6">
+                                <div class="space-y-3 mb-4">
                                 <div class="bg-white dark:bg-slate-800 p-3 rounded-lg border-l-4 border-l-green-500 border-y border-r border-slate-200 dark:border-slate-700 shadow-sm">
                                     <span class="font-black text-green-600 dark:text-green-500 text-[11px] uppercase mb-1 block">🟢 Зеленая зона (85% — 100%)</span>
                                     <b>Целевой показатель. "Готовность к сдаче клиенту с первого раза".</b><br>
@@ -1218,312 +1595,136 @@
                                     Плотность дефектов огромна. Либо подрядчик систематически лепит брак, либо допущена критическая ошибка B3 (угроза обрушения, промерзания). Дальнейшая работа приведет только к умножению убытков. Требуется немедленная остановка работ на участке.
                                 </div>
                             </div>
+                            </div>
+                            
+                            <p class="text-[11px] bg-slate-100 dark:bg-slate-800 p-2 rounded mb-6"><b>Почему 84%?</b> Это «стеклянный потолок». Если есть хотя бы один B2, оценка не может быть «отличной».<br><b>Почему 70%?</b> Ниже этого порога концентрация дефектов означает, что продолжение работ гарантированно ведёт к убыткам.</p>
+
+                            <h4 class="font-bold text-red-600 dark:text-red-400 mb-2 uppercase text-[11px]">Индекс критичности объекта (ИКО)</h4>
+                            <p class="text-[11px] mb-2">ИКО — единый показатель опасности для всего объекта. Отвечает на вопрос: «Насколько высок риск продолжать работы прямо сейчас?»</p>
+                            
+                            <div class="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800 text-[11px] mb-3">
+                                <b>Интерпретация ИКО:</b><br>
+                                <span class="text-green-700 dark:text-green-400">&lt; 0,30</span> — 🟢 Низкий риск.<br>
+                                <span class="text-yellow-700 dark:text-yellow-500">0,30 – 0,60</span> — 🟡 Повышенный риск.<br>
+                                <span class="text-red-700 dark:text-red-400">≥ 0,60</span> — 🔴 Высокий риск.
+                            </div>
+
+                            <p class="text-[11px] italic text-slate-600 dark:text-slate-400">Аналогия: В доме 3 квартиры. В двух живут отличные люди, в третьей — пироманьяк. Средний рейтинг дома хороший, но ИКО взлетит до красной зоны: «Пожарная опасность!». ИКО не усредняет, а слушает самый громкий сигнал тревоги.</p>
+
                         </div>
                     </details>
 
-                    <!-- РАЗДЕЛ 3: СЛУЧАЙНАЯ ВЫБОРКА -->
+                    <!-- РАЗДЕЛ 6: SPC, СТАБИЛЬНОСТЬ И ПРАВИЛА -->
                     <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
                         <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
-                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg> 3. Принцип случайной выборки</span>
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg> 6. Выборка, Стабильность и Достоверность</span>
                             <span class="transition group-open:rotate-180 text-slate-400">▼</span>
                         </summary>
                         <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
                             
-                            <p class="mb-3">В приложении используется принцип статистического контроля процессов (SPC). Инженер по качеству <b>не должен заниматься сплошным 100% контролем</b> — это физически невозможно и экономически невыгодно. Сплошной контроль — это задача прораба подрядчика.</p>
-
-                            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 mb-4 shadow-inner text-[11px]">
-                                <b>Как это работает:</b> Если на этаже смонтировано 50 окон, инженеру достаточно случайным образом проверить 5–7 штук. Если в 3-х окнах из выборки отсутствует гидроизоляция, математическая статистика гарантирует, что такая же ошибка системно присутствует на всём этаже.
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2 uppercase text-[11px]">Принцип случайной выборки и SPC</h4>
+                            <p class="text-[11px] mb-3">Инженер по качеству не проводит сплошной контроль. Это задача прораба подрядчика. Если из 50 окон инженер проверяет 5 и в 3 находит брак, статистика гарантирует: проблема системная на всём этаже.</p>
+                            <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 p-2.5 rounded text-[11px] text-indigo-800 dark:text-indigo-300 mb-6">
+                                <b>Правильное действие:</b> забраковать всю партию. Подрядчик обязан провести 100% ревизию за свой счёт и вызвать инженера на новую случайную выборку. Нельзя использовать технадзор как «бесплатного контролёра».
                             </div>
 
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-2 uppercase text-[10px] tracking-wider">Что делать при обнаружении системного брака?</h4>
-                            <p class="text-[11px] mb-3">Ошибкой будет выдать предписание на исправление только тех 3 окон, которые нашел инженер. Правильное управленческое решение: <b>забраковать всю партию (весь этаж)</b>. Подрядчик обязан за свой счет провести 100% ревизию всех 50 окон, исправить их и только потом повторно вызвать инженера на новую случайную выборку.</p>
-                            <p class="text-[11px] font-bold text-red-600 dark:text-red-400">Приложение перекладывает ответственность за качество обратно на подрядчика, не позволяя ему использовать технадзор заказчика как бесплатных "искателей своих косяков".</p>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2 uppercase text-[11px]">S и Индекс стабильности</h4>
+                            <p class="text-[11px] mb-2">Представьте двух штукатуров:</p>
+                            <ul class="list-disc pl-5 space-y-1 text-[11px] mb-3">
+                                <li><b>Штукатур А:</b> оценки 88%, 90%, 87%, 91%. Разброс маленький. Индекс стабильности высокий. Это "автопилот".</li>
+                                <li><b>Штукатур Б:</b> оценки 100%, 50%, 95%, 40%. Разброс огромный. Индекс стабильности низкий. Это "пьяный водитель".</li>
+                            </ul>
+                            <p class="text-[11px] mb-6">Доверительный интервал (±E) говорит: «С вероятностью 95% реальный рейтинг находится в этом диапазоне». Широкий интервал — признак непредсказуемости.</p>
+
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2 uppercase text-[11px]">Правило минимальной выборки</h4>
+                            <table class="w-full text-center text-[11px] bg-white dark:bg-slate-800 border border-[var(--card-border)]">
+                                <thead><tr class="bg-[var(--hover-bg)] text-slate-500"><th class="p-2 border-r border-[var(--card-border)]">Проверок (N)</th><th class="p-2 border-r border-[var(--card-border)]">Статус</th><th class="p-2">Отображение</th></tr></thead>
+                                <tbody>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 border-r border-[var(--card-border)] font-bold">&lt; 7</td><td class="p-2 border-r border-[var(--card-border)] text-slate-500">Сбор данных</td><td class="p-2 text-slate-400">Не показывается</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 border-r border-[var(--card-border)] font-bold">7 – 15</td><td class="p-2 border-r border-[var(--card-border)] text-amber-600">Предварительный</td><td class="p-2">С меткой ⚠️</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 border-r border-[var(--card-border)] font-bold">16 – 23</td><td class="p-2 border-r border-[var(--card-border)]">Базовый</td><td class="p-2">Средняя достоверность</td></tr>
+                                    <tr class="border-t border-[var(--card-border)]"><td class="p-2 border-r border-[var(--card-border)] font-bold">≥ 24</td><td class="p-2 border-r border-[var(--card-border)] text-green-600">Уверенный / Эталонный</td><td class="p-2 font-bold text-green-600">Высокая точность</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </details>
 
-                    <!-- РАЗДЕЛ 4: ФОРМУЛЫ И МАТЕМАТИКА -->
+                    <!-- РАЗДЕЛ 7: PWA, ОФЛАЙН, БЭКАПЫ И TWI -->
                     <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
                         <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
-                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> 4. Полная Математическая Модель (Формулы)</span>
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> 7. Приложение: Офлайн, Бэкапы и TWI</span>
                             <span class="transition group-open:rotate-180 text-slate-400">▼</span>
                         </summary>
                         <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
                             
-                            <p class="mb-4">Система RBI Quality использует двухэтапную математическую модель оценки: сначала оценивается <b>качество конкретного изделия</b> в момент осмотра, а затем, набрав статистику, система оценивает <b>надежность самого подрядчика</b> в целом.</p>
-
-                            <!-- БЛОК 1: ВЕСА ДЕФЕКТОВ -->
-                            <h4 class="font-black text-slate-800 dark:text-white uppercase mb-2 text-[11px] border-b border-slate-200 dark:border-slate-700 pb-1">1. Категории и веса дефектов</h4>
-                            <p class="text-[11px] mb-3">Каждый пункт чек-листа имеет свой "вес" в зависимости от степени влияния на безопасность и эксплуатацию:</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6 text-[10px]">
-                                <div class="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm">
-                                    <span class="font-black text-blue-600 block mb-1">B1 (Вес: 1) — Мелкий дефект</span>
-                                    Эстетические отклонения. Не влияют на эксплуатацию и прочность. Легко устранимы.
-                                </div>
-                                <div class="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-orange-200 dark:border-orange-800 shadow-sm">
-                                    <span class="font-black text-orange-600 block mb-1">B2 (Вес: 2) — Значимый дефект</span>
-                                    Нарушение технологии. Снижает долговечность, требует обязательного устранения до скрытия работ.
-                                </div>
-                                <div class="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-red-200 dark:border-red-800 shadow-sm">
-                                    <span class="font-black text-red-600 block mb-1">B3 (Вес: 3) — Критический дефект</span>
-                                    Угроза обрушения, промерзания или затопления. Блокирует любые дальнейшие работы.
-                                </div>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2 uppercase text-[11px]">Установка и работа в офлайне (PWA)</h4>
+                            <p class="text-[11px] mb-2">Приложение не нужно скачивать из магазинов. Оно устанавливается из браузера:</p>
+                            <ul class="list-disc pl-5 space-y-1 text-[11px] mb-3">
+                                <li><b>iPhone (Safari):</b> Нажать «Поделиться» → «На экран Домой».</li>
+                                <li><b>Android (Chrome):</b> Меню (три точки) → «Добавить на главный экран».</li>
+                            </ul>
+                            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-2.5 rounded text-[11px] text-blue-800 dark:text-blue-300 mb-6 shadow-sm">
+                                <b>Архитектура Offline-First:</b> Все данные (чек-листы, справочники, фото) хранятся в памяти телефона. На стройке интернет не нужен! Вы проводите осмотры, сохраняете, а бэкап выгружаете потом, когда появится Wi-Fi.
                             </div>
 
-                            <!-- БЛОК 2: УРК ИЗДЕЛИЯ -->
-                            <h4 class="font-black text-indigo-700 dark:text-indigo-400 uppercase mb-2 text-[11px] border-b border-indigo-200 dark:border-indigo-800 pb-1 mt-6">2. ЭТАП I: Расчет УрК Изделия (Конкретная проверка)</h4>
-                            
-                            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800 mb-3 shadow-inner">
-                                <div class="font-mono font-black text-indigo-800 dark:text-indigo-300 text-center text-[12px] mb-1">УрК_изд = MIN( (База × Kc × Kcrit), Cap84 )</div>
-                                <div class="text-[9px] text-center text-indigo-600 dark:text-indigo-400 font-bold">Итоговый балл за осмотр не может быть выше 84%, если сработал хоть один штраф.</div>
-                            </div>
-
-                            <ul class="space-y-3 text-[11px] mb-6">
-                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                                    <b class="text-indigo-600 dark:text-indigo-400 text-[12px]">А. Базовый процент (База)</b><br>
-                                    Рассчитывается как: <code>(Сумма весов пунктов "OK" / Сумма весов всех проверенных пунктов) × 100</code>.<br>
-                                    <i class="text-slate-500 mt-1 block">Пример: Проверили 5 пунктов B2 (общий вес 10). 4 сдали (вес 8), 1 завалили. База = 8/10 = 80%.</i>
-                                </li>
-                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                                    <b class="text-orange-600 dark:text-orange-500 text-[12px]">Б. Штраф за Концентрацию дефектов (Kc)</b><br>
-                                    Система оценивает <b>долю брака B2</b>. Если на одном участке инспектор находит много значимых ошибок, это говорит о полной потере контроля технологического процесса.
-                                    <ul class="list-disc pl-5 mt-1 text-slate-600 dark:text-slate-400 space-y-1">
-                                        <li>Доля брака B2 < 20% ➔ <b class="text-slate-800 dark:text-slate-200">Kc = 0.95</b> <span class="text-[9px]">(Минимальный штраф)</span></li>
-                                        <li>Доля брака B2 от 20% до 49% ➔ <b class="text-slate-800 dark:text-slate-200">Kc = 0.85</b> <span class="text-[9px]">(Умеренный штраф)</span></li>
-                                        <li>Доля брака B2 ≥ 50% ➔ <b class="text-slate-800 dark:text-slate-200">Kc = 0.70</b> <span class="text-[9px]">(Жесткий штраф)</span></li>
-                                    </ul>
-                                </li>
-                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                                    <b class="text-red-600 dark:text-red-500 text-[12px]">В. Штраф за Критичность (Kcrit)</b><br>
-                                    Срабатывает в двух случаях: <b>1)</b> Найден дефект категории B3. <b>2)</b> Сработало "Правило >1.5х" (Инспектор вручную эскалировал дефект B2 до статуса критического из-за грубого превышения допуска).
-                                    <div class="bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300 p-2 rounded mt-2 border border-red-100 dark:border-red-900">
-                                        Наличие хотя бы одного B3 мгновенно срезает весь накопленный уровень качества в два раза: <b class="text-[12px]">Kcrit = 0.50</b>. Такое изделие автоматически падает в "Красную зону" (<70%).
-                                    </div>
-                                </li>
-                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                                    <b class="text-slate-800 dark:text-slate-300 text-[12px]">Г. Правило "Стеклянного потолка" (Cap84)</b><br>
-                                    Если был обнаружен хотя бы один дефект B2 или B3 (то есть были применены штрафы Kc или Kcrit), итоговый балл за проверку <b>программно ограничивается максимумом в 84%</b>. "Зеленая" оценка (85-100%) ставится исключительно за безупречную работу.
-                                </li>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2 uppercase text-[11px]">Командная работа и Бэкапы (JSON)</h4>
+                            <p class="text-[11px] mb-1">Данные хранятся локально, для обмена используем Бэкапы.</p>
+                            <ul class="list-disc pl-5 space-y-1 text-[11px] mb-4">
+                                <li><b>Передать коллеге:</b> «Аналитика» → «База» → «Скачать Бэкап». Отправить файл <code>rbi_backup.json</code> в мессенджер.</li>
+                                <li><b>Объединить базы:</b> «Аналитика» → «База» → «Загрузить». Система добавит только новые проверки, старые не удалятся.</li>
+                                <li><b>Выгрузка в Excel:</b> Вкладка «История» → отметить нужные проверки → нажать иконку CSV (справа вверху).</li>
                             </ul>
 
-                            <!-- БЛОК 3: УРК ПОДРЯДЧИКА -->
-                            <h4 class="font-black text-emerald-700 dark:text-emerald-400 uppercase mb-2 text-[11px] border-b border-emerald-200 dark:border-emerald-800 pb-1 mt-6">3. ЭТАП II: Расчет УрК Подрядчика (Рейтинг)</h4>
-                            
-                            <div class="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 mb-3 shadow-inner">
-                                <div class="font-mono font-black text-emerald-800 dark:text-emerald-300 text-center text-[12px] mb-1">УрК_подр = MIN( (Средняя_База × Ks × KB3), Cap84 )</div>
-                                <div class="text-[9px] text-center text-emerald-600 dark:text-emerald-400 font-bold">Интегральный рейтинг считается на основе массива сохраненных проверок.</div>
-                            </div>
-
-                            <ul class="space-y-3 text-[11px] mb-6">
-                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                                    <b class="text-emerald-600 dark:text-emerald-500 text-[12px]">А. Средняя База</b><br>
-                                    Среднее арифметическое итоговых УрК всех проверок данного подрядчика по данному виду работ.
-                                </li>
-                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                                    <b class="text-orange-600 dark:text-orange-500 text-[12px]">Б. Штраф за Системность брака (Ks)</b><br>
-                                    Система сканирует все акты и ищет <b>конкретный пункт чек-листа</b> (дефект B2), который подрядчик заваливает чаще всего. Если ошибка постоянно повторяется на разных этажах — значит подрядчик не борется с коренной причиной (наступает на одни и те же грабли).
-                                    <ul class="list-disc pl-5 mt-1 text-slate-600 dark:text-slate-400 space-y-1">
-                                        <li>Повтор одного дефекта в 10%–19% актов ➔ <b class="text-slate-800 dark:text-slate-200">Ks = 0.95</b></li>
-                                        <li>Повтор в 20%–39% актов ➔ <b class="text-slate-800 dark:text-slate-200">Ks = 0.85</b></li>
-                                        <li>Повтор в 40%–59% актов ➔ <b class="text-slate-800 dark:text-slate-200">Ks = 0.70</b></li>
-                                        <li>Повтор в ≥60% актов ➔ <b class="text-slate-800 dark:text-slate-200">Ks = 0.50</b></li>
-                                    </ul>
-                                </li>
-                                <li class="bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                                    <b class="text-red-600 dark:text-red-500 text-[12px]">В. Штраф за Глобальную Критичность (KB3)</b><br>
-                                    Считается доля проверок (в процентах от выборки), в которых был найден хотя бы один B3. Если подрядчик регулярно допускает критический брак, его рейтинг обрушивается.
-                                    <ul class="list-disc pl-5 mt-1 text-slate-600 dark:text-slate-400 space-y-1">
-                                        <li>B3 есть в < 5% проверок ➔ <b class="text-slate-800 dark:text-slate-200">KB3 = 0.95</b></li>
-                                        <li>B3 есть в 5%–9% проверок ➔ <b class="text-slate-800 dark:text-slate-200">KB3 = 0.90</b></li>
-                                        <li>B3 есть в 10%–19% проверок ➔ <b class="text-slate-800 dark:text-slate-200">KB3 = 0.85</b></li>
-                                        <li>B3 есть в 20%–29% проверок ➔ <b class="text-slate-800 dark:text-slate-200">KB3 = 0.70</b></li>
-                                        <li>B3 есть в ≥30% проверок ➔ <b class="text-slate-800 dark:text-slate-200">KB3 = 0.50</b></li>
-                                    </ul>
-                                </li>
+                            <h4 class="font-bold text-slate-800 dark:text-white mb-2 uppercase text-[11px]">Справочник и TWI-карты</h4>
+                            <p class="text-[11px] mb-2">TWI — визуальные стандарты, привязанные к пунктам чек-листа.</p>
+                            <ul class="list-none space-y-2 text-[11px]">
+                                <li>🕵️ <b>Карта Технадзора:</b> фото «Как должно быть» и «Частый брак».</li>
+                                <li>🛠 <b>Инструкция рабочего:</b> пошаговый алгоритм действий с фото.</li>
+                                <li>📄 <b>Внешний PDF:</b> загруженная техкарта или ГОСТ.</li>
                             </ul>
+                            <p class="text-[11px] mt-2 italic text-slate-500">Лайфхак: На странице просмотра TWI нажмите кнопку «Печать» — сформируется PDF-плакат для бытовки.</p>
 
-                            <!-- БЛОК 4: ЗАЩИТА ВЫБОРОК -->
-                            <h4 class="font-black text-amber-600 dark:text-amber-500 uppercase mb-2 text-[11px] border-b border-amber-200 dark:border-amber-800 pb-1 mt-6">🛡️ Защита от малых выборок (Правило 3 и 7)</h4>
-                            <p class="text-[11px] mb-3">Чтобы исключить ложные рейтинги (когда подрядчика хвалят или штрафуют всего по одной-двум проверкам), в системе работает жесткая статистическая защита:</p>
-
-                            <div class="space-y-2 text-[11px]">
-                                <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-                                    <b class="text-slate-800 dark:text-white uppercase text-[10px]">Менее 3 проверок (Сбор данных)</b><br>
-                                    Система <b>полностью отказывается</b> рассчитывать рейтинг подрядчика, применять штрафы Ks и KB3 и выводить его на дашборды. Считается, что данных статистически недостаточно для любых выводов.
-                                </div>
-                                <div class="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
-                                    <b class="text-amber-800 dark:text-amber-400 uppercase text-[10px]">От 3 до 6 проверок (Предварительный рейтинг)</b><br>
-                                    Рейтинг рассчитывается и появляется в Аналитике, но жестко помечается тегом <b>"⚠️ Предварительно"</b>. Доверительный интервал еще слишком широк. На этом этапе подрядчик не может получить значок "🏆 Лидера", даже если его УрК равен 100%.
-                                </div>
-                                <div class="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800">
-                                    <b class="text-green-800 dark:text-green-400 uppercase text-[10px]">7 и более проверок (Достоверный рейтинг)</b><br>
-                                    Полноценный рейтинг. Погрешность математически сведена к минимуму. Формируется Индекс стабильности. Включается логика присуждения Лидерства.
-                                </div>
-                            </div>
-                            
-                            <div class="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-[10px] mt-4">
-                                <b class="text-slate-800 dark:text-white uppercase mb-1 block">Доп. Метрики (Индекс стабильности и Погрешность)</b>
-                                В карточке подрядчика дополнительно рассчитываются:<br>
-                                <b>1) Погрешность (±E):</b> Считается по формуле Доверительного интервала 95%. Показывает статистический разброс.<br>
-                                <b>2) Индекс Стабильности (0-100):</b> Считается на основе Волатильности (стандартного отклонения). Если качество подрядчика скачет от 50% до 100%, индекс падает. Если он стабильно сдает на 85%, индекс высокий.
-                            </div>
                         </div>
                     </details>
 
-                    <!-- РАЗДЕЛ 5: СПРАВОЧНИК И TWI -->
+                    <!-- РАЗДЕЛ 8: ЧАСТЫЕ ВОПРОСЫ (FAQ) -->
                     <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
                         <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
-                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg> 5. Справочник и TWI Карты</span>
+                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> 8. Часто задаваемые вопросы</span>
                             <span class="transition group-open:rotate-180 text-slate-400">▼</span>
                         </summary>
-                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
+                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30 space-y-4">
                             
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-1 uppercase text-[10px] tracking-wider">Что такое TWI (Training Within Industry)?</h4>
-                            <p class="mb-3 text-[11px]">Это визуальные стандарты работы. Люди плохо читают ГОСТы, но отлично понимают картинки. В приложении есть 3 типа TWI:</p>
-                            <ul class="space-y-2 text-[11px] mb-3">
-                                <li>🕵️‍♂️ <b>Карта Технадзора:</b> Привязывается строго к одному пункту чек-листа. Содержит фото "Как должно быть" и фото "Частый брак". Помогает молодому инженеру понять, куда смотреть.</li>
-                                <li>🛠 <b>Инструкция Рабочего:</b> Пошаговый алгоритм действий с фотографиями процесса.</li>
-                                <li>📄 <b>Внешний PDF:</b> Позволяет прикрепить техкарту или письмо и читать его прямо в приложении (без интернета).</li>
-                            </ul>
-                            <p class="text-[11px] bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 p-2 rounded"><b>Лайфхак:</b> Если вы создали TWI-карту, нажмите "Смотреть" и в правом верхнем углу нажмите кнопку 🖨️ <b>Печать</b>. Система сформирует идеальный PDF-плакат, который можно повесить в бытовке у рабочих.</p>
-                        </div>
-                    </details>
-
-                    <!-- РАЗДЕЛ 6: ПРОСТО О СЛОЖНОМ (Оригинальный текст) -->
-                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
-                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
-                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg> 6. Как приложение считает качество (Просто о сложном)</span>
-                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
-                        </summary>
-                        <div class="p-4 border-t border-[var(--card-border)] bg-slate-50 dark:bg-slate-900/30">
+                            <div>
+                                <b class="text-slate-800 dark:text-white text-[11px] uppercase">В: Почему при одном проваленном B2 и всех остальных «OK» оценка может быть 54%?</b>
+                                <p class="text-[11px] mt-1">О: Сработал штраф Kc за концентрацию. Если единственный проверенный значимый пункт провален, доля брака B2 = 100% → Kc = 0,70. Модель не даёт маскировать провал ключевой операции мелочами.</p>
+                            </div>
                             
-                            <div class="mb-4 text-[12px] leading-relaxed text-slate-700 dark:text-slate-300">
-                                Когда инженер на стройке проверяет работу (например, монтаж окон или укладку плитки), он заполняет чек-лист в приложении. Каждый пункт — это конкретное требование: «зазор должен быть 5 мм», «поверхность ровная», «нет трещин». Приложение автоматически превращает эти ответы в процент качества и делает выводы. Вот как это работает.
+                            <div>
+                                <b class="text-slate-800 dark:text-white text-[11px] uppercase">В: Можно ли доверять рейтингу, если у подрядчика всего 3 проверки?</b>
+                                <p class="text-[11px] mt-1">О: Нет. При N &lt; 7 рейтинг не отображается. При N = 7–15 показывается с пометкой «Предварительный». Это защита от ложных выводов на малой статистике.</p>
                             </div>
 
-                            <!-- УРОВЕНЬ 1 -->
-                            <div class="bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 rounded-xl p-4 shadow-sm mb-4">
-                                <h3 class="text-[13px] font-black uppercase text-blue-700 dark:text-blue-400 mb-3 flex items-center gap-2"><span>🏗️</span> Уровень 1: Качество изделия</h3>
-                                <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Представьте, что чек-лист состоит из 10 пунктов. У каждого пункта есть «вес» — насколько это важно:</p>
-                                
-                                <div class="space-y-2 mb-4">
-                                    <div class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-100 dark:border-blue-800/50 text-[11px]"><span class="font-black text-blue-600">B1</span> — Мелкий недочёт (вес 1)</div>
-                                    <div class="bg-orange-50 dark:bg-orange-900/20 p-2 rounded border border-orange-100 dark:border-orange-800/50 text-[11px]"><span class="font-black text-orange-600">B2</span> — Серьёзное нарушение (вес 2)</div>
-                                    <div class="bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800/50 text-[11px]"><span class="font-black text-red-600">B3</span> — Критический дефект (вес 3)</div>
-                                </div>
-
-                                <div class="text-[12px] font-bold text-slate-800 dark:text-white mb-2">🔴 Штрафы за ошибки</div>
-                                <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Просто средний балл — это нечестно. Если есть серьёзные нарушения, качество должно быть ниже.</p>
-                                
-                                <ul class="list-disc pl-4 space-y-2 text-[11px] text-slate-700 dark:text-slate-300 mb-4">
-                                    <li><b>Штраф за «кучность» (B2):</b> Если провалено 2 из 5 пунктов B2 — базовый процент умножается на 0.85 (минус 15%). Если 3 из 5 — на 0.70 (минус 30%).</li>
-                                    <li><b>Штраф за критичность (B3):</b> Если найден хотя бы один дефект B3, процент умножается на 0.50 (минус половина). Такая работа не может считаться качественной.</li>
-                                    <li><b>Правило потолка 84%:</b> Если были нарушения B2 или применялись штрафы, итоговый процент никогда не поднимется выше 84%. Работа с заметными недостатками не может получить «отлично».</li>
-                                </ul>
-
-                                <div class="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px]">
-                                    <span class="font-black uppercase text-slate-500 mb-1 block">📌 Пример расчета</span>
-                                    Проверили монтаж окна: 5 пунктов B1 (все ОК), 4 пункта B2 (два из них с нарушениями), 1 пункт B3 (ОК).<br><br>
-                                    Базовый балл = 85%.<br>
-                                    Штраф за два провала B2 = ×0.85.<br>
-                                    Штрафа за B3 нет.<br>
-                                    <b>Итог = 85% × 0.85 = 72% (Статус «ИСПРАВИТЬ»).</b>
-                                </div>
+                            <div>
+                                <b class="text-slate-800 dark:text-white text-[11px] uppercase">В: Что делать, если подрядчик стабильно в жёлтой зоне (70–84%)?</b>
+                                <p class="text-[11px] mt-1">О: Приёмка КС-2 блокируется до устранения всех B2. Необходимо усилить контроль, выявить корневую причину повторяющихся дефектов (через TWI или инструктаж).</p>
                             </div>
 
-                            <!-- УРОВЕНЬ 2 -->
-                            <div class="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4 shadow-sm mb-4">
-                                <h3 class="text-[13px] font-black uppercase text-indigo-700 dark:text-indigo-400 mb-3 flex items-center gap-2"><span>🏢</span> Уровень 2: Качество Подрядчика</h3>
-                                <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Когда у подрядчика накопилось несколько проверенных изделий, приложение анализирует их все вместе и даёт общий процент надёжности.</p>
-
-                                <div class="space-y-3">
-                                    <div>
-                                        <div class="text-[11px] font-bold text-slate-800 dark:text-white mb-1">🔁 Штраф за «системность»</div>
-                                        <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">Если дефект повторяется на разных объектах — это системная проблема. Например, в 5 окнах из 10 отклонение зазора (частота 50%). Штраф: повтор в 20–50% случаев → умножаем на 0.70.</p>
-                                    </div>
-                                    <div>
-                                        <div class="text-[11px] font-bold text-slate-800 dark:text-white mb-1">🚨 Штраф за критичность</div>
-                                        <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">Считается доля изделий с дефектами B3. Доля 10–20% → штраф 0.85. Доля 20–30% → штраф 0.70.</p>
-                                    </div>
-                                    <div>
-                                        <div class="text-[11px] font-bold text-slate-800 dark:text-white mb-1">📉 Волатильность и стабильность</div>
-                                        <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">Считается, насколько результаты разнятся от раза к разу. Если сегодня 90%, а завтра 60% — это плохой признак. Высокая волатильность снижает индекс стабильности.</p>
-                                    </div>
-                                </div>
+                            <div>
+                                <b class="text-slate-800 dark:text-white text-[11px] uppercase">В: Как часто нужно синхронизировать данные с другими инженерами?</b>
+                                <p class="text-[11px] mt-1">О: Рекомендуется после каждого выезда на объект передавать бэкап руководителю или ответственному за сводную аналитику. Частота — по регламенту вашей организации.</p>
                             </div>
 
-                            <!-- СТАТУСЫ -->
-                            <div class="bg-white dark:bg-slate-800 border border-[var(--card-border)] rounded-xl p-4 shadow-sm mb-4">
-                                <h3 class="text-[12px] font-black uppercase text-slate-800 dark:text-white mb-3">🎯 Достоверность и Статусы</h3>
-                                
-                                <p class="text-[11px] text-slate-600 dark:text-slate-300 mb-3">Чтобы проценту можно было верить, нужно достаточное количество проверок:</p>
-                                <div class="flex gap-2 text-[10px] font-bold text-center mb-4">
-                                    <div class="flex-1 bg-slate-100 dark:bg-slate-900 py-2 rounded text-slate-500">До 5 изд.<br>Низкая</div>
-                                    <div class="flex-1 bg-slate-200 dark:bg-slate-700 py-2 rounded text-slate-600 dark:text-slate-300">От 7 до 15<br>Средняя</div>
-                                    <div class="flex-1 bg-slate-300 dark:bg-slate-600 py-2 rounded text-slate-800 dark:text-white">Более 15<br>Высокая</div>
-                                </div>
-
-                                <div class="space-y-2">
-                                    <div class="bg-green-50 dark:bg-green-900/20 p-2.5 rounded-lg border border-green-200 dark:border-green-800 text-[11px]"><span class="font-black text-green-700 dark:text-green-400">🟢 ЗЕЛЕНАЯ ЗОНА (85–100%)</span><br>Можно доверять, давать новые объёмы.</div>
-                                    <div class="bg-yellow-50 dark:bg-yellow-900/20 p-2.5 rounded-lg border border-yellow-200 dark:border-yellow-800 text-[11px]"><span class="font-black text-yellow-700 dark:text-yellow-500">🟡 ЖЕЛТАЯ ЗОНА (70–84%)</span><br>Требует внимания, есть повторяющиеся недочёты.</div>
-                                    <div class="bg-red-50 dark:bg-red-900/20 p-2.5 rounded-lg border border-red-200 dark:border-red-800 text-[11px]"><span class="font-black text-red-700 dark:text-red-400">🔴 КРАСНАЯ ЗОНА (<70% или есть B3)</span><br>Стоп-работы, необходимо срочное вмешательство.</div>
-                                </div>
+                            <div>
+                                <b class="text-slate-800 dark:text-white text-[11px] uppercase">В: Можно ли использовать приложение на планшете?</b>
+                                <p class="text-[11px] mt-1">О: Да, PWA работает на любых смартфонах, планшетах и ПК с современным браузером.</p>
                             </div>
 
-                            <!-- ПОЧЕМУ ЭТО УДОБНО -->
-                            <div class="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 shadow-sm">
-                                <h3 class="text-[12px] font-black uppercase text-emerald-800 dark:text-emerald-400 mb-3 flex items-center gap-2"><span>🧠</span> Почему это удобно и справедливо</h3>
-                                <ul class="list-none space-y-2 text-[11px] text-emerald-900 dark:text-emerald-200">
-                                    <li>✔️ <b>Объективно:</b> Инженер не ставит оценку «на глаз». Приложение считает по единым правилам для всех.</li>
-                                    <li>✔️ <b>Прозрачно:</b> Подрядчик видит, за что именно снижен балл, и может исправить конкретный дефект.</li>
-                                    <li>✔️ <b>Предотвращает проблемы:</b> Система подсвечивает повторяющиеся ошибки, чтобы их можно было устранить в корне.</li>
-                                </ul>
-                                <div class="mt-4 pt-3 border-t border-emerald-200 dark:border-emerald-800/50 text-[11px] font-bold text-center">
-                                    Приложение не просто фиксирует дефекты, а помогает строить культуру качества.
-                                </div>
+                            <div>
+                                <b class="text-slate-800 dark:text-white text-[11px] uppercase">В: Где хранятся фотографии? Не засоряют ли они память телефона?</b>
+                                <p class="text-[11px] mt-1">О: Фотографии хранятся в защищенной базе IndexedDB внутри приложения, они не попадают в общую галерею телефона. Размер базы контролируется (есть индикатор в Настройках): старые проверки можно удалить, предварительно сохранив бэкап.</p>
                             </div>
-                        </div>
-                    </details>
 
-                    <!-- РАЗДЕЛ 7: ОФЛАЙН РАБОТА И PWA -->
-                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
-                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
-                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg> 7. Установка и работа в Офлайне</span>
-                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
-                        </summary>
-                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
-                            <p class="mb-3">Приложение построено по технологии <b>PWA (Progressive Web App)</b>. Это значит, что его не нужно скачивать из AppStore или Google Play. Оно устанавливается прямо из браузера.</p>
-                            <ul class="list-disc pl-4 space-y-1.5 text-[11px] mb-4">
-                                <li><b>iPhone (Safari):</b> Нажмите кнопку "Поделиться" (квадрат со стрелочкой) ➔ "На экран Домой".</li>
-                                <li><b>Android (Chrome):</b> Нажмите меню (три точки) ➔ "Добавить на главный экран".</li>
-                            </ul>
-                            <div class="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 text-[11px]">
-                                <span class="font-black text-indigo-600 dark:text-indigo-400 uppercase mb-1 block">Архитектура Offline-First</span>
-                                Вся база данных, справочники, шаблоны и даже сделанные фотографии хранятся прямо в защищенной памяти вашего телефона (технология IndexedDB).<br><b>На стройке (в подвале, в паркинге) интернет не нужен!</b> Вы спокойно проводите инспекцию, фоткаете, сохраняете акты. Выгрузить PDF отчет или отправить Бэкап руководителю вы сможете потом, когда вернетесь в офис с Wi-Fi.
-                            </div>
-                        </div>
-                    </details>
-
-                    <!-- РАЗДЕЛ 8: БЭКАПЫ И СИНХРОНИЗАЦИЯ -->
-                    <details class="group bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm overflow-hidden [&_summary::-webkit-details-marker]:hidden">
-                        <summary class="flex justify-between items-center font-black cursor-pointer list-none p-4 text-[12px] uppercase text-slate-800 dark:text-white hover:bg-[var(--hover-bg)] transition-colors">
-                            <span class="flex items-center gap-2"><svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 8. Командная работа и Бэкапы</span>
-                            <span class="transition group-open:rotate-180 text-slate-400">▼</span>
-                        </summary>
-                        <div class="p-4 border-t border-[var(--card-border)] text-[12px] leading-relaxed text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30">
-                            <p class="mb-3">Так как все данные лежат в памяти вашего телефона, для передачи информации коллегам или руководителю используется система <b>Бэкапов (JSON)</b>.</p>
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-1 uppercase text-[10px] tracking-wider">Как отправить свои проверки коллеге:</h4>
-                            <ol class="list-decimal pl-4 space-y-1.5 text-[11px] mb-4">
-                                <li>Перейдите во вкладку <b>Аналитика ➔ База</b>.</li>
-                                <li>Нажмите <b>Скачать Бэкап</b> (сформируется файл <code>rbi_backup.json</code>).</li>
-                                <li>Отправьте этот файл коллеге через Telegram или почту.</li>
-                            </ol>
-                            <h4 class="font-bold text-slate-800 dark:text-white mb-1 uppercase text-[10px] tracking-wider">Как объединить базы (Слияние):</h4>
-                            <p class="text-[11px] mb-3">Если вы руководитель и получаете бэкапы от трех инженеров, вам нужно просто зайти во вкладку <b>Аналитика ➔ База</b> и нажать <b>Загрузить</b>. Выберите присланный файл. Система умная: она сравнит уникальные ID проверок и <b>добавит только новые</b>. Ваши старые проверки не удалятся, базы просто сольются в одну большую.</p>
-                            
-                            <div class="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800 text-[11px]">
-                                <span class="font-black text-green-600 dark:text-green-400 uppercase mb-1 block">Выгрузка в Excel</span>
-                                Если вам нужно построить сводную таблицу (Сводную) в Excel, перейдите во вкладку <b>История</b>, выберите галочками нужные проверки и нажмите иконку <b>CSV</b> (зеленая кнопка со стрелкой вниз).
-                            </div>
                         </div>
                     </details>
 

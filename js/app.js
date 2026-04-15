@@ -634,7 +634,9 @@ function applySettingsToUI() {
 // Вывод списка пользовательских шаблонов для управления (Удаления)
     const templatesList = document.getElementById('settings-user-templates-list');
     if (templatesList) {
-        const customKeys = Object.keys(userTemplates);
+        // ИСПРАВЛЕНИЕ: Сортировка своих шаблонов по алфавиту перед выводом
+        const customKeys = Object.keys(userTemplates).sort((a, b) => userTemplates[a].title.localeCompare(userTemplates[b].title, 'ru'));
+        
         if (customKeys.length === 0) {
             templatesList.innerHTML = `<div class="text-[10px] text-slate-400 italic py-2 text-center">Созданных чек-листов пока нет</div>`;
         } else {
@@ -1335,8 +1337,11 @@ function renderSelector() {
     const fakeSysGroup = document.getElementById('fake-system-group');
     const fakeUserGroup = document.getElementById('fake-user-group');
 
-    let sysHtml = Object.keys(SYSTEM_TEMPLATES).map(key => `<option value="sys_${key}">${SYSTEM_TEMPLATES[key].title}</option>`).join('');
-    let userKeys = Object.keys(userTemplates);
+    // ИСПРАВЛЕНИЕ: Сортировка по алфавиту (по названию)
+    let sysKeys = Object.keys(SYSTEM_TEMPLATES).sort((a, b) => SYSTEM_TEMPLATES[a].title.localeCompare(SYSTEM_TEMPLATES[b].title, 'ru'));
+    let sysHtml = sysKeys.map(key => `<option value="sys_${key}">${SYSTEM_TEMPLATES[key].title}</option>`).join('');
+
+    let userKeys = Object.keys(userTemplates).sort((a, b) => userTemplates[a].title.localeCompare(userTemplates[b].title, 'ru'));
     let userHtml = userKeys.length > 0 ? userKeys.map(key => `<option value="user_${key}">${userTemplates[key].title}</option>`).join('') : `<option disabled>Своих шаблонов нет</option>`;
 
     if(sysGroup) sysGroup.innerHTML = sysHtml;
@@ -1844,9 +1849,9 @@ function updateUI() {
     const currentContr = document.getElementById('inp-contractor')?.value.trim();
     const filteredArr = currentContr ? contractorArray.filter(i => i.contractorName === currentContr && i.templateKey === currentTemplateKey) : [];
     
-    // Модель 4.0: Порог старта расчета - 3 независимые проверки
-    if (filteredArr.length < 3) { 
-        if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${filteredArr.length}/3 пров.`;
+    // Модель 4.0: Порог старта расчета - 7 независимых проверок
+    if (filteredArr.length < 7) { 
+        if(document.getElementById('dash-c-text')) document.getElementById('dash-c-text').innerText = `${filteredArr.length}/7 пров.`;
         if(document.getElementById('dash-c-bar')) document.getElementById('dash-c-bar').style.width = "0%";
         if(document.getElementById('dash-c-percent')) document.getElementById('dash-c-percent').innerText = "СБОР";
         ['dash-c-ks', 'dash-c-kcrit', 'dash-c-b3'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerText = "-"; });
@@ -2946,16 +2951,11 @@ function showContractorDetails() {
     document.getElementById('modal-title').innerText = currentContr ? `Аналитика: ${currentContr}` : "Аналитика подрядчика";
     const body = document.getElementById('modal-body');
 
-    if (filteredArr.length < 3) {
-        body.innerHTML = `<p class="bg-yellow-50 text-yellow-800 p-4 rounded-xl border border-yellow-200 font-bold leading-snug">Собрано: <b class="text-lg">${filteredArr.length}</b> проверок.<br><br>Для расчета интегрального рейтинга подрядчика и достоверной аналитики требуется минимум <b>3</b> независимые проверки.</p>`;
+    if (filteredArr.length < 7) {
+        body.innerHTML = `<p class="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 p-4 rounded-xl border border-slate-200 dark:border-slate-700 font-bold leading-snug text-center">Сбор данных: <b class="text-lg text-indigo-600">${filteredArr.length} / 7</b><br><br>Для расчета интегрального рейтинга подрядчика и штрафных коэффициентов требуется минимум <b>7</b> независимых проверок.</p>`;
     } else {
         const c = getContractorMetrics(filteredArr, userTemplates);
-        
-        // Предупреждение о малой выборке
-        let warningHtml = '';
-        if (c.count < 7) {
-            warningHtml = `<div class="bg-orange-50 text-orange-800 p-2 mb-3 rounded-lg border border-orange-200 text-[10px] font-bold text-center uppercase tracking-wider">⚠️ Предварительный рейтинг (Малая выборка)</div>`;
-        }
+        let warningHtml = ''; // Убрали предупреждение, так как до 7 проверок модалка теперь блокируется
 
         body.innerHTML = `
             ${warningHtml}
@@ -2991,9 +2991,10 @@ function showContractorDetails() {
                     <div class="text-[9px] text-[var(--text-muted)] font-bold uppercase mb-1" title="Доверительный интервал 95%">Погрешность (±E)</div>
                     <div class="text-xl font-black text-slate-700 dark:text-slate-300">± ${c.ci95_margin.toFixed(1)}%</div>
                 </div>
-                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] p-3 rounded-xl shadow-sm text-center">
-                    <div class="text-[9px] text-[var(--text-muted)] font-bold uppercase mb-1">Индекс стаб.</div>
-                    <div class="text-xl font-black ${c.stabilityIndex < 70 ? 'text-orange-500' : 'text-green-600'}">${c.stabilityIndex} / 100</div>
+                <div class="bg-[var(--card-bg)] border border-[var(--card-border)] p-3 rounded-xl shadow-sm text-center cursor-help" title="${c.stabDesc}">
+                    <div class="text-[9px] text-[var(--text-muted)] font-bold uppercase mb-1 border-b border-dashed border-slate-300 pb-1 inline-block">Индекс стаб.</div>
+                    <div class="text-xl font-black ${c.stabColor} leading-none">${c.stabilityIndex}</div>
+                    <div class="text-[8px] font-bold uppercase mt-1 ${c.stabColor}">${c.stabText}</div>
                 </div>
             </div>
 
@@ -3206,15 +3207,15 @@ function renderRatingSubTab(data) {
     
     const ratingData = [];
     for(let cName in grouped) { 
-        // Порог старта аналитики: минимум 3 проверки
-        if(grouped[cName].length >= 3) {
+        // Считаем метрики (строго >= 7 проверок)
+        if (grouped[cName].length >= 7) {
             const metrics = getContractorMetrics(grouped[cName], userTemplates); 
-            if (metrics) ratingData.push({ name: cName, metrics: metrics, raw: grouped[cName] }); 
+            if (metrics) ratingData.push({ name: cName, metrics: metrics }); 
         }
     }
     
     if (ratingData.length === 0) { 
-        container.innerHTML = '<p class="p-6 text-center text-slate-500 text-sm bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl shadow-sm">Мало данных. Для расчета рейтинга нужно мин. 3 проверки на подрядчика.</p>'; 
+        listDiv.innerHTML = '<p class="text-sm text-[var(--text-muted)] text-center bg-[var(--card-bg)] border border-[var(--card-border)] p-6 rounded-xl shadow-sm">Недостаточно данных. Сбор информации (нужно минимум 7 проверок на подрядчика по одному виду работ).</p>'; 
         return; 
     }
 
@@ -3850,29 +3851,54 @@ function renderEngineeringSubTab(data) {
         };
 
         let cMetricsHtml = "";
-        if (cData.length >= 3) {
+        if (cData.length >= 7) {
             const cM = getContractorMetrics(cData, userTemplates);
             if (cM) {
                 let cColor = cM.isRedZone ? 'text-red-600' : (cM.finalC < 85 ? 'text-orange-500' : 'text-green-600');
+                
+                let confBadgeColor = 'bg-slate-200 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600';
+                if (cM.confStatus.includes('Уверенный') || cM.confStatus.includes('Базовый')) confBadgeColor = 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800';
+                if (cM.confStatus.includes('Стабильный') || cM.confStatus.includes('Эталонный')) confBadgeColor = 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800';
+
                 cMetricsHtml = `
-                ${cData.length < 7 ? '<div class="bg-orange-50 text-orange-800 p-2 mb-3 rounded-lg border border-orange-200 text-[10px] font-bold text-center uppercase tracking-wider">⚠️ Предварительно (Малая выборка)</div>' : ''}
                 <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 min-[400px]:p-4 shadow-sm mb-4">
-                    <div class="flex justify-between items-center mb-3 border-b border-slate-200 dark:border-slate-700 pb-2">
-                        <div class="text-[11px] font-bold text-slate-500 uppercase">УрК Подрядчика</div>
-                        <div class="status-tag ${cM.statusCls} !text-[9px]">${cM.statusTxt}</div>
-                    </div>
-                    <div class="flex items-end justify-between">
-                        <div class="text-4xl font-black ${cColor} leading-none">${cM.finalC}%</div>
-                        <div class="text-right text-[10px] text-slate-500 font-bold bg-white dark:bg-slate-800 p-1.5 rounded border border-slate-200 dark:border-slate-700 shadow-inner">
-                            <div class="mb-0.5">База УрК: <span class="text-slate-800 dark:text-slate-300">${cM.baseUrkContrPerc}%</span></div>
-                            <div>Штраф (Ks): <span class="${cM.ks < 1 ? 'text-red-500' : 'text-slate-800 dark:text-slate-300'}">${cM.ks.toFixed(2)}</span></div>
-                            <div>Штраф (Kcrit): <span class="${cM.kcritC < 1 ? 'text-red-500' : 'text-slate-800 dark:text-slate-300'}">${cM.kcritC.toFixed(2)}</span></div>
+                    
+                    <div class="flex justify-between items-start mb-3 border-b border-slate-200 dark:border-slate-700 pb-3">
+                        <div>
+                            <div class="text-[11px] font-bold text-slate-500 uppercase mb-1">УрК Подрядчика</div>
+                            <div class="text-4xl font-black ${cColor} leading-none mb-2">${cM.finalC}%</div>
+                            <div class="status-tag ${cM.statusCls} !text-[9px]">${cM.statusTxt}</div>
+                        </div>
+                        <div class="text-right text-[10px] text-slate-500 font-bold bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner min-w-[120px]">
+                            <div class="mb-1 text-[8px] uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700 pb-1">Штрафные коэф.</div>
+                            <div class="flex justify-between items-center mb-0.5"><span>База УрК:</span> <span class="text-slate-800 dark:text-slate-300 text-[11px]">${cM.baseUrkContrPerc}%</span></div>
+                            <div class="flex justify-between items-center mb-0.5"><span>Системн. (Ks):</span> <span class="${cM.ks < 1 ? 'text-red-500' : 'text-slate-800 dark:text-slate-300'} text-[11px]">${cM.ks.toFixed(2)}</span></div>
+                            <div class="flex justify-between items-center"><span>Критич. (Kcrit):</span> <span class="${cM.kcritC < 1 ? 'text-red-500' : 'text-slate-800 dark:text-slate-300'} text-[11px]">${cM.kcritC.toFixed(2)}</span></div>
                         </div>
                     </div>
+
+                    <div class="grid grid-cols-3 gap-2 text-center text-[10px] font-bold">
+                        <div class="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-center cursor-help" title="${cM.stabDesc}">
+                            <span class="text-[8px] text-slate-400 uppercase tracking-widest mb-0.5 border-b border-dashed border-slate-300 pb-0.5 inline-block mx-auto">Стабильность</span>
+                            <div class="flex items-center justify-center gap-1 mt-0.5">
+                                <span class="${cM.stabColor} text-[12px]">${cM.stabilityIndex}</span>
+                                <span class="text-[7px] ${cM.stabColor} uppercase leading-tight bg-slate-50 dark:bg-slate-900 px-1 rounded border">${cM.stabText}</span>
+                            </div>
+                        </div>
+                        <div class="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-center">
+                            <span class="text-[8px] text-slate-400 uppercase tracking-widest mb-0.5" title="Доверительный интервал 95%">Погрешность (±E)</span>
+                            <span class="text-slate-700 dark:text-slate-300 text-[12px]">± ${cM.ci95_margin.toFixed(1)}%</span>
+                        </div>
+                        <div class="${confBadgeColor} p-2 rounded-lg border shadow-sm flex flex-col justify-center">
+                            <span class="text-[8px] opacity-70 uppercase tracking-widest mb-0.5">Достоверность</span>
+                            <span class="text-[9px] uppercase leading-tight">${cM.confStatus}</span>
+                        </div>
+                    </div>
+
                 </div>`;
             }
         } else {
-            cMetricsHtml = `<div class="bg-yellow-50 text-yellow-800 p-3 rounded-lg border border-yellow-200 font-bold text-[10px] mb-4 shadow-sm">Собрано ${cData.length} пров. Для расчета рейтинга и штрафов нужно минимум 3.</div>`;
+            cMetricsHtml = `<div class="bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 p-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 font-bold text-[10px] mb-4 shadow-sm text-center uppercase tracking-wide">Сбор данных (${cData.length} / 7). Рейтинг скрыт.</div>`;
         }
 
         html += `
@@ -3956,13 +3982,13 @@ function renderEngineeringSubTab(data) {
 }
 
 // === ПОДВКЛАДКА 3: ДАШБОРД РУКОВОДИТЕЛЯ (ONE-PAGER) ===
+// === ПОДВКЛАДКА 3: ДАШБОРД РУКОВОДИТЕЛЯ (ONE-PAGER) ===
 function renderOnePagerSubTab(data) {
     const container = document.getElementById('onepager-content-container');
-    if(data.length === 0) { container.innerHTML = `<div class="text-center text-slate-500 text-sm py-10 border border-[var(--card-border)] rounded-xl bg-[var(--card-bg)] shadow-sm mx-1">Нет данных для анализа</div>`; return; }
-
-    const uniqueLocs = [...new Set(data.map(i => i.location))];
-    const uniqueWorks = [...new Set(data.map(i => i.templateTitle))];
-    const avgCoverage = uniqueWorks.length > 0 ? Math.round(data.length / uniqueWorks.length) : 0;
+    if(data.length === 0) { 
+        container.innerHTML = `<div class="text-center text-slate-500 text-sm py-10 border border-[var(--card-border)] rounded-xl bg-[var(--card-bg)] shadow-sm mx-1">Нет данных для анализа</div>`; 
+        return; 
+    }
 
     const groupedC = {};
     data.forEach(item => { 
@@ -3970,36 +3996,24 @@ function renderOnePagerSubTab(data) {
         groupedC[item.contractorName].push(item); 
     });
     
-    let sumUrk = 0, validContrs = 0;
-    let best = null, worst = null;
     const ratingData = [];
-
     for(let cName in groupedC) {
         if (groupedC[cName].length >= 3) {
             const m = getContractorMetrics(groupedC[cName], userTemplates);
             if (m) {
-                sumUrk += m.finalC;
-                validContrs++;
                 ratingData.push({ name: cName, val: m.finalC, count: m.count, isPrelim: m.count < 7, metrics: m });
-                
-                if (!best || (m.finalC > best.val && m.count >= 7)) best = { name: cName, val: m.finalC };
-                if (!worst || m.finalC < worst.val) worst = { name: cName, val: m.finalC };
             }
         }
     }
     
-    if (!best && ratingData.length > 0) {
-        const sorted = [...ratingData].sort((a,b) => b.val - a.val);
-        best = { name: sorted[0].name, val: sorted[0].val };
-    }
-
-    const globalUrk = validContrs > 0 ? Math.round(sumUrk / validContrs) : Math.round(data.reduce((s, i) => s + (i.metrics?.final || 0), 0) / (data.length || 1));
     ratingData.sort((a,b) => b.val - a.val);
 
-    const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
-    const midPoint = Math.floor(sortedData.length / 2);
-    const calcSimpleUrk = (arr) => arr.length > 0 ? Math.round(arr.reduce((s, i) => s + (i.metrics?.final || 0), 0) / arr.length) : 0;
-    const delta = (calcSimpleUrk(sortedData.slice(0, midPoint)) > 0 && calcSimpleUrk(sortedData.slice(midPoint)) > 0) ? (calcSimpleUrk(sortedData.slice(midPoint)) - calcSimpleUrk(sortedData.slice(0, midPoint))) : 0;
+    // --- НОВАЯ МАТЕМАТИКА ИКО ---
+    const intMetrics = typeof getObjectIntegralMetrics === 'function' ? getObjectIntegralMetrics(data, userTemplates) : null;
+    const mData = intMetrics || {
+        totalValidChecks: 0, redZonePerc: 0, yellowZonePerc: 0, greenZonePerc: 0,
+        IKO: "0.00", ikoStatus: "Мало данных (N<7)", ikoColor: "text-slate-500"
+    };
 
     let b3Map = {}; let b2Map = {}; let sumB3 = 0;
     data.forEach(i => {
@@ -4069,18 +4083,13 @@ function renderOnePagerSubTab(data) {
 
     if (!customExpertConclusions[pdcaKey]) {
         const redContrs = ratingData.filter(r => r.val < 70 || r.metrics.n_изделий_с_B3 > 0).map(r => r.name);
-        const greenContrs = ratingData.filter(r => r.val >= 85 && r.metrics.n_изделий_с_B3 === 0 && !r.isPrelim).map(r => r.name);
         
-        rawPdcaText += `[АНАЛИТИКА ДАШБОРДА]\nСредний УрК по выбранным фильтрам: ${globalUrk}%.\nОхват контроля: ${data.length} независимых проверок.\n\n`;
+        rawPdcaText += `[АНАЛИТИКА ДАШБОРДА]\nИндекс критичности объекта (ИКО): ${mData.IKO}.\nРаботы в красной зоне: ${mData.redZonePerc}%.\nОхват: ${data.length} проверок.\n\n`;
         
-        if (redContrs.length > 0) rawPdcaText += `🚨 В ЗОНЕ РИСКА (УрК < 70% или критический брак B3):\n${redContrs.join(', ')}\n\n`;
-        if (greenContrs.length > 0) rawPdcaText += `🏆 ОБРАЗЦОВЫЕ ПОДРЯДЧИКИ (УрК > 85%, полная выборка):\n${greenContrs.join(', ')}\n\n`;
-        
-        rawPdcaText += `[УПРАВЛЕНЧЕСКОЕ РЕШЕНИЕ]\n`;
-        if (redContrs.length > 0) {
+        if (redContrs.length > 0 || parseFloat(mData.IKO) >= 0.60) {
             rawPdcaText += `1. Ограничить или заблокировать подписание КС-2 для подрядчиков в красной зоне до полного устранения дефектов.\n`;
             rawPdcaText += `2. Провести аудит квалификации персонала данных субподрядчиков.\n`;
-        } else if (globalUrk < 85) {
+        } else if (parseFloat(mData.IKO) >= 0.30) {
             rawPdcaText += `Процесс находится в условно-допустимой зоне. Разрешено продолжение СМР, но финишная приемка невозможна до устранения системных дефектов B2.\n`;
         } else {
             rawPdcaText += `Качество высокое. Риски минимальны. Работы принимаются без ограничений.\n`;
@@ -4088,28 +4097,28 @@ function renderOnePagerSubTab(data) {
     }
 
     let uiPdcaText = rawPdcaText.replace(/\n/g, '<br>').replace(/^\[(.*?)\]/gm, '<b class="text-slate-800 dark:text-white text-[11px] block mt-2 mb-1">$1</b>');
-    const urkColor = globalUrk < 70 ? 'text-red-600' : (globalUrk < 85 ? 'text-orange-500' : 'text-green-600');
+    const isGlobalDanger = parseFloat(mData.IKO) >= 0.60 || sumB3 > 0;
+    const periodText = document.getElementById('btn-ana-period-label')?.innerText.trim() || 'Всё время'; // Забираем текст периода
 
     let html = `
         <div class="text-center border-b border-[var(--card-border)] pb-3 mb-4">
             <h2 class="text-[16px] min-[400px]:text-lg font-black uppercase tracking-tight text-slate-800 dark:text-white">Сводный статус объекта</h2>
-            <div class="text-[10px] font-bold text-[var(--text-muted)] mt-1">База расчета: ${data.length} независимых проверок</div>
+            <div class="text-[10px] font-bold text-[var(--text-muted)] mt-1">База: ${data.length} независимых проверок &bull; Период: <span class="text-indigo-500">${periodText}</span></div>
         </div>
         
         <div class="flex flex-col md:flex-row gap-4 items-stretch">
             <div class="flex-1 flex flex-col gap-4 md:w-1/2 md:border-r md:border-dashed md:border-[var(--card-border)] md:pr-4">
                 
                 <div class="grid grid-cols-2 gap-2 min-[400px]:gap-3">
-                    <div class="bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-sm relative overflow-hidden flex flex-col justify-center">
-                        <div class="text-[9px] uppercase font-black text-[var(--text-muted)] mb-1">Ср. УрК Объекта</div>
-                        <div class="text-3xl min-[400px]:text-4xl font-black ${urkColor}">${globalUrk}%</div>
-                        ${delta !== 0 ? `<div class="absolute top-1 right-1 min-[400px]:top-2 min-[400px]:right-2 text-[8px] min-[400px]:text-[9px] font-black px-1.5 py-0.5 rounded ${delta > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}%</div>` : ''}
-                        <div class="text-[7px] text-[var(--text-muted)] absolute bottom-1 inset-x-0 text-center">Динамика месяц к месяцу</div>
+                    <div class="bg-[var(--card-bg)] rounded-xl p-3 border border-red-200 dark:border-red-900/50 bg-red-50/30 dark:bg-red-900/10 text-center shadow-sm relative overflow-hidden flex flex-col justify-center">
+                        <div class="text-[9px] uppercase font-black text-red-800 dark:text-red-400 mb-1">Работ в красной зоне</div>
+                        <div class="text-3xl min-[400px]:text-4xl font-black ${mData.redZonePerc > 0 ? 'text-red-600' : 'text-green-600'}">${mData.redZonePerc}%</div>
+                        <div class="text-[7px] text-red-700/70 dark:text-red-400/70 absolute bottom-1 inset-x-0 text-center">От ${mData.totalValidChecks} достов. проверок</div>
                     </div>
                     <div class="bg-[var(--card-bg)] rounded-xl p-3 border border-[var(--card-border)] text-center shadow-sm flex flex-col justify-center">
-                        <div class="text-[9px] uppercase font-black text-[var(--text-muted)] mb-1">Глубина контроля</div>
-                        <div class="text-3xl min-[400px]:text-4xl font-black text-blue-500">${avgCoverage}</div>
-                        <div class="text-[8px] text-[var(--text-muted)] mt-1">проверок на 1 вид работ</div>
+                        <div class="text-[9px] uppercase font-black text-[var(--text-muted)] mb-1">Индекс критичности (ИКО)</div>
+                        <div class="text-3xl min-[400px]:text-4xl font-black ${mData.ikoColor}">${mData.IKO}</div>
+                        <div class="text-[8px] mt-1 font-bold uppercase ${mData.ikoColor}">${mData.ikoStatus}</div>
                     </div>
                 </div>
 
@@ -4174,9 +4183,9 @@ function renderOnePagerSubTab(data) {
                 </div>
                 ` : ''}
 
-                <div class="${globalUrk < 85 || sumB3 > 0 ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'} border-2 rounded-xl p-3 shadow-sm flex-none relative">
-                    <div class="flex justify-between items-center border-b ${globalUrk < 85 || sumB3 > 0 ? 'border-orange-200 dark:border-orange-800' : 'border-green-200 dark:border-green-800'} pb-2 mb-2">
-                        <h3 class="margin-0 font-black text-[10px] ${globalUrk < 85 || sumB3 > 0 ? 'text-orange-800 dark:text-orange-500' : 'text-green-800 dark:text-green-500'} uppercase">
+                <div class="${isGlobalDanger ? 'bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' : 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'} border-2 rounded-xl p-3 shadow-sm flex-none relative">
+                    <div class="flex justify-between items-center border-b ${isGlobalDanger ? 'border-orange-200 dark:border-orange-800' : 'border-green-200 dark:border-green-800'} pb-2 mb-2">
+                        <h3 class="margin-0 font-black text-[10px] ${isGlobalDanger ? 'text-orange-800 dark:text-orange-500' : 'text-green-800 dark:text-green-500'} uppercase">
                             🎯 Управленческое Решение
                         </h3>
                         <button onclick="editExpertText('${pdcaKey}', 'hidden_pdca_text')" class="text-[9px] font-bold bg-white/50 dark:bg-black/20 border border-black/10 dark:border-white/10 px-2 py-1 rounded shadow-sm active:scale-95 text-slate-700 dark:text-slate-300">✏️ Изменить</button>
@@ -4194,11 +4203,36 @@ function renderOnePagerSubTab(data) {
     container.innerHTML = html;
 
     if (appSettings.anaOpTrend) {
-        // Мы используем selectedChartFilters.contrs для графика (по умолчанию - Авто ТОП-5, либо выбранные вручную линии)
-        // Но сам список Рейтинга выше выводит ВСЕХ.
         const trendContrsData = buildTrendChartData(data, 'contractorName', selectedChartFilters.contrs, trendGroupings.contrs);
         const ctxTC = document.getElementById('chart_op_trend_contrs').getContext('2d');
-        chartInstances['chart_op_trend_contrs'] = new Chart(ctxTC, { type: 'line', data: trendContrsData, options: { animation: false, responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 9} } } } } });
+        chartInstances['chart_op_trend_contrs'] = new Chart(ctxTC, { 
+            type: 'line', 
+            data: trendContrsData, 
+            options: { 
+                animation: false, responsive: true, maintainAspectRatio: false, 
+                scales: { y: { min: 0, max: 100 } }, 
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 9} } } } 
+            },
+            // ФОНОВЫЕ ЗОНЫ
+            plugins: [{
+                id: 'customCanvasBackgroundColor',
+                beforeDraw: (chart) => {
+                    const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+                    if (!y) return;
+                    ctx.save();
+                    // Зеленая зона 85-100
+                    ctx.fillStyle = 'rgba(34, 197, 94, 0.1)';
+                    ctx.fillRect(left, y.getPixelForValue(100), right - left, y.getPixelForValue(85) - y.getPixelForValue(100));
+                    // Желтая зона 70-85
+                    ctx.fillStyle = 'rgba(250, 204, 21, 0.1)';
+                    ctx.fillRect(left, y.getPixelForValue(85), right - left, y.getPixelForValue(70) - y.getPixelForValue(85));
+                    // Красная зона 0-70
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.1)';
+                    ctx.fillRect(left, y.getPixelForValue(70), right - left, y.getPixelForValue(0) - y.getPixelForValue(70));
+                    ctx.restore();
+                }
+            }]
+        });
     }
 }
 
@@ -4323,9 +4357,9 @@ function renderRatingTab() {
                     <span class="text-[var(--text-muted)]">Повтор B2:</span> 
                     <span class="${r.metrics.maxFailRate >= 20 ? 'text-orange-600' : 'text-slate-700 dark:text-slate-300'}">${r.metrics.maxFailRate.toFixed(1)}%</span>
                 </div>
-                <div class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)] flex justify-between items-center">
-                    <span class="text-[var(--text-muted)]">Индекс стаб.:</span> 
-                    <span class="${r.metrics.stabilityIndex < 70 ? 'text-orange-600' : 'text-slate-700 dark:text-slate-300'}">${r.metrics.stabilityIndex}/100</span>
+                <div class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)] flex justify-between items-center cursor-help" title="${r.metrics.stabDesc}">
+                    <span class="text-[var(--text-muted)] border-b border-dashed border-slate-300">Индекс стаб.:</span> 
+                    <span class="font-black ${r.metrics.stabColor}">${r.metrics.stabilityIndex} <span class="text-[8px] uppercase font-bold">(${r.metrics.stabText})</span></span>
                 </div>
                 <div class="bg-[var(--hover-bg)] p-2 rounded-lg border border-[var(--card-border)] flex justify-between items-center">
                     <span class="text-[var(--text-muted)]">Волатильность:</span> 
@@ -4727,34 +4761,49 @@ function exportPdfEngineering(data) {
         };
 
         let metricsHtml = "";
-        if (cData.length >= 3) {
+        if (cData.length >= 7) {
             const m = getContractorMetrics(cData, userTemplates);
             if (m) {
                 const color = m.finalC < 70 ? '#dc2626' : (m.finalC < 85 ? '#f59e0b' : '#16a34a');
                 metricsHtml = `
                     <table style="width: 100%; margin-bottom: 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px;">
                         <tr>
-                            <td style="width: 50%; vertical-align: middle;">
+                            <td style="width: 20%; vertical-align: middle;">
                                 <div style="font-size:10px; color:#64748b; text-transform:uppercase; font-weight:bold; margin-bottom:5px;">УрК Подрядчика</div>
-                                <div style="font-size:36px; font-weight:900; color:${color}; line-height:1;">${m.finalC}%</div>
+                                <div style="font-size:32px; font-weight:900; color:${color}; line-height:1;">${m.finalC}%</div>
                             </td>
-                            <td style="width: 25%; padding: 5px;">
-                                <div style="background:white; padding:10px; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
-                                    <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:bold;">Штраф (Ks)</div>
-                                    <div style="font-size:14px; font-weight:900; color:${m.ks < 1 ? '#dc2626' : '#1e293b'};">${m.ks.toFixed(2)}</div>
-                                </div>
-                            </td>
-                            <td style="width: 25%; padding: 5px;">
-                                <div style="background:white; padding:10px; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
-                                    <div style="font-size:9px; color:#64748b; text-transform:uppercase; font-weight:bold;">Штраф (Kcrit)</div>
-                                    <div style="font-size:14px; font-weight:900; color:${m.kcritC < 1 ? '#dc2626' : '#1e293b'};">${m.kcritC.toFixed(2)}</div>
-                                </div>
+                            <td style="width: 80%; vertical-align: middle;">
+                                <table style="width: 100%; border-collapse: separate; border-spacing: 4px;">
+                                    <tr>
+                                        <td style="background:white; padding:8px; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
+                                            <div style="font-size:8px; color:#64748b; text-transform:uppercase; font-weight:bold;">Штраф Ks</div>
+                                            <div style="font-size:14px; font-weight:900; color:${m.ks < 1 ? '#dc2626' : '#1e293b'};">${m.ks.toFixed(2)}</div>
+                                        </td>
+                                        <td style="background:white; padding:8px; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
+                                            <div style="font-size:8px; color:#64748b; text-transform:uppercase; font-weight:bold;">Штраф Kcrit</div>
+                                            <div style="font-size:14px; font-weight:900; color:${m.kcritC < 1 ? '#dc2626' : '#1e293b'};">${m.kcritC.toFixed(2)}</div>
+                                        </td>
+                                        <td style="background:white; padding:8px; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
+                                            <div style="font-size:8px; color:#64748b; text-transform:uppercase; font-weight:bold; margin-bottom:2px;">Стабильность</div>
+                                            <div style="font-size:14px; font-weight:900; color:${m.stabColor.replace('text-green-600','#16a34a').replace('text-yellow-600','#ca8a04').replace('text-orange-500','#f97316').replace('text-red-600','#dc2626')};">${m.stabilityIndex}</div>
+                                            <div style="font-size:7px; text-transform:uppercase; font-weight:bold; color:#64748b; margin-top:2px;">${m.stabText}</div>
+                                        </td>
+                                        <td style="background:white; padding:8px; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
+                                            <div style="font-size:8px; color:#64748b; text-transform:uppercase; font-weight:bold;">Погрешность</div>
+                                            <div style="font-size:14px; font-weight:900; color:#1e293b;">±${m.ci95_margin.toFixed(1)}%</div>
+                                        </td>
+                                        <td style="background:#f1f5f9; padding:8px; border-radius:6px; border:1px solid #cbd5e1; text-align:center;">
+                                            <div style="font-size:8px; color:#64748b; text-transform:uppercase; font-weight:bold;">Достоверность</div>
+                                            <div style="font-size:10px; font-weight:900; color:#475569; line-height: 1.1; margin-top:2px;">${m.confStatus}</div>
+                                        </td>
+                                    </tr>
+                                </table>
                             </td>
                         </tr>
                     </table>`;
             }
         } else {
-            metricsHtml = `<div style="background:#fffbeb; color:#92400e; padding:15px; border-radius:8px; border:1px solid #fde68a; font-size:11px; font-weight:bold; margin-bottom:15px; text-align:center;">Собрано ${cData.length} проверок. Для расчета рейтинга нужно минимум 3.</div>`;
+            metricsHtml = `<div style="background:#f8fafc; color:#64748b; padding:15px; border-radius:8px; border:1px dashed #cbd5e1; font-size:11px; font-weight:bold; margin-bottom:15px; text-align:center; text-transform:uppercase;">Сбор данных (${cData.length} / 7). Рейтинг скрыт.</div>`;
         }
 
         const safeNameId = cName.replace(/\W/g, '_') + '_' + Object.keys(contrDataMap).indexOf(cName);
@@ -4910,11 +4959,9 @@ function exportPdfEngineering(data) {
 
 /// === PDF-ВЫГРУЗКА (ONE-PAGER) ===
 // 100% соответствует экрану: Рейтинг показывает всех, блоки фото - ТОП-5, текст PDCA берется из поля
+/// === PDF-ВЫГРУЗКА (ONE-PAGER) ===
 function exportPdfOnePager(data) {
     if(data.length === 0) return showToast('Нет данных для выгрузки');
-
-    const uniqueWorks = [...new Set(data.map(i => i.templateTitle))];
-    const avgCoverage = uniqueWorks.length > 0 ? Math.round(data.length / uniqueWorks.length) : 0;
 
     const groupedC = {};
     data.forEach(item => { 
@@ -4922,27 +4969,28 @@ function exportPdfOnePager(data) {
         groupedC[item.contractorName].push(item); 
     });
     
-    let sumUrk = 0, validContrs = 0;
     const ratingData = [];
-
     for(let cName in groupedC) {
         if (groupedC[cName].length >= 3) {
             const m = getContractorMetrics(groupedC[cName], userTemplates);
             if (m) {
-                sumUrk += m.finalC;
-                validContrs++;
                 ratingData.push({ name: cName, val: m.finalC, count: m.count, isPrelim: m.count < 7 });
             }
         }
     }
-    
-    const globalUrk = validContrs > 0 ? Math.round(sumUrk / validContrs) : Math.round(data.reduce((s, i) => s + (i.metrics?.final || 0), 0) / (data.length || 1));
     ratingData.sort((a,b) => b.val - a.val);
 
-    const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
-    const midPoint = Math.floor(sortedData.length / 2);
-    const calcSimpleUrk = (arr) => arr.length > 0 ? Math.round(arr.reduce((s, i) => s + (i.metrics?.final || 0), 0) / arr.length) : 0;
-    const delta = (calcSimpleUrk(sortedData.slice(0, midPoint)) > 0 && calcSimpleUrk(sortedData.slice(midPoint)) > 0) ? (calcSimpleUrk(sortedData.slice(midPoint)) - calcSimpleUrk(sortedData.slice(0, midPoint))) : 0;
+    // --- МАТЕМАТИКА ИКО ДЛЯ PDF ---
+    const intMetrics = typeof getObjectIntegralMetrics === 'function' ? getObjectIntegralMetrics(data, userTemplates) : null;
+    const mData = intMetrics || {
+        totalValidChecks: 0, redZonePerc: 0, yellowZonePerc: 0, greenZonePerc: 0,
+        IKO: "0.00", ikoStatus: "Мало данных (N<7)", ikoColor: "text-slate-500"
+    };
+
+    let pdfIkoColor = "#64748b";
+    if (mData.ikoColor.includes('red')) pdfIkoColor = "#dc2626";
+    else if (mData.ikoColor.includes('orange')) pdfIkoColor = "#f59e0b";
+    else if (mData.ikoColor.includes('green')) pdfIkoColor = "#16a34a";
 
     let b3Map = {}; let b2Map = {}; let sumB3 = 0;
     data.forEach(i => {
@@ -5010,11 +5058,9 @@ function exportPdfOnePager(data) {
     const cTC = document.getElementById('chart_op_trend_contrs');
     const imgTC = cTC ? `<img style="width:100%; height:150px; object-fit:contain;" src="${cTC.toDataURL('image/png')}">` : '';
 
-    const urkColor = globalUrk < 70 ? '#dc2626' : (globalUrk < 85 ? '#f59e0b' : '#16a34a');
-    
-    // Получаем текст прямо с экрана из скрытого инпута
     const pdcaTextRaw = document.getElementById('hidden_pdca_text')?.value || "Нет данных для формирования решения.";
     const pdfFormattedText = pdcaTextRaw.replace(/^\[(.*?)\]/gm, '<div style="font-size: 11px; font-weight: bold; color: #854d0e; text-transform: uppercase; margin-top: 10px; margin-bottom: 4px;">$1</div>').replace(/\n/g, '<br>');
+    const periodText = document.getElementById('btn-ana-period-label')?.innerText.trim() || 'Всё время'; // Забираем текст периода
 
     const content = `
         <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid #1e293b; padding-bottom:10px; margin-bottom:15px;">
@@ -5022,27 +5068,26 @@ function exportPdfOnePager(data) {
                 <h1 style="font-size:20px; margin:0; color:#0f172a; text-transform:uppercase;">Сводный статус объекта (Executive Summary)</h1>
                 <p style="color:#64748b; font-size:11px; margin:4px 0 0 0; font-weight:bold;">Комплексный отчет для Руководителя</p>
             </div>
-            <div style="text-align:right; font-size:10px; color:#64748b;">База: <b>${data.length} независимых проверок</b></div>
+            <div style="text-align:right; font-size:10px; color:#64748b;">
+                База: <b>${data.length} независимых проверок</b><br>
+                Период: <b style="color:#4f46e5;">${periodText}</b>
+            </div>
         </div>
         
         <div style="display: flex; gap: 15px; height: 100%; align-items: stretch; margin-bottom: 20px;">
             
-            <!-- ЛЕВАЯ КОЛОНКА (50%): МЕТРИКИ, ТРЕНД, РЕЙТИНГ -->
             <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; border-right: 2px dashed #e2e8f0; padding-right: 15px;">
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; position: relative;">
-                        <div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 900;">Ср. Уровень Качества</div>
-                        <div style="font-size: 36px; font-weight: 900; color: ${urkColor}; margin-top: 5px; line-height: 1;">${globalUrk}%</div>
-                        <div style="position: absolute; top: 12px; right: 12px; font-size: 9px; font-weight: bold; padding: 3px 6px; border-radius: 4px; ${delta < 0 ? 'background:#fef2f2; color:#dc2626;' : 'background:#f0fdf4; color:#16a34a;'}">
-                            ${delta > 0 ? '▲' : (delta < 0 ? '▼' : '')} ${Math.abs(delta)}%
-                        </div>
-                        <div style="position: absolute; bottom: 8px; left: 12px; font-size: 7px; color: #94a3b8; text-transform: uppercase;">Динамика месяц к месяцу</div>
+                    <div style="background: #fef2f2; padding: 12px; border-radius: 10px; border: 1px solid #fecaca; position: relative;">
+                        <div style="font-size: 9px; color: #991b1b; text-transform: uppercase; font-weight: 900;">Работ в красной зоне</div>
+                        <div style="font-size: 36px; font-weight: 900; color: ${mData.redZonePerc > 0 ? '#dc2626' : '#16a34a'}; margin-top: 5px; line-height: 1;">${mData.redZonePerc}%</div>
+                        <div style="position: absolute; bottom: 8px; left: 12px; font-size: 7px; color: #991b1b; text-transform: uppercase;">От ${mData.totalValidChecks} достов. проверок</div>
                     </div>
                     <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1;">
-                        <div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 900;">Глубина контроля</div>
-                        <div style="font-size: 36px; font-weight: 900; color: #3b82f6; margin-top: 5px; line-height: 1;">${avgCoverage}</div>
-                        <div style="font-size: 8px; color: #94a3b8; margin-top: 5px;">проверок на 1 вид работ</div>
+                        <div style="font-size: 9px; color: #64748b; text-transform: uppercase; font-weight: 900;">Индекс критичности (ИКО)</div>
+                        <div style="font-size: 36px; font-weight: 900; color: ${pdfIkoColor}; margin-top: 5px; line-height: 1;">${mData.IKO}</div>
+                        <div style="font-size: 8px; color: ${pdfIkoColor}; margin-top: 5px; text-transform: uppercase; font-weight: bold;">${mData.ikoStatus}</div>
                     </div>
                 </div>
 
@@ -5053,7 +5098,6 @@ function exportPdfOnePager(data) {
                     </div>
                 </div>
 
-                <!-- Рейтинг выводит ВСЕХ -->
                 <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px; flex: 1;">
                     <div style="font-size: 10px; font-weight: 900; color: #0f172a; text-transform: uppercase; margin-bottom: 10px;">📊 Рейтинг Подрядчиков (УрК)</div>
                     <div style="display:flex; flex-direction:column; gap:8px;">
@@ -5073,10 +5117,8 @@ function exportPdfOnePager(data) {
 
             </div>
 
-            <!-- ПРАВАЯ КОЛОНКА (50%): ФОТО, ТОП-5, PDCA -->
             <div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
                 
-                <!-- ТОП-5 B3 (Критические) -->
                 <div style="flex: 1; background: #fef2f2; border: 2px solid #fecaca; border-radius: 10px; padding: 12px; display: flex; flex-direction: column;">
                     <h3 style="margin: 0 0 10px 0; font-size: 11px; color: #dc2626; text-transform: uppercase; border-bottom: 1px solid #fca5a5; padding-bottom: 5px;">
                         🚨 ТОП-5 Критических дефектов (B3)
@@ -5086,7 +5128,6 @@ function exportPdfOnePager(data) {
                     </div>
                 </div>
 
-                <!-- ТОП-5 B2 (Повторяющиеся) -->
                 <div style="flex: 1; background: #fffbeb; border: 2px solid #fde68a; border-radius: 10px; padding: 12px; display: flex; flex-direction: column;">
                     <h3 style="margin: 0 0 10px 0; font-size: 11px; color: #d97706; text-transform: uppercase; border-bottom: 1px solid #fde047; padding-bottom: 5px;">
                         🔄 ТОП-5 Повторяющихся нарушений (B2)
@@ -5096,9 +5137,8 @@ function exportPdfOnePager(data) {
                     </div>
                 </div>
 
-                <!-- Управленческое решение (Текст с экрана) -->
-                <div style="background: ${globalUrk < 85 || sumB3 > 0 ? '#fffbeb' : '#f0fdf4'}; border: 2px solid ${globalUrk < 85 || sumB3 > 0 ? '#fde68a' : '#bbf7d0'}; border-radius: 10px; padding: 12px; flex: 0 0 auto; page-break-inside: avoid;">
-                    <h3 style="margin: 0 0 8px 0; font-size: 11px; color: ${globalUrk < 85 || sumB3 > 0 ? '#b45309' : '#166534'}; text-transform: uppercase; border-bottom: 1px solid ${globalUrk < 85 || sumB3 > 0 ? '#fde047' : '#86efac'}; padding-bottom: 4px;">
+                <div style="background: ${parseFloat(mData.IKO) >= 0.60 || sumB3 > 0 ? '#fffbeb' : '#f0fdf4'}; border: 2px solid ${parseFloat(mData.IKO) >= 0.60 || sumB3 > 0 ? '#fde68a' : '#bbf7d0'}; border-radius: 10px; padding: 12px; flex: 0 0 auto; page-break-inside: avoid;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 11px; color: ${parseFloat(mData.IKO) >= 0.60 || sumB3 > 0 ? '#b45309' : '#166534'}; text-transform: uppercase; border-bottom: 1px solid ${parseFloat(mData.IKO) >= 0.60 || sumB3 > 0 ? '#fde047' : '#86efac'}; padding-bottom: 4px;">
                         🎯 Управленческое Решение и Риски
                     </h3>
                     <div style="font-size: 11px; line-height: 1.5; color: #1e293b; display: flex; flex-direction: column; gap: 6px;">
@@ -6528,13 +6568,17 @@ function openTwiConstructor(editId = null) {
     const selectEl = document.getElementById('twi-checklist-select');
     let options = '<option value="" disabled selected>Выберите вид работ...</option>';
     
-    // ИСПРАВЛЕНИЕ: Добавляем правильные префиксы sys_ и user_
-    for (let key in SYSTEM_TEMPLATES) {
+    // ИСПРАВЛЕНИЕ: Сортируем по алфавиту для Конструктора TWI
+    const sysKeys = Object.keys(SYSTEM_TEMPLATES).sort((a, b) => SYSTEM_TEMPLATES[a].title.localeCompare(SYSTEM_TEMPLATES[b].title, 'ru'));
+    sysKeys.forEach(key => {
         options += `<option value="sys_${key}">${SYSTEM_TEMPLATES[key].title}</option>`;
-    }
-    for (let key in userTemplates) {
+    });
+
+    const userKeys = Object.keys(userTemplates).sort((a, b) => userTemplates[a].title.localeCompare(userTemplates[b].title, 'ru'));
+    userKeys.forEach(key => {
         options += `<option value="user_${key}">${userTemplates[key].title}</option>`;
-    }
+    });
+    
     selectEl.innerHTML = options;
 
     // Сброс всех полей

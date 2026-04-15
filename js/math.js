@@ -129,7 +129,8 @@ function getContractorMetrics(customArray, userTemplatesData = {}) {
 
     let max_R_i = 0;
     flatList.forEach(i => {
-        if (i.w >= 2 && itemStats[i.id] && itemStats[i.id].chk > 0) { 
+        // ИСПРАВЛЕНИЕ: Считаем системность СТРОГО только по дефектам B2 (i.w === 2)
+        if (i.w === 2 && itemStats[i.id] && itemStats[i.id].chk > 0) { 
             let R_i = (itemStats[i.id].fail / itemStats[i.id].chk) * 100;
             if (R_i > max_R_i) max_R_i = R_i;
         }
@@ -162,16 +163,46 @@ function getContractorMetrics(customArray, userTemplatesData = {}) {
         let mean = sumUrk / N;
         let variance = urkValues.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (N - 1);
         s = Math.sqrt(variance);
-        E = 1.96 * (s / Math.sqrt(N));
+        
+        // ИСПРАВЛЕНИЕ: Коэффициент Стьюдента в зависимости от выборки N
+        let t_crit = 1.96;
+        if (N >= 7 && N <= 10) t_crit = 2.3;
+        else if (N >= 11 && N <= 15) t_crit = 2.1;
+        else if (N >= 16 && N <= 23) t_crit = 2.0;
+        else if (N >= 24 && N <= 31) t_crit = 1.98;
+        else if (N >= 32 && N <= 50) t_crit = 1.97;
+        
+        E = t_crit * (s / Math.sqrt(N));
     }
 
-    let confidenceLevel = 'Низкая достоверность';
+    // ИСПРАВЛЕНИЕ: Точная градация достоверности рейтинга
+    let confidenceLevel = 'Сбор данных (N<7)';
     let confCls = 'conf-low';
-    if (N >= 15 && E <= 5) { confidenceLevel = 'Высокая достоверность'; confCls = 'conf-high'; } 
-    else if ((N >= 7 && N < 15) || (E > 5 && E <= 10)) { confidenceLevel = 'Средняя достоверность'; confCls = 'conf-med'; }
+    if (N >= 51) { confidenceLevel = 'Эталонный'; confCls = 'conf-high'; }
+    else if (N >= 32) { confidenceLevel = 'Стабильный'; confCls = 'conf-high'; }
+    else if (N >= 24) { confidenceLevel = 'Уверенный'; confCls = 'conf-med'; }
+    else if (N >= 16) { confidenceLevel = 'Базовый'; confCls = 'conf-med'; }
+    else if (N >= 7) { confidenceLevel = 'Предварительный'; confCls = 'conf-low'; }
 
-    let stabilityIndex = Math.max(0, Math.min(100, 100 - 1.5 * s));
+    // ИСПРАВЛЕНИЕ: Новая формула индекса стабильности: MAX(0; 1 - S/50) * 100%
+    let stabilityIndex = Math.max(0, 1 - (s / 50)) * 100;
     stabilityIndex = Math.round(stabilityIndex);
+
+    // НОВОЕ: Определение уровня стабильности и текстов для тултипов
+    let stabText = "", stabColor = "", stabDesc = "";
+    if (stabilityIndex >= 80) { 
+        stabText = "Высокая"; stabColor = "text-green-600"; 
+        stabDesc = "«Работает как швейцарские часы». Результаты почти не меняются. Можно смело давать новые объёмы."; 
+    } else if (stabilityIndex >= 60) { 
+        stabText = "Средняя"; stabColor = "text-yellow-600"; 
+        stabDesc = "«Бывают хорошие дни, бывают не очень». Разброс заметный. Усилить выборочный контроль."; 
+    } else if (stabilityIndex >= 40) { 
+        stabText = "Низкая"; stabColor = "text-orange-500"; 
+        stabDesc = "«Сегодня густо, завтра пусто». Качество скачет. Доверять среднему рейтингу рискованно."; 
+    } else { 
+        stabText = "Критическая"; stabColor = "text-red-600"; 
+        stabDesc = "«Американские горки». Процесс непредсказуем. Ввести ежедневный 100% приём работ."; 
+    }
 
     let statusTxt = "В РАБОТЕ", statusCls = "tag-blue", isRedZone = false;
     let riskStatus = "Низкий риск", riskCls = "risk-low";
@@ -193,7 +224,7 @@ function getContractorMetrics(customArray, userTemplatesData = {}) {
     return { 
         finalC: Urk_contr, baseUrkContrPerc: Urk_contr_base, count: N, maxFailRate: R_sys, 
         ks: Ks, kcritC: KB3, rateB3: R_B3, n_изделий_с_B3: N_B3, statusTxt, statusCls, isRedZone, 
-        confStatus: confidenceLevel, confCls, stdDev: s, ci95_margin: E, volatility: s, stabilityIndex, riskStatus, riskCls, reason 
+        confStatus: confidenceLevel, confCls, stdDev: s, ci95_margin: E, volatility: s, stabilityIndex, stabText, stabColor, stabDesc, riskStatus, riskCls, reason 
     };
 }
 
@@ -357,4 +388,77 @@ function getStageMetrics(stageId, historyArray) {
     else if (volatility < 5 && stageConfidence === 'Средняя достоверность') stageConfidence = 'Высокая достоверность';
 
     return { avgFinal: Math.round(totalUrk / totalChecks), count: totalChecks, totalB3: sumB3, volatility: volatility, confidence: stageConfidence };
+}
+
+// === БЛОК 4: ИНТЕГРАЛЬНЫЕ ПОКАЗАТЕЛИ ОБЪЕКТА (ИКО) ===
+function getObjectIntegralMetrics(historyArray, userTemplatesData = {}) {
+    if (!historyArray || historyArray.length === 0) return null;
+
+    // Группируем проверки по подрядчикам
+    const grouped = {};
+    historyArray.forEach(item => {
+        const cName = item.contractorName || 'Не указан';
+        if (!grouped[cName]) grouped[cName] = [];
+        grouped[cName].push(item);
+    });
+
+    let totalValidChecks = 0;
+    let redChecks = 0;
+    let yellowChecks = 0;
+    let greenChecks = 0;
+
+    let sum_Kop_x_N = 0;
+
+    for (let cName in grouped) {
+        const cData = grouped[cName];
+        const N = cData.length;
+        
+        // Исключаем подрядчиков со статусом "Сбор данных" (N < 7)
+        if (N >= 7) {
+            totalValidChecks += N;
+            
+            // Считаем метрики подрядчика
+            const m = getContractorMetrics(cData, userTemplatesData);
+            if (!m) continue;
+
+            // Распределяем количество проверок по зонам качества
+            if (m.finalC < 70) redChecks += N;
+            else if (m.finalC <= 84) yellowChecks += N;
+            else greenChecks += N;
+
+            // Расчет коэффициента опасности (K_опасности_i)
+            let urk_frac = m.finalC / 100;
+            let stab_frac = m.stabilityIndex / 100;
+            let hasB3 = m.n_изделий_с_B3 > 0 ? 1 : 0;
+
+            let K_op = 1 - (urk_frac * stab_frac * (1 - 0.5 * hasB3));
+            sum_Kop_x_N += (K_op * N);
+        }
+    }
+
+    if (totalValidChecks === 0) return null; // Нет подрядчиков с N >= 7
+
+    // Доли работ в зонах (в процентах)
+    const redZonePerc = Math.round((redChecks / totalValidChecks) * 100);
+    const yellowZonePerc = Math.round((yellowChecks / totalValidChecks) * 100);
+    const greenZonePerc = Math.round((greenChecks / totalValidChecks) * 100);
+
+    // Итоговый Индекс Критичности Объекта (ИКО)
+    const IKO = sum_Kop_x_N / totalValidChecks;
+    
+    let ikoStatus = "";
+    let ikoColor = "";
+    if (IKO < 0.30) { ikoStatus = "Низкий риск"; ikoColor = "text-green-600"; }
+    else if (IKO < 0.60) { ikoStatus = "Повышенный риск"; ikoColor = "text-orange-500"; }
+    else { ikoStatus = "Высокий риск"; ikoColor = "text-red-600"; }
+
+    return {
+        totalValidChecks,
+        redZonePerc, 
+        yellowZonePerc, 
+        greenZonePerc,
+        IKO: IKO.toFixed(2),
+        ikoStatus, 
+        ikoColor
+    };
 }
